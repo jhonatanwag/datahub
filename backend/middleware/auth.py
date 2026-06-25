@@ -19,6 +19,11 @@ async def get_current_user(
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+    from config.redis import get_redis
+    redis = await get_redis()
+    if await redis.get(f"blacklist:{payload['user_id']}"):
+        raise HTTPException(status_code=401, detail="Token inválido ou sessão encerrada")
+
     rows = await query_meta("""
         SELECT u.id, u.nome, u.role,
                e.id AS empresa_id, e.slug AS company_slug, e.nome AS company_name

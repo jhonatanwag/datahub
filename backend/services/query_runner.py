@@ -23,8 +23,10 @@ async def resolver_query(
     slug: str,
     company_slug: str,
     empresa_id: int,
-    parametros: dict = {}
+    parametros: dict = None
 ) -> dict:
+    if parametros is None:
+        parametros = {}
     rows = await query_meta("""
         SELECT q.*
         FROM queries q

@@ -121,10 +121,15 @@ async def listar_queries(
 
 @router.get("/{query_id}")
 async def buscar_query(query_id: int, user=Depends(get_current_user)):
-    rows = await query_meta("SELECT * FROM queries WHERE id = $1", query_id)
-    if not rows:
-        raise HTTPException(status_code=404, detail="Query não encontrada")
-    return dict(rows[0])
+    try:
+        rows = await query_meta("SELECT * FROM queries WHERE id = $1", query_id)
+        if not rows:
+            raise HTTPException(status_code=404, detail="Query não encontrada")
+        return dict(rows[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar query: {e}")
 
 
 @router.post("/")
@@ -162,6 +167,11 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if not updates:
             return atual
 
+        ALLOWED_COLS = {'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo'}
+        for k in updates:
+            if k not in ALLOWED_COLS:
+                raise HTTPException(status_code=400, detail=f"Campo inválido: {k}")
+
         if "sql_texto" in updates:
             validar_sql(updates["sql_texto"])
 
@@ -191,9 +201,14 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
 
 @router.delete("/{query_id}")
 async def deletar_query(query_id: int, user=Depends(require_admin)):
-    rows = await query_meta(
-        "DELETE FROM queries WHERE id = $1 RETURNING id, slug", query_id
-    )
-    if not rows:
-        raise HTTPException(status_code=404, detail="Query não encontrada")
-    return {"deletado": True, "slug": rows[0]["slug"]}
+    try:
+        rows = await query_meta(
+            "DELETE FROM queries WHERE id = $1 RETURNING id, slug", query_id
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail="Query não encontrada")
+        return {"deletado": True, "slug": rows[0]["slug"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao deletar query: {e}")

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://redis:6379"
     GROQ_API_KEY: str
-    FRONTEND_URL: str = "*"
+    FRONTEND_URL: str = "http://localhost:3000"
 
     class Config:
         env_file = ".env.dev"

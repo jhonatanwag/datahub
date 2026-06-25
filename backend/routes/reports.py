@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from middleware.auth import get_current_user
 from config.databases import query_meta
+import json
 import uuid
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
@@ -19,7 +20,7 @@ async def solicitar_relatorio(body: SolicitarInput, user=Depends(get_current_use
             VALUES ($1, $2, $3, 'pendente', $4::jsonb)
             RETURNING id
         """, body.tipo, user["empresa_id"], user["id"],
-            f'{{"company_slug": "{user["company_slug"]}"}}'
+            json.dumps({"company_slug": user["company_slug"]})
         )
         tarefa_id = str(rows[0]["id"])
         return {"tarefa_id": tarefa_id, "status": "pendente"}

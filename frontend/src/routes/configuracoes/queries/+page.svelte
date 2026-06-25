@@ -31,9 +31,16 @@
   $: filtradas = filtroTipo ? queries.filter(q => q.tipo === filtroTipo) : queries;
 
   async function toggleAtivo(q) {
-    await api.atualizarQuery(q.id, { ativo: !q.ativo });
+    const original = q.ativo;
     q.ativo = !q.ativo;
     queries = queries;
+    try {
+      await api.atualizarQuery(q.id, { ativo: q.ativo });
+    } catch (e) {
+      q.ativo = original;
+      queries = queries;
+      alert('Erro ao atualizar: ' + e.message);
+    }
   }
 
   async function deletar(q) {

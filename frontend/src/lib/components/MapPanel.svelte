@@ -6,6 +6,7 @@
   let container;
   let map;
   let markers = [];
+  let leafletRef = null;
 
   onMount(async () => {
     const L = (await import('leaflet')).default;
@@ -17,8 +18,11 @@
       maxZoom: 19
     }).addTo(map);
 
+    leafletRef = L;
     renderPontos(L);
   });
+
+  $: if (map && leafletRef && pontos) renderPontos(leafletRef);
 
   function renderPontos(L) {
     markers.forEach(m => m.remove());

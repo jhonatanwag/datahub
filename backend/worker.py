@@ -8,11 +8,11 @@ from config.settings import settings
 logger = logging.getLogger("datahub.worker")
 
 
-async def gerar_relatorio_mensal(ctx, empresa_id: int, company_slug: str, usuario_id: int):
+async def gerar_relatorio_mensal(ctx, tarefa_id: str, empresa_id: int, company_slug: str, usuario_id: int):
     try:
         await query_meta(
-            "UPDATE tarefas SET status='rodando' WHERE empresa_id=$1 AND usuario_id=$2 AND status='pendente'",
-            empresa_id, usuario_id
+            "UPDATE tarefas SET status='rodando' WHERE id=$1::uuid",
+            tarefa_id
         )
 
         rows = await query_company(company_slug, """
@@ -30,15 +30,15 @@ async def gerar_relatorio_mensal(ctx, empresa_id: int, company_slug: str, usuari
 
         await query_meta(
             """UPDATE tarefas SET status='ok', resultado=$1::jsonb, concluido_em=NOW()
-               WHERE empresa_id=$2 AND usuario_id=$3 AND status='rodando'""",
-            json.dumps(resultado, default=str), empresa_id, usuario_id
+               WHERE id=$2::uuid""",
+            json.dumps(resultado, default=str), tarefa_id
         )
         return resultado
 
     except Exception as e:
         await query_meta(
-            "UPDATE tarefas SET status='erro', resultado=$1::jsonb WHERE empresa_id=$2 AND usuario_id=$3",
-            json.dumps({"erro": str(e)}), empresa_id, usuario_id
+            "UPDATE tarefas SET status='erro', resultado=$1::jsonb WHERE id=$2::uuid",
+            json.dumps({"erro": str(e)}), tarefa_id
         )
         raise
 

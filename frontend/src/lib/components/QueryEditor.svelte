@@ -26,16 +26,22 @@
   async function testar() {
     testando = true;
     erro = null;
-    const res = await onTestar(sql);
-    if (res.ok) {
-      linhas  = res.linhas;
-      colunas = res.colunas;
-      amostra = res.amostra;
-    } else {
-      erro = res.erro;
+    try {
+      const res = await onTestar(sql);
+      if (res.ok) {
+        linhas  = res.linhas;
+        colunas = res.colunas;
+        amostra = res.amostra;
+      } else {
+        erro = res.erro;
+        linhas = 0; colunas = []; amostra = [];
+      }
+    } catch (e) {
+      erro = e.message || 'Erro ao testar query';
       linhas = 0; colunas = []; amostra = [];
+    } finally {
+      testando = false;
     }
-    testando = false;
   }
 </script>
 

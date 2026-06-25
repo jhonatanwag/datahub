@@ -8,7 +8,9 @@
   onMount(async () => {
     try {
       historico = await api.historicoIA();
-    } catch {}
+    } catch (e) {
+      console.error('Erro ao carregar histórico:', e);
+    }
   });
 </script>
 
