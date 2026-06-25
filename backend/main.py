@@ -1,32 +1,56 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config.settings import settings
-from routes.auth import router as auth_router
-from routes.queries import router as queries_router
-from routes.charts import router as charts_router
-from routes.tables import router as tables_router
-from routes.ai import router as ai_router
-from routes.reports import router as reports_router
+from config.databases import get_meta_pool, close_all_pools
+from config.redis import get_redis
+from routes import auth, charts, tables, ai, reports, queries
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("datahub")
 
 app = FastAPI(title="DataHub API", version="1.0.0")
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.FRONTEND_URL.split(","),
+    allow_origins=[settings.FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Routes
-app.include_router(auth_router)
-app.include_router(queries_router)
-app.include_router(charts_router)
-app.include_router(tables_router)
-app.include_router(ai_router)
-app.include_router(reports_router)
+app.include_router(auth.router)
+app.include_router(charts.router)
+app.include_router(tables.router)
+app.include_router(ai.router)
+app.include_router(reports.router)
+app.include_router(queries.router)
+
+
+@app.on_event("startup")
+async def startup():
+    try:
+        await get_meta_pool()
+        logger.info("✓ Conectado ao datahub_meta")
+    except Exception as e:
+        logger.error(f"✗ Falha ao conectar datahub_meta: {e}")
+
+    try:
+        redis = await get_redis()
+        await redis.ping()
+        logger.info("✓ Conectado ao Redis")
+    except Exception as e:
+        logger.error(f"✗ Falha ao conectar Redis: {e}")
+
+    logger.info(f"DataHub API v1.0.0 rodando na porta {settings.PORT}")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await close_all_pools()
+    logger.info("Pools fechados")
+
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True}
+    return {"ok": True, "version": "1.0.0"}
