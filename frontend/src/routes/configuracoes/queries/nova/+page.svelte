@@ -93,7 +93,7 @@
 
     {#if erro}<p class="error">{erro}</p>{/if}
 
-    <button class="btn-primary" on:click={salvar} disabled={salvando}>
+    <button class="btn-primary" on:click={salvar} disabled={salvando || !resultadoTeste?.ok}>
       {salvando ? 'Salvando...' : 'Salvar Query'}
     </button>
   </div>
