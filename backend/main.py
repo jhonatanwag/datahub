@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config.settings import settings
 from routes.auth import router as auth_router
+from routes.queries import router as queries_router
 
 app = FastAPI(title="DataHub API", version="1.0.0")
 
@@ -16,6 +17,7 @@ app.add_middleware(
 
 # Routes
 app.include_router(auth_router)
+app.include_router(queries_router)
 
 @app.get("/api/health")
 async def health():
