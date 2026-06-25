@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from config.settings import settings
 from routes.auth import router as auth_router
 from routes.queries import router as queries_router
+from routes.charts import router as charts_router
+from routes.tables import router as tables_router
+from routes.ai import router as ai_router
+from routes.reports import router as reports_router
 
 app = FastAPI(title="DataHub API", version="1.0.0")
 
@@ -18,6 +22,10 @@ app.add_middleware(
 # Routes
 app.include_router(auth_router)
 app.include_router(queries_router)
+app.include_router(charts_router)
+app.include_router(tables_router)
+app.include_router(ai_router)
+app.include_router(reports_router)
 
 @app.get("/api/health")
 async def health():
