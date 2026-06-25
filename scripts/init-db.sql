@@ -221,6 +221,8 @@ SELECT
   NOW() - (random() * 365 || ' days')::interval
 FROM generate_series(1, 520);
 
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO alpha_user;
+
 -- ── 4. Banco beta_db ────────────────────────────────────────
 
 \c beta_db
@@ -247,6 +249,8 @@ SELECT
   NOW() - (random() * 365 || ' days')::interval
 FROM generate_series(1, 280);
 
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO beta_user;
+
 -- ── 5. Banco gamma_db ───────────────────────────────────────
 
 \c gamma_db
@@ -272,3 +276,5 @@ SELECT
   (ARRAY['ecommerce','ecommerce','whatsapp','revendas'])[floor(random()*4+1)::int],
   NOW() - (random() * 365 || ' days')::interval
 FROM generate_series(1, 150);
+
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO gamma_user;
