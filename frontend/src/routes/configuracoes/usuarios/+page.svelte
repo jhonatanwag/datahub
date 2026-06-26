@@ -58,7 +58,7 @@
             <td>{u.email}</td>
             <td><span class="badge role-{u.role}">{u.role === 'admin' ? 'Admin' : 'Visualizador'}</span></td>
             <td><span class="badge" class:ativo={u.ativo}>{u.ativo ? 'Ativo' : 'Inativo'}</span></td>
-            <td class="empresas-cell">{u.empresas?.map(e => e.nome).join(', ') || '—'}</td>
+            <td class="empresas-cell">{u.empresas?.map(e => e.slug).join(', ') || '—'}</td>
             <td class="actions-cell">
               <a href="/configuracoes/usuarios/{u.id}" class="btn-ghost btn-sm">Editar</a>
               {#if u.ativo}

@@ -103,7 +103,7 @@
       <button
         class="btn-primary"
         on:click={salvar}
-        disabled={salvando || !nome || !email || !senha}
+        disabled={salvando || !nome || !email || !senha || empresasSelecionadas.size === 0}
       >
         {salvando ? 'Salvando...' : 'Salvar Usuário'}
       </button>
