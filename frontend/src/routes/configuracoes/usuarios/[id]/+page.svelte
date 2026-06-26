@@ -36,6 +36,10 @@
 
   async function salvar() {
     erro = '';
+    if (empresasSelecionadas.size === 0) {
+      erro = 'Selecione ao menos uma empresa.';
+      return;
+    }
     salvando = true;
     try {
       const body = {
@@ -107,7 +111,7 @@
 
       <div class="actions">
         <a href="/configuracoes/usuarios" class="btn-ghost">Cancelar</a>
-        <button class="btn-primary" on:click={salvar} disabled={salvando}>
+        <button class="btn-primary" on:click={salvar} disabled={salvando || empresasSelecionadas.size === 0}>
           {salvando ? 'Salvando...' : 'Salvar Alterações'}
         </button>
       </div>
