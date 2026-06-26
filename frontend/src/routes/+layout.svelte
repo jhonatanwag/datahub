@@ -62,7 +62,8 @@
   }
 
   function trocarEmpresa() {
-    goto('/selecionar-empresa');
+    logout();
+    goto('/login');
   }
 
   function isActive(href) {
