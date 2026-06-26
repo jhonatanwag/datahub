@@ -16,6 +16,7 @@
         user_id: res.user_id,
         nome: res.nome,
         role: res.role,
+        session_token: res.session_token,
         empresas: res.empresas
       }));
       goto('/selecionar-empresa');
