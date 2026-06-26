@@ -1,5 +1,7 @@
 import os
 import asyncpg
+import aiofiles
+import aiofiles.os
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -53,10 +55,12 @@ async def testar_conexao(body: TestarConexaoInput, user=Depends(require_admin)):
             password=body.password,
             timeout=5
         )
-        result = await conn.fetchrow(
-            "SELECT COUNT(*)::int AS n FROM information_schema.tables WHERE table_schema = 'public'"
-        )
-        await conn.close()
+        try:
+            result = await conn.fetchrow(
+                "SELECT COUNT(*)::int AS n FROM information_schema.tables WHERE table_schema = 'public'"
+            )
+        finally:
+            await conn.close()
         return {"ok": True, "tabelas": result["n"]}
     except Exception as e:
         return {"ok": False, "erro": str(e)}
@@ -132,14 +136,14 @@ async def upload_logo(id: int, file: UploadFile = File(...), user=Depends(requir
     if not rows:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     content = await file.read()
-    with open(f"{LOGOS_DIR}/{id}.png", "wb") as f:
-        f.write(content)
+    async with aiofiles.open(f"{LOGOS_DIR}/{id}.png", "wb") as f:
+        await f.write(content)
     return {"ok": True, "logo_url": f"/api/empresas/{id}/logo"}
 
 
 @router.get("/{id}/logo")
 async def get_logo(id: int):
     logo_path = f"{LOGOS_DIR}/{id}.png"
-    if not os.path.exists(logo_path):
+    if not await aiofiles.os.path.exists(logo_path):
         raise HTTPException(status_code=404, detail="Logo não encontrado")
     return FileResponse(logo_path, media_type="image/png")
