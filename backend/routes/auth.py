@@ -1,7 +1,8 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from jose import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import bcrypt
 from config.settings import settings
 from config.databases import query_meta
@@ -9,6 +10,7 @@ from config.redis import get_redis
 from middleware.auth import get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
+logger = logging.getLogger("datahub")
 
 
 class LoginInput(BaseModel):
@@ -25,7 +27,7 @@ class SelecionarEmpresaInput(BaseModel):
 async def login(body: LoginInput):
     try:
         rows = await query_meta(
-            "SELECT * FROM usuarios WHERE email = $1 AND ativo = true",
+            "SELECT id, nome, role, senha_hash FROM usuarios WHERE email = $1 AND ativo = true",
             body.email
         )
         if not rows:
@@ -62,7 +64,8 @@ async def login(body: LoginInput):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro no login: {e}")
+        logger.error(f"Erro no login: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
 
 
 @router.post("/selecionar-empresa")
@@ -88,7 +91,7 @@ async def selecionar_empresa(body: SelecionarEmpresaInput):
 
         empresa = dict(acesso[0])
 
-        expire = datetime.utcnow() + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
         token = jwt.encode(
             {
                 "user_id": usuario["id"],
@@ -107,7 +110,8 @@ async def selecionar_empresa(body: SelecionarEmpresaInput):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao selecionar empresa: {e}")
+        logger.error(f"Erro ao selecionar empresa: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
 
 
 @router.get("/minhas-empresas")
@@ -131,7 +135,8 @@ async def minhas_empresas(user=Depends(get_current_user)):
             for e in empresas
         ]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar empresas: {e}")
+        logger.error(f"Erro ao buscar empresas: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
 
 
 @router.get("/me")
@@ -146,4 +151,5 @@ async def logout(user=Depends(get_current_user)):
         await redis.setex(f"blacklist:{user['id']}", settings.JWT_EXPIRE_MINUTES * 60, "1")
         return {"ok": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro no logout: {e}")
+        logger.error(f"Erro no logout: {e}")
+        raise HTTPException(status_code=500, detail="Erro no logout")
