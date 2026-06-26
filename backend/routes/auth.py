@@ -118,6 +118,7 @@ async def selecionar_empresa(body: SelecionarEmpresaInput):
             algorithm="HS256"
         )
 
+        await redis.delete(f"blacklist:{user_id}")
         return {"token": token, "token_type": "bearer"}
 
     except HTTPException:

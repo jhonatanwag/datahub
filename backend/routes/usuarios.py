@@ -114,7 +114,12 @@ async def vincular_empresas(id: int, body: VincularEmpresasInput, user=Depends(r
         if not rows:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
         async with conn.transaction():
-            await conn.execute("DELETE FROM usuario_empresas WHERE usuario_id = $1", id)
+            # Only replace links to active empresas; inactive links are preserved
+            await conn.execute("""
+                DELETE FROM usuario_empresas
+                WHERE usuario_id = $1
+                  AND empresa_id IN (SELECT id FROM empresas WHERE ativo = true)
+            """, id)
             for empresa_id in body.empresa_ids:
                 await conn.execute(
                     "INSERT INTO usuario_empresas (usuario_id, empresa_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",

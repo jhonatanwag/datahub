@@ -25,6 +25,17 @@ class EmpresaInput(BaseModel):
     ativo: bool = True
 
 
+class EmpresaUpdate(BaseModel):
+    slug: str
+    nome: str
+    db_host: str
+    db_port: int = 5432
+    db_name: str
+    db_user: str
+    db_pass: str | None = None  # None = keep existing
+    ativo: bool = True
+
+
 class TestarConexaoInput(BaseModel):
     host: str
     port: int
@@ -69,7 +80,7 @@ async def testar_conexao(body: TestarConexaoInput, user=Depends(require_admin)):
 @router.get("/{id}")
 async def buscar_empresa(id: int, user=Depends(require_admin)):
     rows = await query_meta(
-        "SELECT id, slug, nome, db_host, db_port, db_name, ativo, criado_em FROM empresas WHERE id = $1",
+        "SELECT id, slug, nome, db_host, db_port, db_name, db_user, ativo, criado_em FROM empresas WHERE id = $1",
         id
     )
     if not rows:
@@ -108,7 +119,7 @@ async def criar_empresa(body: EmpresaInput, user=Depends(require_admin)):
 
 
 @router.patch("/{id}")
-async def atualizar_empresa(id: int, body: EmpresaInput, user=Depends(require_admin)):
+async def atualizar_empresa(id: int, body: EmpresaUpdate, user=Depends(require_admin)):
     rows = await query_meta("SELECT id FROM empresas WHERE id = $1", id)
     if not rows:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
@@ -116,7 +127,9 @@ async def atualizar_empresa(id: int, body: EmpresaInput, user=Depends(require_ad
         rows = await query_meta("""
             UPDATE empresas
             SET slug=$1, nome=$2, db_host=$3, db_port=$4, db_name=$5,
-                db_user=$6, db_pass=$7, ativo=$8
+                db_user=$6,
+                db_pass=COALESCE($7, db_pass),
+                ativo=$8
             WHERE id=$9
             RETURNING id, slug, nome, ativo
         """, body.slug, body.nome, body.db_host, body.db_port,

@@ -12,7 +12,9 @@ async function request(path, options = {}) {
     });
     if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `HTTP ${res.status}`);
+        let msg;
+        try { msg = JSON.parse(text).detail || text; } catch { msg = text; }
+        throw new Error(msg || `HTTP ${res.status}`);
     }
     return res.json();
 }

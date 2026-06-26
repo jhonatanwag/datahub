@@ -64,6 +64,10 @@
 
   {#if erro}<p class="error">{erro}</p>{/if}
 
+  {#if empresas.length === 0}
+    <p class="sem-empresa">Sua conta não tem acesso a nenhuma empresa. Contate o administrador.</p>
+  {/if}
+
   <div class="grid">
     {#each empresas as empresa (empresa.id)}
       <button
@@ -135,4 +139,5 @@ h2 { font-size: 20px; color: var(--text); }
 }
 .empresa-nome { font-size: 14px; color: var(--text); font-weight: 500; }
 .error { color: var(--danger, #f85149); margin-bottom: 16px; }
+.sem-empresa { color: var(--muted); font-size: 14px; text-align: center; max-width: 400px; }
 </style>
