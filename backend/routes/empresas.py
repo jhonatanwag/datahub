@@ -86,7 +86,12 @@ async def criar_empresa(body: EmpresaInput, user=Depends(require_admin)):
             host=body.db_host, port=body.db_port, database=body.db_name,
             user=body.db_user, password=body.db_pass, timeout=5
         )
-        await conn.close()
+        try:
+            pass
+        finally:
+            await conn.close()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Conexão com o banco falhou: {e}")
 
