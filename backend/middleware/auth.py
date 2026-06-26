@@ -19,6 +19,10 @@ async def get_current_user(
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+    empresa_id = payload.get("empresa_id")
+    if not empresa_id:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
     from config.redis import get_redis
     redis = await get_redis()
     if await redis.get(f"blacklist:{payload['user_id']}"):
@@ -30,8 +34,8 @@ async def get_current_user(
         FROM usuarios u
         JOIN usuario_empresas ue ON ue.usuario_id = u.id
         JOIN empresas e ON e.id = ue.empresa_id
-        WHERE u.id = $1 AND e.slug = $2 AND u.ativo = true AND e.ativo = true
-    """, payload["user_id"], payload["company_slug"])
+        WHERE u.id = $1 AND e.id = $2 AND u.ativo = true AND e.ativo = true
+    """, payload["user_id"], empresa_id)
 
     if not rows:
         raise HTTPException(status_code=403, detail="Acesso negado")

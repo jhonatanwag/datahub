@@ -14,7 +14,11 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 class LoginInput(BaseModel):
     email: str
     senha: str
-    company_slug: str
+
+
+class SelecionarEmpresaInput(BaseModel):
+    user_id: int
+    empresa_id: int
 
 
 @router.post("/login")
@@ -32,19 +36,68 @@ async def login(body: LoginInput):
         if not bcrypt.checkpw(body.senha.encode(), usuario["senha_hash"].encode()):
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-        # Verifica acesso à empresa
-        acesso = await query_meta("""
-            SELECT e.id FROM empresas e
+        empresas = await query_meta("""
+            SELECT e.id, e.slug, e.nome
+            FROM empresas e
             JOIN usuario_empresas ue ON ue.empresa_id = e.id
-            WHERE ue.usuario_id = $1 AND e.slug = $2 AND e.ativo = true
-        """, usuario["id"], body.company_slug)
+            WHERE ue.usuario_id = $1 AND e.ativo = true
+            ORDER BY e.nome
+        """, usuario["id"])
+
+        return {
+            "user_id": usuario["id"],
+            "nome": usuario["nome"],
+            "role": usuario["role"],
+            "empresas": [
+                {
+                    "id": e["id"],
+                    "slug": e["slug"],
+                    "nome": e["nome"],
+                    "logo_url": f"/api/empresas/{e['id']}/logo"
+                }
+                for e in empresas
+            ]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no login: {e}")
+
+
+@router.post("/selecionar-empresa")
+async def selecionar_empresa(body: SelecionarEmpresaInput):
+    try:
+        usuario_rows = await query_meta(
+            "SELECT id, nome, role FROM usuarios WHERE id = $1 AND ativo = true",
+            body.user_id
+        )
+        if not usuario_rows:
+            raise HTTPException(status_code=401, detail="Usuário não encontrado")
+
+        usuario = dict(usuario_rows[0])
+
+        acesso = await query_meta("""
+            SELECT e.id, e.slug FROM empresas e
+            JOIN usuario_empresas ue ON ue.empresa_id = e.id
+            WHERE ue.usuario_id = $1 AND e.id = $2 AND e.ativo = true
+        """, body.user_id, body.empresa_id)
 
         if not acesso:
             raise HTTPException(status_code=403, detail="Sem acesso a esta empresa")
 
+        empresa = dict(acesso[0])
+
         expire = datetime.utcnow() + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
         token = jwt.encode(
-            {"user_id": usuario["id"], "company_slug": body.company_slug, "exp": expire},
+            {
+                "user_id": usuario["id"],
+                "empresa_id": empresa["id"],
+                "company_slug": empresa["slug"],
+                "nome": usuario["nome"],
+                "role": usuario["role"],
+                "exp": expire
+            },
             settings.JWT_SECRET,
             algorithm="HS256"
         )
@@ -54,7 +107,31 @@ async def login(body: LoginInput):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro no login: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao selecionar empresa: {e}")
+
+
+@router.get("/minhas-empresas")
+async def minhas_empresas(user=Depends(get_current_user)):
+    try:
+        empresas = await query_meta("""
+            SELECT e.id, e.slug, e.nome
+            FROM empresas e
+            JOIN usuario_empresas ue ON ue.empresa_id = e.id
+            WHERE ue.usuario_id = $1 AND e.ativo = true
+            ORDER BY e.nome
+        """, user["id"])
+
+        return [
+            {
+                "id": e["id"],
+                "slug": e["slug"],
+                "nome": e["nome"],
+                "logo_url": f"/api/empresas/{e['id']}/logo"
+            }
+            for e in empresas
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar empresas: {e}")
 
 
 @router.get("/me")
