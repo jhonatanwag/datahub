@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config.settings import settings
 from config.databases import get_meta_pool, close_all_pools
 from config.redis import get_redis
-from routes import auth, charts, tables, ai, reports, queries, empresas
+from routes import auth, charts, tables, ai, reports, queries, empresas, usuarios
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("datahub")
@@ -26,6 +26,7 @@ app.include_router(ai.router)
 app.include_router(reports.router)
 app.include_router(queries.router)
 app.include_router(empresas.router)
+app.include_router(usuarios.router)
 
 
 @app.on_event("startup")
