@@ -1,4 +1,5 @@
 import logging
+import secrets
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from jose import jwt
@@ -19,7 +20,7 @@ class LoginInput(BaseModel):
 
 
 class SelecionarEmpresaInput(BaseModel):
-    user_id: int
+    session_token: str
     empresa_id: int
 
 
@@ -46,10 +47,15 @@ async def login(body: LoginInput):
             ORDER BY e.nome
         """, usuario["id"])
 
+        session_token = secrets.token_hex(32)
+        redis = await get_redis()
+        await redis.setex(f"session:{session_token}", 300, str(usuario["id"]))
+
         return {
             "user_id": usuario["id"],
             "nome": usuario["nome"],
             "role": usuario["role"],
+            "session_token": session_token,
             "empresas": [
                 {
                     "id": e["id"],
@@ -71,9 +77,16 @@ async def login(body: LoginInput):
 @router.post("/selecionar-empresa")
 async def selecionar_empresa(body: SelecionarEmpresaInput):
     try:
+        redis = await get_redis()
+        user_id_str = await redis.get(f"session:{body.session_token}")
+        if not user_id_str:
+            raise HTTPException(status_code=401, detail="Sessão inválida ou expirada")
+
+        user_id = int(user_id_str)
+
         usuario_rows = await query_meta(
             "SELECT id, nome, role FROM usuarios WHERE id = $1 AND ativo = true",
-            body.user_id
+            user_id
         )
         if not usuario_rows:
             raise HTTPException(status_code=401, detail="Usuário não encontrado")
@@ -84,12 +97,15 @@ async def selecionar_empresa(body: SelecionarEmpresaInput):
             SELECT e.id, e.slug FROM empresas e
             JOIN usuario_empresas ue ON ue.empresa_id = e.id
             WHERE ue.usuario_id = $1 AND e.id = $2 AND e.ativo = true
-        """, body.user_id, body.empresa_id)
+        """, user_id, body.empresa_id)
 
         if not acesso:
             raise HTTPException(status_code=403, detail="Sem acesso a esta empresa")
 
         empresa = dict(acesso[0])
+
+        # Invalidate the session token — one-time use
+        await redis.delete(f"session:{body.session_token}")
 
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
         token = jwt.encode(
