@@ -189,6 +189,7 @@
 .page { padding: 24px; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
+.error { color: var(--danger, #f85149); font-size: 13px; }
 h3 { font-size: 15px; color: var(--text); margin: 0 0 16px; }
 .form { max-width: 560px; display: flex; flex-direction: column; gap: 32px; padding: 24px; }
 section { display: flex; flex-direction: column; gap: 12px; }
