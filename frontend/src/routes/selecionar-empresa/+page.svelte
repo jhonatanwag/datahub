@@ -19,7 +19,7 @@
     nomeUsuario = tempUser.nome;
     empresas    = tempUser.empresas;
 
-    if (empresas.length === 1) selecionar(empresas[0]);
+    if (empresas.length === 1) selecionar(empresas[0]).catch(() => {});
   });
 
   async function selecionar(empresa) {
@@ -30,7 +30,7 @@
     carregando = true;
     erro = '';
     try {
-      const res = await api.selecionarEmpresa(tempUser.user_id, empresa.id);
+      const res = await api.selecionarEmpresa(tempUser.session_token, empresa.id);
       token.set(res.token);
       // Fetch full user profile (includes role from JWT-validated session)
       const me = await api.me();
@@ -65,7 +65,7 @@
   {#if erro}<p class="error">{erro}</p>{/if}
 
   <div class="grid">
-    {#each empresas as empresa}
+    {#each empresas as empresa (empresa.id)}
       <button
         class="card empresa-card"
         on:click={() => selecionar(empresa)}
