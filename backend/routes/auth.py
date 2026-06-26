@@ -78,7 +78,7 @@ async def login(body: LoginInput):
 async def selecionar_empresa(body: SelecionarEmpresaInput):
     try:
         redis = await get_redis()
-        user_id_str = await redis.get(f"session:{body.session_token}")
+        user_id_str = await redis.getdel(f"session:{body.session_token}")
         if not user_id_str:
             raise HTTPException(status_code=401, detail="Sessão inválida ou expirada")
 
@@ -103,9 +103,6 @@ async def selecionar_empresa(body: SelecionarEmpresaInput):
             raise HTTPException(status_code=403, detail="Sem acesso a esta empresa")
 
         empresa = dict(acesso[0])
-
-        # Invalidate the session token — one-time use
-        await redis.delete(f"session:{body.session_token}")
 
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
         token = jwt.encode(
@@ -150,6 +147,8 @@ async def minhas_empresas(user=Depends(get_current_user)):
             }
             for e in empresas
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erro ao buscar empresas: {e}")
         raise HTTPException(status_code=500, detail="Erro interno no servidor")
@@ -168,4 +167,4 @@ async def logout(user=Depends(get_current_user)):
         return {"ok": True}
     except Exception as e:
         logger.error(f"Erro no logout: {e}")
-        raise HTTPException(status_code=500, detail="Erro no logout")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
