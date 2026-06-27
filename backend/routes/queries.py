@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta, query_company
-from services.query_runner import resolver_query, invalidar_cache_empresa, validar_sql
+from services.query_runner import resolver_query, invalidar_cache_empresa, validar_sql, _cast
 
 router = APIRouter(prefix="/api/queries", tags=["Queries"])
 
@@ -17,6 +17,10 @@ class QueryInput(BaseModel):
     empresa_id: Optional[int] = None
     cache_ttl: int = 300
     ativo: bool = True
+    kpi_cor_fonte: Optional[str] = '#e6edf3'
+    kpi_cor_fundo: Optional[str] = '#161b22'
+    testar_empresa_id: Optional[int] = None
+    testar_parametros: List[dict] = []  # [{nome, valor}] em ordem — só usado no /testar
 
 
 class QueryUpdate(BaseModel):
@@ -26,6 +30,18 @@ class QueryUpdate(BaseModel):
     tipo: Optional[str] = None
     cache_ttl: Optional[int] = None
     ativo: Optional[bool] = None
+    kpi_cor_fonte: Optional[str] = None
+    kpi_cor_fundo: Optional[str] = None
+
+
+class ParamInput(BaseModel):
+    nome: str
+    tipo: str = 'text'
+    obrigatorio: bool = False
+    valor_padrao: Optional[str] = None
+    descricao: Optional[str] = None
+    variavel_id: Optional[int] = None
+    param_slot: Optional[str] = None  # 'inicio' | 'fim' — apenas para date_range
 
 
 TIPOS_VALIDOS = {
@@ -77,7 +93,21 @@ async def executar_query(slug: str, user=Depends(get_current_user)):
 async def testar_query(body: QueryInput, user=Depends(require_admin)):
     try:
         validar_sql(body.sql_texto)
-        resultado = await query_company(user["company_slug"], body.sql_texto)
+
+        company_slug = user["company_slug"]
+        if body.testar_empresa_id:
+            emp = await query_meta(
+                "SELECT slug FROM empresas WHERE id = $1 AND ativo = true",
+                body.testar_empresa_id
+            )
+            if not emp:
+                return {"ok": False, "erro": f"Empresa #{body.testar_empresa_id} não encontrada ou inativa"}
+            company_slug = emp[0]["slug"]
+
+        # Constrói lista de valores posicionais na ordem dos parâmetros
+        valores = [_cast(p.get("valor")) for p in body.testar_parametros]
+
+        resultado = await query_company(company_slug, body.sql_texto, *valores)
         data = [dict(r) for r in resultado[:50]]
         return {
             "ok": True,
@@ -119,6 +149,37 @@ async def listar_queries(
         raise HTTPException(status_code=500, detail=f"Erro ao listar queries: {e}")
 
 
+@router.get("/{query_id}/parametros")
+async def listar_parametros(query_id: int, user=Depends(get_current_user)):
+    try:
+        rows = await query_meta(
+            "SELECT * FROM query_parametros WHERE query_id = $1 ORDER BY id",
+            query_id
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao listar parâmetros: {e}")
+
+
+@router.put("/{query_id}/parametros")
+async def salvar_parametros(
+    query_id: int, parametros: List[ParamInput], user=Depends(require_admin)
+):
+    try:
+        await query_meta("DELETE FROM query_parametros WHERE query_id = $1", query_id)
+        for p in parametros:
+            await query_meta("""
+                INSERT INTO query_parametros (query_id, nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, param_slot)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            """, query_id, p.nome, p.tipo, p.obrigatorio, p.valor_padrao, p.descricao, p.variavel_id, p.param_slot)
+        rows = await query_meta(
+            "SELECT * FROM query_parametros WHERE query_id = $1 ORDER BY id", query_id
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar parâmetros: {e}")
+
+
 @router.get("/{query_id}")
 async def buscar_query(query_id: int, user=Depends(get_current_user)):
     try:
@@ -140,11 +201,12 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
         validar_sql(body.sql_texto)
 
         rows = await query_meta("""
-            INSERT INTO queries (slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO queries (slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo, kpi_cor_fonte, kpi_cor_fundo)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
-            body.tipo, body.empresa_id, body.cache_ttl, body.ativo)
+            body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
+            body.kpi_cor_fonte, body.kpi_cor_fundo)
         return dict(rows[0])
     except HTTPException:
         raise
@@ -167,7 +229,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if not updates:
             return atual
 
-        ALLOWED_COLS = {'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo'}
+        ALLOWED_COLS = {'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo', 'kpi_cor_fonte', 'kpi_cor_fundo'}
         for k in updates:
             if k not in ALLOWED_COLS:
                 raise HTTPException(status_code=400, detail=f"Campo inválido: {k}")

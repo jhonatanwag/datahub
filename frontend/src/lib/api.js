@@ -59,6 +59,9 @@ export const api = {
     resultadoRelatorio: (id) => request(`/api/reports/resultado/${id}`),
 
     // Queries (admin)
+    parametrosQuery:       (id)     => request(`/api/queries/${id}/parametros`),
+    salvarParametrosQuery: (id, d)  => request(`/api/queries/${id}/parametros`, { method: 'PUT', body: JSON.stringify(d) }),
+
     listarQueries: (tipo, empresa_id) => {
         const p = new URLSearchParams();
         if (tipo) p.append('tipo', tipo);
@@ -82,6 +85,7 @@ export const api = {
     criarEmpresa:     (data)     => request('/api/empresas/', { method: 'POST', body: JSON.stringify(data) }),
     atualizarEmpresa: (id, data) => request(`/api/empresas/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     desativarEmpresa: (id)       => request(`/api/empresas/${id}`, { method: 'DELETE' }),
+    reativarEmpresa:  (id)       => request(`/api/empresas/${id}/reativar`, { method: 'POST' }),
     testarConexao:    (data)     => request('/api/empresas/testar-conexao', { method: 'POST', body: JSON.stringify(data) }),
 
     uploadLogo: (id, formData) => {
@@ -101,4 +105,40 @@ export const api = {
     vincularEmpresas:  (id, empresa_ids) =>
         request(`/api/usuarios/${id}/empresas`, { method: 'POST', body: JSON.stringify({ empresa_ids }) }),
     listarEmpresasUsuario: (id)          => request(`/api/usuarios/${id}/empresas`),
+
+    // Variáveis
+    listarVariaveis:        ()          => request('/api/variaveis/'),
+    buscarVariavel:         (id)        => request(`/api/variaveis/${id}`),
+    criarVariavel:          (d)         => request('/api/variaveis/', { method: 'POST', body: JSON.stringify(d) }),
+    atualizarVariavel:      (id, d)     => request(`/api/variaveis/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
+    desativarVariavel:      (id)        => request(`/api/variaveis/${id}`, { method: 'DELETE' }),
+    executarFonteVariavel:  (id)        => request(`/api/variaveis/executar-fonte/${id}`),
+
+    // Painéis
+    listarPaineis:          ()          => request('/api/paineis/'),
+    meuMenu:                ()          => request('/api/paineis/meu-menu'),
+    meuDashboard:           ()          => request('/api/paineis/meu-dashboard'),
+    buscarPainel:           (id)        => request(`/api/paineis/${id}`),
+    buscarPainelPorSlug:    (slug)      => request(`/api/paineis/slug/${slug}`),
+    criarPainel:            (d)         => request('/api/paineis/', { method: 'POST', body: JSON.stringify(d) }),
+    atualizarPainel:        (id, d)     => request(`/api/paineis/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
+    desativarPainel:        (id)        => request(`/api/paineis/${id}`, { method: 'DELETE' }),
+
+    // Indicadores do painel
+    indicadoresPainel:      (id)        => request(`/api/paineis/${id}/indicadores`),
+    salvarIndicadores:      (id, d)     => request(`/api/paineis/${id}/indicadores`, { method: 'PUT', body: JSON.stringify(d) }),
+
+    // Variáveis do painel
+    variaveisPainel:        (id)        => request(`/api/paineis/${id}/variaveis`),
+    salvarVariaveisPainel:  (id, d)     => request(`/api/paineis/${id}/variaveis`, { method: 'PUT', body: JSON.stringify(d) }),
+
+    // Usuários do painel
+    usuariosPainel:         (id)        => request(`/api/paineis/${id}/usuarios`),
+    salvarUsuariosPainel:   (id, d)     => request(`/api/paineis/${id}/usuarios`, { method: 'PUT', body: JSON.stringify(d) }),
+
+    // Renderização
+    renderizarPainel: (id, filtros) => {
+        const p = new URLSearchParams(filtros || {});
+        return request(`/api/paineis/${id}/renderizar?${p}`);
+    },
 };

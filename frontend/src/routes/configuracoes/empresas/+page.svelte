@@ -26,6 +26,16 @@
     }
   }
 
+  async function reativar(id) {
+    if (!confirm('Reativar esta empresa?')) return;
+    try {
+      await api.reativarEmpresa(id);
+      empresas = empresas.map(e => e.id === id ? { ...e, ativo: true } : e);
+    } catch {
+      alert('Erro ao reativar empresa.');
+    }
+  }
+
   function inicial(nome) {
     return nome?.charAt(0)?.toUpperCase() ?? '?';
   }
@@ -66,6 +76,8 @@
             <a href="/configuracoes/empresas/{empresa.id}" class="btn-ghost btn-sm">Editar</a>
             {#if empresa.ativo}
               <button class="btn-ghost btn-sm danger" on:click={() => desativar(empresa.id)}>Desativar</button>
+            {:else}
+              <button class="btn-ghost btn-sm ativo" on:click={() => reativar(empresa.id)}>Ativar</button>
             {/if}
           </div>
         </div>
@@ -97,6 +109,7 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--surface2); color: var(--muted); width: fit-content; }
 .badge.ativo { background: #1a4731; color: #3fb950; }
 .danger { color: var(--danger, #f85149) !important; }
+.ativo  { color: #3fb950 !important; }
 .muted { color: var(--muted); }
 .btn-sm { font-size: 12px; padding: 4px 10px; }
 </style>

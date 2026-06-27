@@ -148,6 +148,15 @@ async def desativar_empresa(id: int, user=Depends(require_admin)):
     return {"ok": True}
 
 
+@router.post("/{id}/reativar")
+async def reativar_empresa(id: int, user=Depends(require_admin)):
+    rows = await query_meta("SELECT id FROM empresas WHERE id = $1", id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    await query_meta("UPDATE empresas SET ativo = true WHERE id = $1", id)
+    return {"ok": True}
+
+
 @router.post("/{id}/logo")
 async def upload_logo(id: int, file: UploadFile = File(...), user=Depends(require_admin)):
     rows = await query_meta("SELECT id FROM empresas WHERE id = $1", id)

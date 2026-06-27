@@ -1,18 +1,24 @@
 <script>
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
   import QueryEditor from '$lib/components/QueryEditor.svelte';
 
   let form = {
     slug: '', nome: '', descricao: '',
     sql_texto: '', tipo: 'kpi',
-    empresa_id: null, cache_ttl: 300, ativo: true
+    empresa_id: null, cache_ttl: 300, ativo: true,
+    kpi_cor_fonte: '#e6edf3', kpi_cor_fundo: '#161b22'
   };
 
-  let testando      = false;
-  let resultadoTeste = null;
-  let salvando      = false;
-  let erro          = null;
+  // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
+  let params          = [];
+  let testarEmpresaId = null;
+  let empresas        = [];
+  let variaveis       = [];
+  let resultadoTeste  = null;
+  let salvando        = false;
+  let erro            = null;
 
   const tipos = [
     'kpi', 'chart_line', 'chart_bar',
@@ -20,16 +26,73 @@
     'table', 'rag_context'
   ];
 
-  async function testar(sql) {
-    testando = true;
+  onMount(async () => {
     try {
-      resultadoTeste = await api.testarQuery({ ...form, sql_texto: sql });
+      const [emps, vars] = await Promise.all([
+        api.listarEmpresas(),
+        api.listarVariaveis(),
+      ]);
+      empresas  = emps;
+      variaveis = vars.filter(v => v.ativo);
+      if (emps.length > 0) testarEmpresaId = emps[0].id;
     } catch (e) {
-      resultadoTeste = { ok: false, erro: e.message };
-    } finally {
-      testando = false;
+      console.error('Erro ao carregar dados:', e);
     }
-    return resultadoTeste;
+  });
+
+  // Quando variavel_id muda, preenche nome/tipo e expande date_range em dois slots
+  function onVariavelChange(p, idx) {
+    if (!p.variavel_id) {
+      p.nome = '';
+      p.tipo = 'text';
+      p.param_slot = null;
+      params = [...params];
+      return;
+    }
+    const v = variaveis.find(x => x.id === Number(p.variavel_id));
+    if (!v) return;
+
+    if (v.tipo === 'date_range') {
+      // Substitui a linha atual por duas: inicio e fim
+      const base = { variavel_id: v.id, tipo: v.tipo, obrigatorio: p.obrigatorio, valor_padrao: '', descricao: '', _testar_valor: '' };
+      const rowI = { ...base, nome: v.slug + '_inicio', param_slot: 'inicio' };
+      const rowF = { ...base, nome: v.slug + '_fim',    param_slot: 'fim'   };
+      params = [...params.slice(0, idx), rowI, rowF, ...params.slice(idx + 1)];
+    } else {
+      p.nome = v.slug;
+      p.tipo = v.tipo;
+      p.param_slot = null;
+      params = [...params];
+    }
+  }
+
+  function adicionarParam() {
+    params = [...params, {
+      nome: '', tipo: 'text', obrigatorio: false,
+      valor_padrao: '', descricao: '',
+      variavel_id: null, _testar_valor: ''
+    }];
+  }
+
+  function removerParam(i) {
+    params = params.filter((_, idx) => idx !== i);
+    resultadoTeste = null;
+  }
+
+  async function testar(sql) {
+    const testar_parametros = params.map(p => ({
+      nome:  p.nome,
+      valor: p._testar_valor !== '' ? p._testar_valor : (p.valor_padrao || null)
+    }));
+
+    const res = await api.testarQuery({
+      ...form,
+      sql_texto: sql,
+      testar_empresa_id: testarEmpresaId,
+      testar_parametros,
+    });
+    resultadoTeste = res;
+    return res;
   }
 
   async function salvar() {
@@ -40,7 +103,10 @@
     erro = null;
     salvando = true;
     try {
-      await api.criarQuery(form);
+      const q = await api.criarQuery(form);
+      if (params.length > 0) {
+        await api.salvarParametrosQuery(q.id, params.map(({ _testar_valor, ...p }) => p));
+      }
       goto('/configuracoes/queries');
     } catch (e) {
       erro = e.message;
@@ -52,38 +118,142 @@
 
 <svelte:head><title>Nova Query — DataHub</title></svelte:head>
 
-<div style="padding:24px; max-width:800px; margin:0 auto;">
+<div style="padding:24px; max-width:860px; margin:0 auto;">
   <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px;">
     <a href="/configuracoes/queries" style="color:var(--muted)">← Voltar</a>
     <h2 style="font-family:var(--font-display)">Nova Query</h2>
   </div>
 
   <div class="card" style="display:flex; flex-direction:column; gap:16px;">
+    <!-- Identificação -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">
+      <label class="lbl">
         Slug (identificador único)
         <input bind:value={form.slug} placeholder="ex: kpi_receita" />
       </label>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">
+      <label class="lbl">
         Nome legível
         <input bind:value={form.nome} placeholder="ex: Receita Total (30d)" />
       </label>
     </div>
 
-    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">
+    <label class="lbl">
       Tipo
       <select bind:value={form.tipo}>
         {#each tipos as t}<option value={t}>{t}</option>{/each}
       </select>
     </label>
 
-    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)">
+    <label class="lbl">
       Cache TTL (segundos, 0 = sem cache)
       <input type="number" bind:value={form.cache_ttl} min="0" />
     </label>
 
+    {#if form.tipo === 'kpi'}
+      <div class="kpi-cores">
+        <span class="section-title">Cores do KPI</span>
+        <div class="cores-row">
+          <label class="lbl">
+            Cor da fonte
+            <div class="color-pick">
+              <input type="color" bind:value={form.kpi_cor_fonte} />
+              <input type="text"  bind:value={form.kpi_cor_fonte} placeholder="#e6edf3" style="width:90px" />
+            </div>
+          </label>
+          <label class="lbl">
+            Cor de fundo
+            <div class="color-pick">
+              <input type="color" bind:value={form.kpi_cor_fundo} />
+              <input type="text"  bind:value={form.kpi_cor_fundo} placeholder="#161b22" style="width:90px" />
+            </div>
+          </label>
+          <div class="kpi-preview" style="background:{form.kpi_cor_fundo}; color:{form.kpi_cor_fonte}">
+            <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>
+            <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Parâmetros -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-title">Parâmetros ($1, $2...)</span>
+        <button class="btn-ghost btn-sm" on:click={adicionarParam}>+ Adicionar</button>
+      </div>
+
+      {#if params.length === 0}
+        <p class="hint-block">Sem parâmetros — o SQL é executado sem filtros posicionais.</p>
+      {:else}
+        <div class="params-table">
+          <div class="params-head">
+            <span>Pos.</span>
+            <span>Variável do Painel</span>
+            <span>Nome / slug</span>
+            <span>Obrig.</span>
+            <span>Valor Padrão</span>
+            <span class="col-teste">Valor de Teste</span>
+            <span></span>
+          </div>
+          {#each params as p, i}
+            <div class="params-row">
+              <span class="pos-badge">${i + 1}</span>
+
+              <!-- Dropdown da variável vinculada -->
+              <select
+                bind:value={p.variavel_id}
+                on:change={() => onVariavelChange(p, i)}
+              >
+                <option value={null}>— manual —</option>
+                {#each variaveis as v}
+                  <option value={v.id}>{v.nome} ({v.tipo})</option>
+                {/each}
+              </select>
+
+              <!-- Nome / slot (readonly se vinculado a variável) -->
+              {#if p.param_slot}
+                <span class="slot-badge slot-{p.param_slot}">{p.param_slot === 'inicio' ? 'Início' : 'Fim'}</span>
+              {:else}
+                <input
+                  bind:value={p.nome}
+                  placeholder="slug_param"
+                  readonly={!!p.variavel_id}
+                  style={p.variavel_id ? 'opacity:.5;cursor:default' : ''}
+                />
+              {/if}
+
+              <input type="checkbox" bind:checked={p.obrigatorio} style="margin:auto" />
+              <input bind:value={p.valor_padrao} placeholder="padrão" />
+              <input class="input-teste" bind:value={p._testar_valor} placeholder="valor p/ teste" />
+              <button class="btn-ghost btn-sm danger" on:click={() => removerParam(i)}>✕</button>
+            </div>
+          {/each}
+        </div>
+        <p class="hint-block">
+          Vincule cada <code>$N</code> a uma variável do painel. Ao renderizar, o valor do filtro selecionado pelo usuário será passado na posição correspondente.
+          "Valor de Teste" é usado apenas ao clicar em Testar.<br>
+          <strong>Tokens para Valor Padrão:</strong>
+          <code>mes_atual_inicio</code> · <code>mes_atual_fim</code> ·
+          <code>mes_anterior_inicio</code> · <code>mes_anterior_fim</code> ·
+          <code>ano_atual_inicio</code> · <code>ano_atual_fim</code> ·
+          <code>hoje</code> · <code>ontem</code>
+        </p>
+      {/if}
+    </div>
+
+    <!-- SQL -->
     <div style="border-top:1px solid var(--border); padding-top:16px;">
-      <p style="font-size:13px; color:var(--muted); margin-bottom:10px;">SQL da Query</p>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <p style="font-size:13px; color:var(--muted); margin:0;">SQL da Query</p>
+        <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);">
+          Testar na empresa:
+          <select bind:value={testarEmpresaId} style="font-size:12px; padding:4px 8px;">
+            {#each empresas as e}
+              <option value={e.id}>{e.nome}</option>
+            {/each}
+          </select>
+        </label>
+      </div>
       <QueryEditor
         bind:sql={form.sql_texto}
         tipo={form.tipo}
@@ -98,3 +268,34 @@
     </button>
   </div>
 </div>
+
+<style>
+.lbl { display:flex; flex-direction:column; gap:6px; font-size:13px; color:var(--muted); }
+
+.section-block { border:1px solid var(--border); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.section-header { display:flex; justify-content:space-between; align-items:center; }
+.section-title { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+
+.params-table { display:flex; flex-direction:column; gap:6px; }
+.params-head { display:grid; grid-template-columns:40px 1.4fr 1fr 50px 1fr 1fr 32px; gap:6px; font-size:11px; color:var(--muted); text-transform:uppercase; padding:0 2px; }
+.params-row  { display:grid; grid-template-columns:40px 1.4fr 1fr 50px 1fr 1fr 32px; gap:6px; align-items:center; }
+
+.pos-badge { font-size:12px; font-family:var(--font-display); color:var(--accent-blue); text-align:center; }
+.input-teste { background:color-mix(in srgb, var(--accent-blue) 8%, var(--surface2)); border-color:color-mix(in srgb, var(--accent-blue) 30%, var(--border)); }
+
+.hint-block { font-size:12px; color:var(--muted); }
+.col-teste { color:var(--accent-blue) !important; }
+.kpi-cores { border:1px solid var(--border); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.cores-row { display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap; }
+.color-pick { display:flex; align-items:center; gap:6px; }
+.color-pick input[type="color"] { width:36px; height:32px; padding:2px; border-radius:4px; border:1px solid var(--border); background:none; cursor:pointer; }
+.kpi-preview { border-radius:6px; padding:12px 16px; display:flex; flex-direction:column; gap:4px; min-width:120px; border:1px solid transparent; }
+.kpi-preview-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.kpi-preview-valor { font-size:24px; font-weight:500; font-family:var(--font-display); }
+.slot-badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; white-space:nowrap; }
+.slot-inicio { background:color-mix(in srgb,#3fb950 15%,var(--surface2)); color:#3fb950; }
+.slot-fim    { background:color-mix(in srgb,#f85149 15%,var(--surface2)); color:#f85149; }
+.error  { color:var(--danger, #f85149); font-size:13px; }
+.danger { color:var(--danger, #f85149); }
+.btn-sm { font-size:12px; padding:4px 8px; }
+</style>

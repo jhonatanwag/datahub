@@ -1,88 +1,105 @@
 <script>
-  import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
-  import KPICard    from '$lib/components/KPICard.svelte';
-  import ChartPanel from '$lib/components/ChartPanel.svelte';
-  import DataTable  from '$lib/components/DataTable.svelte';
 
-  let layout  = [];
-  let dados   = {};
-  let loading = true;
-  let erro    = null;
-
-  const COLUNAS_PEDIDOS = [
-    { key: 'id',           label: 'ID' },
-    { key: 'cliente_nome', label: 'Cliente' },
-    { key: 'produto',      label: 'Produto' },
-    { key: 'valor',        label: 'Valor' },
-    { key: 'status',       label: 'Status' },
-    { key: 'canal',        label: 'Canal' },
-    { key: 'data',         label: 'Data' },
-  ];
-
-  onMount(async () => {
-    try {
-      layout = await api.layoutDashboard();
-
-      const resultados = await Promise.allSettled(
-        layout.map(w => api.executarQuery(w.query_slug))
-      );
-
-      resultados.forEach((res, i) => {
-        const slug = layout[i].query_slug;
-        dados[slug] = res.status === 'fulfilled' ? res.value : { erro: res.reason?.message };
-      });
-      dados = dados;
-    } catch (e) {
-      erro = e.message;
-    } finally {
-      loading = false;
-    }
-  });
+  const carregarPaineis = api.meuDashboard();
 </script>
 
 <svelte:head><title>Dashboard — DataHub</title></svelte:head>
 
-{#if loading}
-  <div class="dashboard-grid">
-    {#each Array(8) as _}
-      <div class="card skeleton widget--quarter" style="height:100px;"></div>
-    {/each}
+<div class="page">
+  <div class="page-header">
+    <h2>Meus Painéis</h2>
   </div>
 
-{:else if erro}
-  <div style="padding:24px;" class="error">Erro ao carregar dashboard: {erro}</div>
+  {#await carregarPaineis}
+    <div class="grid">
+      {#each Array(6) as _}
+        <div class="card skeleton"></div>
+      {/each}
+    </div>
 
-{:else}
-  <div class="dashboard-grid">
-    {#each layout as widget (widget.query_slug)}
-      <div class="widget widget--{widget.largura} card">
-        <h3 class="widget-title">{widget.titulo}</h3>
-
-        {#if dados[widget.query_slug]?.erro}
-          <p class="error" style="font-size:13px">Erro: {dados[widget.query_slug].erro}</p>
-
-        {:else if widget.tipo === 'kpi'}
-          <KPICard dados={dados[widget.query_slug]?.data?.[0]} />
-
-        {:else if widget.tipo?.startsWith('chart_')}
-          <ChartPanel tipo={widget.tipo} dados={dados[widget.query_slug]?.data ?? []} />
-
-        {:else if widget.tipo === 'table'}
-          <DataTable
-            colunas={COLUNAS_PEDIDOS}
-            dados={dados[widget.query_slug]?.data ?? []}
-            total={dados[widget.query_slug]?.data?.length ?? 0}
-            page={1}
-          />
-        {/if}
+  {:then paineis}
+    {#if paineis.length === 0}
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <p>Nenhum painel disponível para esta empresa.</p>
       </div>
-    {/each}
-  </div>
-{/if}
+    {:else}
+      <div class="grid">
+        {#each paineis as p}
+          <div class="card painel-card">
+            <div class="card-body">
+              <h3 class="painel-nome">{p.nome}</h3>
+              {#if p.descricao}
+                <p class="painel-desc">{p.descricao}</p>
+              {/if}
+              <span class="badge-ind">
+                {p.total_indicadores} {p.total_indicadores === 1 ? 'indicador' : 'indicadores'}
+              </span>
+            </div>
+            <div class="card-footer">
+              <a href="/painel/{p.slug}" class="btn-primary btn-sm">Ver painel →</a>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+  {:catch erro}
+    <p class="error">Erro ao carregar painéis: {erro.message}</p>
+  {/await}
+</div>
 
 <style>
-.widget-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 12px; }
+.page        { padding: 24px; }
+.page-header { margin-bottom: 24px; }
+h2           { font-size: 20px; color: var(--text); font-family: var(--font-display); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.painel-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.card-body   { padding: 20px 20px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.card-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
+.painel-nome { font-size: 15px; font-weight: 600; color: var(--text); font-family: var(--font-display); }
+.painel-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+.badge-ind {
+  display: inline-block;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: var(--surface2);
+  color: var(--muted);
+  width: fit-content;
+}
+
+.btn-sm { font-size: 13px; padding: 6px 14px; }
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 0;
+  color: var(--muted);
+}
+.empty svg { width: 48px; height: 48px; opacity: .3; }
+.empty p   { font-size: 14px; }
+
 @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.8} }
-.skeleton { animation: pulse 1.5s infinite; }
+.skeleton { height: 130px; animation: pulse 1.5s infinite; }
 </style>

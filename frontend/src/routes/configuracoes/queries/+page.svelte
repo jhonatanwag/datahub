@@ -95,7 +95,8 @@
                   {q.ativo ? '✓ Ativo' : '✗ Inativo'}
                 </button>
               </td>
-              <td style="padding:10px 14px; border-bottom:1px solid var(--border);">
+              <td style="padding:10px 14px; border-bottom:1px solid var(--border); display:flex; gap:6px;">
+                <a href="/configuracoes/queries/{q.id}" class="btn-ghost" style="padding:4px 10px; font-size:12px;">Editar</a>
                 <button class="btn-ghost" style="padding:4px 10px; font-size:12px; color:var(--accent);" on:click={() => deletar(q)}>Deletar</button>
               </td>
             </tr>
