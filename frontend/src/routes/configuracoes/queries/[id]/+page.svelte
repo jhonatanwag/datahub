@@ -27,7 +27,7 @@
   const tipos = [
     'kpi', 'chart_line', 'chart_bar',
     'chart_bar_horizontal', 'chart_doughnut',
-    'table', 'rag_context'
+    'table', 'rag_context', 'map'
   ];
 
   onMount(async () => {
