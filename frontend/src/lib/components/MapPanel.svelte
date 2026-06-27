@@ -27,16 +27,21 @@
   function renderPontos(L) {
     markers.forEach(m => m.remove());
     markers = [];
-    if (!pontos.length) return;
-    const maxVal = Math.max(...pontos.map(p => p.valor), 1);
+    if (!pontos.length) {
+      map.setView([-15.8, -47.9], 4);
+      return;
+    }
+    const maxVal = Math.max(...pontos.map(p => Number(p.valor) || 0), 1);
     pontos.forEach(p => {
-      const r = 8 + (p.valor / maxVal) * 22;
+      const r = 8 + ((Number(p.valor) || 0) / maxVal) * 22;
       const m = L.circleMarker([p.lat, p.lng], {
         radius: r, fillColor: '#79c0ff', color: '#0d1117',
         fillOpacity: .75, weight: 1.5
       }).bindPopup(`<b>${p.label}</b><br>${p.valor}`).addTo(map);
       markers.push(m);
     });
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds(), { padding: [32, 32] });
   }
 
   onDestroy(() => map?.remove());
