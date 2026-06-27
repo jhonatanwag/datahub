@@ -41,7 +41,7 @@
       markers.push(m);
     });
     const group = L.featureGroup(markers);
-    map.fitBounds(group.getBounds(), { padding: [32, 32] });
+    map.fitBounds(group.getBounds(), { padding: [32, 32], maxZoom: 12 });
   }
 
   onDestroy(() => map?.remove());
