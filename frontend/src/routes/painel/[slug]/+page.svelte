@@ -2,9 +2,10 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
-  import KPICard       from '$lib/components/KPICard.svelte';
-  import ChartPanel    from '$lib/components/ChartPanel.svelte';
-  import DataTable     from '$lib/components/DataTable.svelte';
+  import KPICard        from '$lib/components/KPICard.svelte';
+  import ChartPanel     from '$lib/components/ChartPanel.svelte';
+  import DataTable      from '$lib/components/DataTable.svelte';
+  import MapPanel       from '$lib/components/MapPanel.svelte';
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
 
   let slug        = $page.params.slug;
@@ -194,6 +195,9 @@
 
             {:else if ind.query_tipo === 'table'}
               <DataTable dados={ind.dados} />
+
+            {:else if ind.query_tipo === 'map'}
+              <MapPanel pontos={ind.dados ?? []} />
 
             {:else}
               <p class="muted" style="font-size:12px; padding:8px">Tipo "{ind.query_tipo}" não suportado</p>
