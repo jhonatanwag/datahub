@@ -17,6 +17,7 @@
     chart_doughnut:       ['label', 'valor'],
     table:                [],
     rag_context:          [],
+    map:                  ['lat', 'lng', 'valor', 'label'],
   };
 
   $: colunasEsperadas  = contratos[tipo] || [];
