@@ -194,7 +194,7 @@
               <ChartPanel tipo={ind.query_tipo} dados={ind.dados} />
 
             {:else if ind.query_tipo === 'table'}
-              <DataTable dados={ind.dados} />
+              <DataTable dados={ind.dados} titulo={ind.titulo || ind.query_slug} />
 
             {:else if ind.query_tipo === 'map'}
               <MapPanel pontos={ind.dados ?? []} />
