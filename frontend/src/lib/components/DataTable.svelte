@@ -7,7 +7,15 @@
   export let page    = 1;
 
   const dispatch = createEventDispatcher();
-  $: pages = Math.ceil(total / (dados.length || 20)) || 1;
+
+  // Queries dinâmicas não têm schema fixo — se o chamador não informar as
+  // colunas, deriva a partir das chaves da primeira linha retornada.
+  $: colunasEfetivas = colunas.length > 0
+    ? colunas
+    : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : []);
+
+  $: totalEfetivo = total || dados.length;
+  $: pages = Math.ceil(totalEfetivo / (dados.length || 20)) || 1;
 
   const fmtValor = (v) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -23,7 +31,7 @@
   <table>
     <thead>
       <tr>
-        {#each colunas as col}
+        {#each colunasEfetivas as col}
           <th>{col.label ?? col.key}</th>
         {/each}
       </tr>
@@ -31,7 +39,7 @@
     <tbody>
       {#each dados as row}
         <tr>
-          {#each colunas as col}
+          {#each colunasEfetivas as col}
             <td>
               {#if col.key === 'status'}
                 <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>
@@ -49,7 +57,7 @@
   </table>
 
   <div class="pagination">
-    <span>{total} registros</span>
+    <span>{totalEfetivo} registros</span>
     <div class="btns">
       <button class="btn-ghost" on:click={() => dispatch('page', page - 1)} disabled={page <= 1}>← Anterior</button>
       <span>Pág {page} / {pages}</span>
