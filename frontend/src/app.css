@@ -19,6 +19,21 @@
   --radius-lg:   12px;
 }
 
+:root[data-theme="claro"] {
+  --bg:          #ffffff;
+  --surface:     #f6f8fa;
+  --surface2:    #eaeef2;
+  --border:      #d0d7de;
+  --text:        #1f2328;
+  --muted:       #656d76;
+  --accent:      #bc4c00;
+  --accent-blue: #0969da;
+  --accent-green:#1a7f37;
+  --danger:      #cf222e;
+  --accent-purple:#8250df;
+  --accent-orange:#9a6700;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
