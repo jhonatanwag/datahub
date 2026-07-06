@@ -1,5 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
+  import { usuario } from '$lib/stores/auth.js';
 
   export let pontos = [];
 
@@ -7,6 +8,14 @@
   let map;
   let markers = [];
   let leafletRef = null;
+  let tileLayer = null;
+  let temaAtual = null;
+
+  const TILE_URLS = {
+    escuro: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    claro:  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  };
+  const MARKER_STROKE = { escuro: '#0d1117', claro: '#ffffff' };
 
   onMount(async () => {
     const L = (await import('leaflet')).default;
@@ -14,15 +23,23 @@
 
     map = L.map(container, { zoomControl: true, attributionControl: false }).setView([-15.8, -47.9], 4);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19
-    }).addTo(map);
-
     leafletRef = L;
+    aplicarTileLayer(L, $usuario?.tema ?? 'escuro');
     renderPontos(L);
   });
 
+  $: if (map && leafletRef && $usuario?.tema && $usuario.tema !== temaAtual) {
+    aplicarTileLayer(leafletRef, $usuario.tema);
+    renderPontos(leafletRef);
+  }
+
   $: if (map && leafletRef && pontos) renderPontos(leafletRef);
+
+  function aplicarTileLayer(L, tema) {
+    if (tileLayer) tileLayer.remove();
+    tileLayer = L.tileLayer(TILE_URLS[tema] ?? TILE_URLS.escuro, { maxZoom: 19 }).addTo(map);
+    temaAtual = tema;
+  }
 
   function renderPontos(L) {
     markers.forEach(m => m.remove());
@@ -31,11 +48,12 @@
       map.setView([-15.8, -47.9], 4);
       return;
     }
+    const corContorno = MARKER_STROKE[temaAtual] ?? MARKER_STROKE.escuro;
     const maxVal = Math.max(...pontos.map(p => Number(p.valor) || 0), 1);
     pontos.forEach(p => {
       const r = 8 + ((Number(p.valor) || 0) / maxVal) * 22;
       const m = L.circleMarker([p.lat, p.lng], {
-        radius: r, fillColor: '#79c0ff', color: '#0d1117',
+        radius: r, fillColor: '#79c0ff', color: corContorno,
         fillOpacity: .75, weight: 1.5
       }).bindPopup(`<b>${p.label}</b><br>${p.valor}`).addTo(map);
       markers.push(m);
