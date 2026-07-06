@@ -1,4 +1,6 @@
 <script>
+  import * as XLSX from 'xlsx';
+
   export let colunas = [];
   export let dados   = [];
   export let titulo  = 'dados';
@@ -64,6 +66,18 @@
     a.remove();
     URL.revokeObjectURL(url);
   }
+
+  function baixarXLSX() {
+    const cabecalho = colunasEfetivas.map(c => c.label ?? c.key);
+    const linhas = dados.map(row =>
+      colunasEfetivas.map(c => row[c.key] ?? '')
+    );
+    const ws = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    const nomeArquivo = `${titulo.replace(/[^a-zA-Z0-9]+/g, '_')}.xlsx`;
+    XLSX.writeFile(wb, nomeArquivo);
+  }
 </script>
 
 <div class="table-wrap">
@@ -97,7 +111,10 @@
 
   <div class="pagination">
     <button class="btn-ghost btn-sm" on:click={baixarCSV} disabled={dados.length === 0}>
-      ⬇ Baixar CSV
+      ⬇ CSV
+    </button>
+    <button class="btn-ghost btn-sm" on:click={baixarXLSX} disabled={dados.length === 0}>
+      ⬇ Excel
     </button>
     <span>{dados.length} registros</span>
     <label class="tamanho-pagina">
