@@ -33,7 +33,7 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Token inválido ou sessão encerrada")
 
     rows = await query_meta("""
-        SELECT u.id, u.nome, u.role,
+        SELECT u.id, u.nome, u.role, u.tema,
                e.id AS empresa_id, e.slug AS company_slug, e.nome AS company_name
         FROM usuarios u
         JOIN usuario_empresas ue ON ue.usuario_id = u.id

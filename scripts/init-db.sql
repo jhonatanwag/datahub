@@ -39,6 +39,7 @@ CREATE TABLE usuarios (
     senha_hash   VARCHAR(255) NOT NULL,
     role         VARCHAR(20) DEFAULT 'viewer',
     ativo        BOOLEAN DEFAULT true,
+    tema         VARCHAR(10) NOT NULL DEFAULT 'escuro',
     criado_em    TIMESTAMP DEFAULT NOW()
 );
 

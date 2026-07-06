@@ -1,5 +1,6 @@
 import logging
 import secrets
+from typing import Literal
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from jose import jwt
@@ -22,6 +23,10 @@ class LoginInput(BaseModel):
 class SelecionarEmpresaInput(BaseModel):
     session_token: str
     empresa_id: int
+
+
+class TemaInput(BaseModel):
+    tema: Literal['claro', 'escuro']
 
 
 @router.post("/login")
@@ -158,6 +163,18 @@ async def minhas_empresas(user=Depends(get_current_user)):
 @router.get("/me")
 async def me(user=Depends(get_current_user)):
     return user
+
+
+@router.put("/tema")
+async def atualizar_tema(body: TemaInput, user=Depends(get_current_user)):
+    try:
+        await query_meta("UPDATE usuarios SET tema = $1 WHERE id = $2", body.tema, user["id"])
+        return {"tema": body.tema}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atualizar tema: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
 
 
 @router.post("/logout")
