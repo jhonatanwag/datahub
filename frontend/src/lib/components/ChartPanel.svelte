@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import * as echarts from 'echarts';
+  import { usuario } from '$lib/stores/auth.js';
 
   export let tipo = 'bar';
   export let dados = [];
@@ -10,19 +11,26 @@
 
   const COLORS = ['#79c0ff','#f78166','#56d364','#d2a8ff','#ffa657','#39d353'];
 
+  function corVar(nome) {
+    return getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
+  }
+
   function buildOption(tipo, dados) {
     const labels = dados.map(d => d.label);
     const values = dados.map(d => Number(d.valor));
+    const corTexto = corVar('--text');
+    const corMuted = corVar('--muted');
+    const corBorda = corVar('--border');
 
     if (tipo === 'chart_doughnut') {
       return {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'item' },
-        legend: { orient: 'vertical', right: 10, textStyle: { color: '#e6edf3' } },
+        legend: { orient: 'vertical', right: 10, textStyle: { color: corTexto } },
         series: [{
           type: 'pie', radius: ['45%', '70%'],
           data: dados.map((d, i) => ({ value: Number(d.valor), name: d.label, itemStyle: { color: COLORS[i % COLORS.length] } })),
-          label: { color: '#e6edf3' }
+          label: { color: corTexto }
         }]
       };
     }
@@ -33,11 +41,11 @@
       tooltip: { trigger: 'axis' },
       grid: { left: 60, right: 20, top: 20, bottom: 40 },
       xAxis: isHorizontal
-        ? { type: 'value', axisLabel: { color: '#7d8590' }, splitLine: { lineStyle: { color: '#21262d' } } }
-        : { type: 'category', data: labels, axisLabel: { color: '#7d8590' } },
+        ? { type: 'value', axisLabel: { color: corMuted }, splitLine: { lineStyle: { color: corBorda } } }
+        : { type: 'category', data: labels, axisLabel: { color: corMuted } },
       yAxis: isHorizontal
-        ? { type: 'category', data: labels, axisLabel: { color: '#7d8590' } }
-        : { type: 'value', axisLabel: { color: '#7d8590' }, splitLine: { lineStyle: { color: '#21262d' } } },
+        ? { type: 'category', data: labels, axisLabel: { color: corMuted } }
+        : { type: 'value', axisLabel: { color: corMuted }, splitLine: { lineStyle: { color: corBorda } } },
       series: [{
         type: tipo === 'chart_line' ? 'line' : 'bar',
         data: values,
@@ -57,7 +65,10 @@
     return () => ro.disconnect();
   });
 
-  $: if (chart && dados.length) chart.setOption(buildOption(tipo, dados), true);
+  $: if (chart && dados.length) {
+    $usuario?.tema; // dependência reativa: recria a option quando o tema muda
+    chart.setOption(buildOption(tipo, dados), true);
+  }
 
   onDestroy(() => chart?.dispose());
 </script>
