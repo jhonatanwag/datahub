@@ -33,8 +33,14 @@
   };
 
   function escaparCSV(valor) {
-    const texto = valor === null || valor === undefined ? '' : String(valor);
-    if (/[;"\n]/.test(texto)) {
+    // Quebras de linha dentro de um campo (dado real vindo da fonte, ex:
+    // texto com \r\n embutido) quebram leitores de CSV que não respeitam
+    // aspas — normaliza pra espaço, garantindo que cada linha do arquivo
+    // corresponda a exatamente uma linha da tabela.
+    const texto = valor === null || valor === undefined
+      ? ''
+      : String(valor).replace(/[\r\n]+/g, ' ').trim();
+    if (/[;"]/.test(texto)) {
       return `"${texto.replace(/"/g, '""')}"`;
     }
     return texto;
