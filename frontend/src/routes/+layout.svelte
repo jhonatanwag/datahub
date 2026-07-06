@@ -129,8 +129,12 @@
 
   $: collapsed = !isMobile && !sidebarOpen;
   $: tooltipAtivo = collapsed; // mostra title nos itens só quando colapsado
-  $: if (typeof document !== 'undefined' && $usuario?.tema) {
-    document.documentElement.setAttribute('data-theme', $usuario.tema);
+  $: if (typeof document !== 'undefined') {
+    if ($usuario?.tema) {
+      document.documentElement.setAttribute('data-theme', $usuario.tema);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
   }
 </script>
 

@@ -51,6 +51,17 @@ VALUES (1, (SELECT id FROM empresas WHERE slug = 'nova'));
 ```
 Não é necessário reiniciar o backend — o pool é criado sob demanda.
 
+## Migrações de banco
+
+Não há um framework de migrations neste projeto — `scripts/init-db.sql` só roda automaticamente em um volume Postgres novo (instalação do zero). Para aplicar mudanças de schema em um banco `datahub_meta` já existente (staging/produção), rode o `ALTER TABLE` correspondente manualmente.
+
+Mudanças aplicadas até agora:
+
+```sql
+-- Preferência de tema (claro/escuro) por usuário
+ALTER TABLE usuarios ADD COLUMN tema VARCHAR(10) NOT NULL DEFAULT 'escuro';
+```
+
 ## Deploy no EasyPanel
 
 1. Criar projeto `datahub` no EasyPanel
