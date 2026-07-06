@@ -32,6 +32,7 @@ export const api = {
 
     minhasEmpresas: () => request('/api/auth/minhas-empresas'),
     me: () => request('/api/auth/me'),
+    atualizarTema: (tema) => request('/api/auth/tema', { method: 'PUT', body: JSON.stringify({ tema }) }),
 
     logout: () => request('/api/auth/logout', { method: 'POST' }),
 
