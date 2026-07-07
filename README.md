@@ -64,8 +64,90 @@ ALTER TABLE usuarios ADD COLUMN tema VARCHAR(10) NOT NULL DEFAULT 'escuro';
 
 ## Deploy no EasyPanel
 
-1. Criar projeto `datahub` no EasyPanel
-2. Adicionar serviços: `redis` (imagem Redis), `backend` e `worker` (Dockerfile do /backend), `frontend` (Dockerfile do /frontend)
-3. No serviço `worker`, sobrescrever comando: `python -m arq worker.WorkerSettings`
-4. Configurar variáveis de ambiente no EasyPanel (não usar .env em produção)
-5. Liberar acesso Docker no pg_hba.conf do PostgreSQL do VPS (range 172.17.0.0/16)
+Pré-requisito: VPS com EasyPanel instalado e um PostgreSQL **nativo**
+(fora de container) já rodando os bancos das empresas reais — esse
+Postgres nativo não faz parte deste deploy, só precisa ficar acessível
+pela rede interna do EasyPanel (ver passo 3).
+
+### 1. Serviços a criar no projeto EasyPanel
+
+| Serviço | Origem | Exposição |
+|---|---|---|
+| `postgres` | imagem `postgres:16-alpine` | interna |
+| `redis` | imagem `redis:7-alpine` | interna |
+| `backend` | `backend/Dockerfile` | interna |
+| `worker` | mesma imagem do `backend`, comando sobrescrito: `python -m arq worker.WorkerSettings` | interna |
+| `frontend` | `frontend/Dockerfile` | **pública**, domínio configurado no EasyPanel |
+
+Só o `frontend` precisa de domínio público — o `nginx.conf` dele já faz
+proxy de `/api/` para `backend:3001` internamente, então `backend` e
+`worker` ficam só na rede interna do projeto. **O nome do serviço backend
+no EasyPanel precisa ser `backend`** (é o hostname que o `nginx.conf`
+resolve).
+
+No serviço `postgres`, definir `POSTGRES_USER` e `POSTGRES_DB` como
+`datahub_user` / `datahub_meta` — a própria imagem cria o banco e o
+usuário na primeira subida.
+
+### 2. Aplicar o schema no `datahub_meta`
+
+Com o serviço `postgres` no ar, rodar `scripts/init-meta-prod.sql` contra
+ele (via terminal do EasyPanel ou `psql` apontando pro serviço). Esse
+script só cria a estrutura — sem empresas de demo, sem usuário.
+
+### 3. Liberar o Postgres nativo do VPS para a rede do EasyPanel
+
+Passo manual no VPS, fora do repositório:
+
+1. `docker network inspect <rede-do-projeto-easypanel> | grep Subnet` —
+   descobrir o subnet real (varia por instalação).
+2. Confirmar que `listen_addresses` do Postgres nativo já aceita conexões
+   nessa interface (provavelmente já inclui `*`, já que aceita conexão
+   externa hoje).
+3. Adicionar uma linha em `pg_hba.conf` liberando esse subnet
+   especificamente (`scram-sha-256`) — **sem** abrir a porta 5432 pra
+   internet além do IP fixo de manutenção já existente.
+4. `systemctl restart postgresql` (ou reload).
+5. Validar de dentro de um container do EasyPanel antes de seguir —
+   regras de firewall (ufw) e o iptables do Docker podem se comportar
+   diferente do esperado; testar com `psql` é a única forma de confirmar.
+
+### 4. Variáveis de ambiente
+
+**`backend` / `worker`:**
+
+| Variável | Valor |
+|---|---|
+| `JWT_SECRET` | novo valor forte, gerado só para produção |
+| `GROQ_API_KEY` | chave de produção |
+| `REDIS_URL` | `redis://redis:6379` |
+| `FRONTEND_URL` | `https://<seu-dominio>` |
+| `META_DB_HOST` | `postgres` |
+| `META_DB_PORT` | `5432` |
+| `META_DB_NAME` | `datahub_meta` |
+| `META_DB_USER` | `datahub_user` |
+| `META_DB_PASS` | senha definida no serviço `postgres` |
+
+**`frontend`:** não definir `VITE_API_URL` no build — fica vazio, e
+`frontend/src/lib/api.js` usa caminhos relativos (`/api/...`), resolvidos
+pelo `nginx.conf` do próprio container.
+
+### 5. Criar o primeiro usuário admin
+
+Com `backend` no ar:
+
+```bash
+docker exec <container-do-backend> python scripts/create_admin.py \
+  --nome "Seu Nome" --email voce@empresa.com --senha "sua-senha-forte"
+```
+
+Rodar uma única vez. Rodar de novo com o mesmo email não duplica nem
+sobrescreve (o script verifica antes de inserir).
+
+### 6. Subir o frontend e cadastrar as empresas reais
+
+Subir o serviço `frontend` com o domínio configurado (EasyPanel cuida do
+SSL via Let's Encrypt automaticamente). Fazer login com o admin criado no
+passo anterior e cadastrar as empresas reais (`prats`,
+`vitoria-agronegocios` etc.) em `/configuracoes/empresas`, apontando pro
+Postgres nativo do VPS (passo 3).
