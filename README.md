@@ -132,7 +132,28 @@ Passo manual no VPS, fora do repositório:
 `frontend/src/lib/api.js` usa caminhos relativos (`/api/...`), resolvidos
 pelo `nginx.conf` do próprio container.
 
-### 5. Criar o primeiro usuário admin
+### 5. Confirmar que o backend subiu corretamente
+
+Antes de criar o usuário admin, validar que o backend iniciou sem erros:
+
+```bash
+docker logs <container-do-backend>
+```
+
+Procurar pelas linhas (devem estar no final da saída):
+```
+✓ Conectado ao datahub_meta
+✓ Conectado ao Redis
+```
+
+Alternativa ou complemento — testar o endpoint de health:
+```bash
+curl http://<seu-dominio>/api/health
+```
+
+Deve retornar `{"ok":true,"version":"1.0.0"}`. Se alguma dessas verificações falhar, revisar as variáveis de ambiente (passo 4), especialmente `META_DB_*` e `REDIS_URL`.
+
+### 6. Criar o primeiro usuário admin
 
 Com `backend` no ar:
 
@@ -141,10 +162,12 @@ docker exec <container-do-backend> python scripts/create_admin.py \
   --nome "Seu Nome" --email voce@empresa.com --senha "sua-senha-forte"
 ```
 
+**Nota:** esse é um passo one-time de bootstrap. A senha será visível em shell history e process listings (`ps`, `docker top`, logs do EasyPanel); se o acesso ao VPS/EasyPanel é compartilhado, considere limpar o histórico do shell ou rotacionar a senha do admin após este passo inicial.
+
 Rodar uma única vez. Rodar de novo com o mesmo email não duplica nem
 sobrescreve (o script verifica antes de inserir).
 
-### 6. Subir o frontend e cadastrar as empresas reais
+### 7. Subir o frontend e cadastrar as empresas reais
 
 Subir o serviço `frontend` com o domínio configurado (EasyPanel cuida do
 SSL via Let's Encrypt automaticamente). Fazer login com o admin criado no
