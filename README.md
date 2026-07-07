@@ -148,7 +148,7 @@ Procurar pelas linhas (devem estar no final da saída):
 
 Alternativa ou complemento — testar o endpoint de health:
 ```bash
-curl http://<seu-dominio>/api/health
+curl https://<seu-dominio>/api/health
 ```
 
 Deve retornar `{"ok":true,"version":"1.0.0"}`. Se alguma dessas verificações falhar, revisar as variáveis de ambiente (passo 4), especialmente `META_DB_*` e `REDIS_URL`.
