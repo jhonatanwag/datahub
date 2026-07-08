@@ -20,6 +20,10 @@ class QueryInput(BaseModel):
     kpi_cor_fonte: Optional[str] = '#e6edf3'
     kpi_cor_fundo: Optional[str] = '#161b22'
     mapa_camada: Optional[str] = 'padrao'
+    chart_fonte_tamanho: Optional[int] = 12
+    chart_truncar_label: Optional[bool] = False
+    chart_truncar_tamanho: Optional[int] = 15
+    chart_mostrar_valor: Optional[bool] = False
     testar_empresa_id: Optional[int] = None
     testar_parametros: List[dict] = []  # [{nome, valor}] em ordem — só usado no /testar
 
@@ -34,6 +38,10 @@ class QueryUpdate(BaseModel):
     kpi_cor_fonte: Optional[str] = None
     kpi_cor_fundo: Optional[str] = None
     mapa_camada: Optional[str] = None
+    chart_fonte_tamanho: Optional[int] = None
+    chart_truncar_label: Optional[bool] = None
+    chart_truncar_tamanho: Optional[int] = None
+    chart_mostrar_valor: Optional[bool] = None
 
 
 class ParamInput(BaseModel):
@@ -207,12 +215,18 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
         validar_sql(body.sql_texto)
 
         rows = await query_meta("""
-            INSERT INTO queries (slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo, kpi_cor_fonte, kpi_cor_fundo, mapa_camada)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            INSERT INTO queries (
+                slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
+                kpi_cor_fonte, kpi_cor_fundo, mapa_camada,
+                chart_fonte_tamanho, chart_truncar_label, chart_truncar_tamanho, chart_mostrar_valor
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
-            body.kpi_cor_fonte, body.kpi_cor_fundo, body.mapa_camada)
+            body.kpi_cor_fonte, body.kpi_cor_fundo, body.mapa_camada,
+            body.chart_fonte_tamanho, body.chart_truncar_label,
+            body.chart_truncar_tamanho, body.chart_mostrar_valor)
         return dict(rows[0])
     except HTTPException:
         raise
@@ -235,7 +249,11 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if not updates:
             return atual
 
-        ALLOWED_COLS = {'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo', 'kpi_cor_fonte', 'kpi_cor_fundo', 'mapa_camada'}
+        ALLOWED_COLS = {
+            'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo',
+            'kpi_cor_fonte', 'kpi_cor_fundo', 'mapa_camada',
+            'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor'
+        }
         for k in updates:
             if k not in ALLOWED_COLS:
                 raise HTTPException(status_code=400, detail=f"Campo inválido: {k}")
