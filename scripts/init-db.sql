@@ -83,6 +83,10 @@ CREATE TABLE queries (
     criado_em     TIMESTAMP DEFAULT NOW(),
     atualizado_em TIMESTAMP DEFAULT NOW(),
     mapa_camada   VARCHAR(20) DEFAULT 'padrao',
+    chart_fonte_tamanho   INTEGER DEFAULT 12,
+    chart_truncar_label   BOOLEAN DEFAULT false,
+    chart_truncar_tamanho INTEGER DEFAULT 15,
+    chart_mostrar_valor   BOOLEAN DEFAULT false,
     UNIQUE (slug, empresa_id)
 );
 

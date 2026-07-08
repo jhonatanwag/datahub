@@ -70,6 +70,10 @@ CREATE TABLE queries (
     kpi_cor_fonte  TEXT DEFAULT '#e6edf3',
     kpi_cor_fundo  TEXT DEFAULT '#161b22',
     mapa_camada    VARCHAR(20) DEFAULT 'padrao',
+    chart_fonte_tamanho   INTEGER DEFAULT 12,
+    chart_truncar_label   BOOLEAN DEFAULT false,
+    chart_truncar_tamanho INTEGER DEFAULT 15,
+    chart_mostrar_valor   BOOLEAN DEFAULT false,
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);
