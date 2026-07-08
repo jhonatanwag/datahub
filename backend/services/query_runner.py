@@ -149,9 +149,12 @@ async def resolver_query(
     }
 
 
-async def invalidar_cache_empresa(company_slug: str):
+async def invalidar_cache_query(slug: str):
+    """Invalida o cache de uma query em todas as empresas — necessário porque
+    o cache é chaveado por slug+empresa, e uma query pode ser global
+    (empresa_id NULL, executada por várias empresas)."""
     from config.redis import get_redis
     redis = await get_redis()
-    keys = await redis.keys(f"query:*:{company_slug}:*")
+    keys = await redis.keys(f"query:{slug}:*")
     if keys:
         await redis.delete(*keys)

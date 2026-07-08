@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta, query_company
-from services.query_runner import resolver_query, invalidar_cache_empresa, validar_sql, _cast
+from services.query_runner import resolver_query, invalidar_cache_query, validar_sql, _cast
 
 router = APIRouter(prefix="/api/queries", tags=["Queries"])
 
@@ -281,10 +281,8 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         sql = f"UPDATE queries SET {', '.join(campos)} WHERE id = ${len(valores)} RETURNING *"
         rows = await query_meta(sql, *valores)
 
-        if atual.get("empresa_id"):
-            emp = await query_meta("SELECT slug FROM empresas WHERE id = $1", atual["empresa_id"])
-            if emp:
-                await invalidar_cache_empresa(emp[0]["slug"])
+        if "sql_texto" in updates:
+            await invalidar_cache_query(atual["slug"])
 
         return dict(rows[0])
     except HTTPException:
@@ -303,6 +301,7 @@ async def deletar_query(query_id: int, user=Depends(require_admin)):
         )
         if not rows:
             raise HTTPException(status_code=404, detail="Query não encontrada")
+        await invalidar_cache_query(rows[0]["slug"])
         return {"deletado": True, "slug": rows[0]["slug"]}
     except HTTPException:
         raise
