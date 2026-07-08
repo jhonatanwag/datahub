@@ -110,14 +110,21 @@ coluna ainda não exista. Verificar antes de aplicar:
 
 ```sql
 SELECT column_name FROM information_schema.columns
-WHERE table_name = 'queries' AND column_name IN ('mapa_camada');
+WHERE table_name = 'queries'
+  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor');
 ```
 
-Se a linha não aparecer, rodar:
+Rodar os itens abaixo cuja coluna não apareceu no resultado:
 
 ```sql
 -- 2026-07-08 — tipo de camada do mapa (padrão/satélite) por query
 ALTER TABLE queries ADD COLUMN mapa_camada VARCHAR(20) DEFAULT 'padrao';
+
+-- 2026-07-08 — configuração de gráfico (fonte, truncar rótulo, mostrar valor) por query
+ALTER TABLE queries ADD COLUMN chart_fonte_tamanho INTEGER DEFAULT 12;
+ALTER TABLE queries ADD COLUMN chart_truncar_label BOOLEAN DEFAULT false;
+ALTER TABLE queries ADD COLUMN chart_truncar_tamanho INTEGER DEFAULT 15;
+ALTER TABLE queries ADD COLUMN chart_mostrar_valor BOOLEAN DEFAULT false;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,
