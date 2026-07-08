@@ -21,6 +21,7 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
+		"@sveltejs/adapter-static": "^3.0.10",
 		"echarts": "^6.1.0",
 		"leaflet": "^1.9.4",
 		"xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
