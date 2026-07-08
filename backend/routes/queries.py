@@ -19,6 +19,7 @@ class QueryInput(BaseModel):
     ativo: bool = True
     kpi_cor_fonte: Optional[str] = '#e6edf3'
     kpi_cor_fundo: Optional[str] = '#161b22'
+    mapa_camada: Optional[str] = 'padrao'
     testar_empresa_id: Optional[int] = None
     testar_parametros: List[dict] = []  # [{nome, valor}] em ordem — só usado no /testar
 
@@ -32,6 +33,7 @@ class QueryUpdate(BaseModel):
     ativo: Optional[bool] = None
     kpi_cor_fonte: Optional[str] = None
     kpi_cor_fundo: Optional[str] = None
+    mapa_camada: Optional[str] = None
 
 
 class ParamInput(BaseModel):
@@ -49,6 +51,8 @@ TIPOS_VALIDOS = {
     'chart_bar_horizontal', 'chart_doughnut',
     'table', 'rag_context', 'map'
 }
+
+CAMADAS_MAPA_VALIDAS = {'padrao', 'satelite'}
 
 
 @router.get("/layout/dashboard")
@@ -198,15 +202,17 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
     try:
         if body.tipo not in TIPOS_VALIDOS:
             raise HTTPException(status_code=400, detail=f"Tipo inválido. Use: {TIPOS_VALIDOS}")
+        if body.mapa_camada not in CAMADAS_MAPA_VALIDAS:
+            raise HTTPException(status_code=400, detail=f"Camada de mapa inválida. Use: {CAMADAS_MAPA_VALIDAS}")
         validar_sql(body.sql_texto)
 
         rows = await query_meta("""
-            INSERT INTO queries (slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo, kpi_cor_fonte, kpi_cor_fundo)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            INSERT INTO queries (slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo, kpi_cor_fonte, kpi_cor_fundo, mapa_camada)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
-            body.kpi_cor_fonte, body.kpi_cor_fundo)
+            body.kpi_cor_fonte, body.kpi_cor_fundo, body.mapa_camada)
         return dict(rows[0])
     except HTTPException:
         raise
@@ -229,10 +235,13 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if not updates:
             return atual
 
-        ALLOWED_COLS = {'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo', 'kpi_cor_fonte', 'kpi_cor_fundo'}
+        ALLOWED_COLS = {'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo', 'kpi_cor_fonte', 'kpi_cor_fundo', 'mapa_camada'}
         for k in updates:
             if k not in ALLOWED_COLS:
                 raise HTTPException(status_code=400, detail=f"Campo inválido: {k}")
+
+        if "mapa_camada" in updates and updates["mapa_camada"] not in CAMADAS_MAPA_VALIDAS:
+            raise HTTPException(status_code=400, detail=f"Camada de mapa inválida. Use: {CAMADAS_MAPA_VALIDAS}")
 
         if "sql_texto" in updates:
             validar_sql(updates["sql_texto"])
