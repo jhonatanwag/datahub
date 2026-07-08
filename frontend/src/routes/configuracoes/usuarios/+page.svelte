@@ -1,10 +1,28 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
+  import { ordenarLista, proximaDirecao } from '$lib/sort.js';
 
   let usuarios   = [];
   let carregando = true;
   let erro       = null;
+  let ordenarCampo   = null;
+  let ordenarDirecao = null;
+
+  const colunas = [
+    { label: 'Nome',     campo: 'nome' },
+    { label: 'E-mail',   campo: 'email' },
+    { label: 'Perfil',   campo: 'role' },
+    { label: 'Status',   campo: 'ativo' },
+    { label: 'Empresas', campo: null },
+    { label: 'Ações',    campo: null },
+  ];
+
+  function onClickColuna(campo) {
+    if (!campo) return;
+    ordenarDirecao = proximaDirecao(campo, ordenarCampo, ordenarDirecao);
+    ordenarCampo = ordenarDirecao ? campo : null;
+  }
 
   onMount(async () => {
     try {
@@ -15,6 +33,8 @@
       carregando = false;
     }
   });
+
+  $: ordenadas = ordenarLista(usuarios, ordenarCampo, ordenarDirecao);
 
   async function desativar(id) {
     if (!confirm('Desativar este usuário?')) return;
@@ -43,16 +63,15 @@
     <table>
       <thead>
         <tr>
-          <th>Nome</th>
-          <th>E-mail</th>
-          <th>Perfil</th>
-          <th>Status</th>
-          <th>Empresas</th>
-          <th>Ações</th>
+          {#each colunas as c}
+            <th class:sortable={c.campo} on:click={() => onClickColuna(c.campo)}>
+              {c.label}{#if ordenarCampo === c.campo}{ordenarDirecao === 'asc' ? ' ▲' : ' ▼'}{/if}
+            </th>
+          {/each}
         </tr>
       </thead>
       <tbody>
-        {#each usuarios as u}
+        {#each ordenadas as u}
           <tr class:inativo={!u.ativo}>
             <td>{u.nome}</td>
             <td>{u.email}</td>
@@ -78,6 +97,8 @@
 h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th { text-align: left; padding: 10px 12px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+th.sortable { cursor: pointer; }
+th.sortable:hover { color: var(--text); }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
 tr.inativo td { opacity: .5; }
 .actions-cell { display: flex; gap: 8px; }

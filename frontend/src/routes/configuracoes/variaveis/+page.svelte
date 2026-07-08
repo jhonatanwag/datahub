@@ -1,10 +1,28 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
+  import { ordenarLista, proximaDirecao } from '$lib/sort.js';
 
   let variaveis   = [];
   let carregando  = true;
   let erro        = null;
+  let ordenarCampo   = null;
+  let ordenarDirecao = null;
+
+  const colunas = [
+    { label: 'Slug',        campo: 'slug' },
+    { label: 'Nome',        campo: 'nome' },
+    { label: 'Tipo',        campo: 'tipo' },
+    { label: 'Parâmetros',  campo: null },
+    { label: 'Query Fonte', campo: 'query_fonte' },
+    { label: 'Ações',       campo: null },
+  ];
+
+  function onClickColuna(campo) {
+    if (!campo) return;
+    ordenarDirecao = proximaDirecao(campo, ordenarCampo, ordenarDirecao);
+    ordenarCampo = ordenarDirecao ? campo : null;
+  }
 
   onMount(async () => {
     try {
@@ -31,6 +49,11 @@
     select: 'Seleção', multiselect: 'Multi-seleção',
     text: 'Texto', number: 'Número'
   };
+
+  $: ordenadas = ordenarLista(variaveis, ordenarCampo, ordenarDirecao, (item, campo) => {
+    if (campo === 'query_fonte') return !!item.query_fonte;
+    return item[campo];
+  });
 </script>
 
 <svelte:head><title>Variáveis — DataHub</title></svelte:head>
@@ -51,16 +74,15 @@
     <table>
       <thead>
         <tr>
-          <th>Slug</th>
-          <th>Nome</th>
-          <th>Tipo</th>
-          <th>Parâmetros</th>
-          <th>Query Fonte</th>
-          <th>Ações</th>
+          {#each colunas as c}
+            <th class:sortable={c.campo} on:click={() => onClickColuna(c.campo)}>
+              {c.label}{#if ordenarCampo === c.campo}{ordenarDirecao === 'asc' ? ' ▲' : ' ▼'}{/if}
+            </th>
+          {/each}
         </tr>
       </thead>
       <tbody>
-        {#each variaveis as v}
+        {#each ordenadas as v}
           <tr>
             <td class="mono">{v.slug}</td>
             <td>{v.nome}</td>
@@ -84,6 +106,8 @@
 h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th { text-align: left; padding: 10px 12px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+th.sortable { cursor: pointer; }
+th.sortable:hover { color: var(--text); }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
 .mono { font-family: var(--font-display); font-size: 12px; }
 .small { font-size: 12px; color: var(--muted); }

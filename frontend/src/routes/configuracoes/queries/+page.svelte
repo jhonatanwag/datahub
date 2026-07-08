@@ -1,11 +1,14 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
+  import { ordenarLista, proximaDirecao } from '$lib/sort.js';
 
   let queries     = [];
   let filtroTipo  = '';
   let loading     = true;
   let erro        = null;
+  let ordenarCampo   = null;
+  let ordenarDirecao = null;
 
   const tipos = [
     { value: '',                     label: 'Todos' },
@@ -18,6 +21,22 @@
     { value: 'rag_context',          label: 'Contexto IA' },
   ];
 
+  const colunas = [
+    { label: 'Slug',      campo: 'slug' },
+    { label: 'Nome',      campo: 'nome' },
+    { label: 'Tipo',      campo: 'tipo' },
+    { label: 'Cache TTL', campo: 'cache_ttl' },
+    { label: 'Escopo',    campo: 'empresa_id' },
+    { label: 'Ativo',     campo: 'ativo' },
+    { label: 'Ações',     campo: null },
+  ];
+
+  function onClickColuna(campo) {
+    if (!campo) return;
+    ordenarDirecao = proximaDirecao(campo, ordenarCampo, ordenarDirecao);
+    ordenarCampo = ordenarDirecao ? campo : null;
+  }
+
   onMount(async () => {
     try {
       queries = await api.listarQueries();
@@ -29,6 +48,7 @@
   });
 
   $: filtradas = filtroTipo ? queries.filter(q => q.tipo === filtroTipo) : queries;
+  $: ordenadas = ordenarLista(filtradas, ordenarCampo, ordenarDirecao);
 
   async function toggleAtivo(q) {
     const original = q.ativo;
@@ -77,13 +97,18 @@
       <table style="width:100%; border-collapse:collapse;">
         <thead>
           <tr>
-            {#each ['Slug', 'Nome', 'Tipo', 'Cache TTL', 'Escopo', 'Ativo', 'Ações'] as h}
-              <th style="padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; color:var(--muted);">{h}</th>
+            {#each colunas as c}
+              <th
+                style="padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; color:var(--muted); {c.campo ? 'cursor:pointer' : ''}"
+                on:click={() => onClickColuna(c.campo)}
+              >
+                {c.label}{#if ordenarCampo === c.campo}{ordenarDirecao === 'asc' ? ' ▲' : ' ▼'}{/if}
+              </th>
             {/each}
           </tr>
         </thead>
         <tbody>
-          {#each filtradas as q}
+          {#each ordenadas as q}
             <tr>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border); font-family:var(--font-display); font-size:12px;">{q.slug}</td>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border);">{q.nome}</td>
