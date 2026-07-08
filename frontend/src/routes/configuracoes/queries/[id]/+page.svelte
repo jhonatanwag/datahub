@@ -123,6 +123,10 @@
   }
 
   async function salvar() {
+    if (!form.nome.trim()) {
+      erro = 'Nome legível é obrigatório.';
+      return;
+    }
     erro = null;
     salvando = true;
     try {

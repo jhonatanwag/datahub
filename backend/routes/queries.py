@@ -208,6 +208,10 @@ async def buscar_query(query_id: int, user=Depends(get_current_user)):
 @router.post("/")
 async def criar_query(body: QueryInput, user=Depends(require_admin)):
     try:
+        if not body.slug.strip():
+            raise HTTPException(status_code=400, detail="Slug é obrigatório.")
+        if not body.nome.strip():
+            raise HTTPException(status_code=400, detail="Nome é obrigatório.")
         if body.tipo not in TIPOS_VALIDOS:
             raise HTTPException(status_code=400, detail=f"Tipo inválido. Use: {TIPOS_VALIDOS}")
         if body.mapa_camada not in CAMADAS_MAPA_VALIDAS:
@@ -257,6 +261,9 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         for k in updates:
             if k not in ALLOWED_COLS:
                 raise HTTPException(status_code=400, detail=f"Campo inválido: {k}")
+
+        if "nome" in updates and not updates["nome"].strip():
+            raise HTTPException(status_code=400, detail="Nome é obrigatório.")
 
         if "mapa_camada" in updates and updates["mapa_camada"] not in CAMADAS_MAPA_VALIDAS:
             raise HTTPException(status_code=400, detail=f"Camada de mapa inválida. Use: {CAMADAS_MAPA_VALIDAS}")

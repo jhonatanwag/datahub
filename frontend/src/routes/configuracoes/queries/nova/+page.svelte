@@ -99,6 +99,14 @@
   }
 
   async function salvar() {
+    if (!form.slug.trim()) {
+      erro = 'Slug é obrigatório.';
+      return;
+    }
+    if (!form.nome.trim()) {
+      erro = 'Nome legível é obrigatório.';
+      return;
+    }
     if (!resultadoTeste?.ok) {
       erro = 'Teste a query antes de salvar.';
       return;
