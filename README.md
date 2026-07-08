@@ -95,6 +95,36 @@ Com o serviço `postgres` no ar, rodar `scripts/init-meta-prod.sql` contra
 ele (via terminal do EasyPanel ou `psql` apontando pro serviço). Esse
 script só cria a estrutura — sem empresas de demo, sem usuário.
 
+**Importante se o banco `datahub_meta` já existe** (deploy anterior, banco
+já em uso): `init-meta-prod.sql` é um `CREATE TABLE` completo — só ajuda
+banco **novo**. Colunas adicionadas depois em dev (via `ALTER TABLE`
+manual, refletido no script mas não em bancos de produção já criados)
+precisam ser aplicadas manualmente. Ver "Deltas de schema pendentes"
+abaixo antes de seguir pro passo 3.
+
+#### Deltas de schema pendentes (aplicar se o banco já existe)
+
+Rodar contra `datahub_meta` (via terminal do serviço `postgres` no
+EasyPanel ou `psql` apontando pro serviço) qualquer item abaixo cuja
+coluna ainda não exista. Verificar antes de aplicar:
+
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'queries' AND column_name IN ('mapa_camada');
+```
+
+Se a linha não aparecer, rodar:
+
+```sql
+-- 2026-07-08 — tipo de camada do mapa (padrão/satélite) por query
+ALTER TABLE queries ADD COLUMN mapa_camada VARCHAR(20) DEFAULT 'padrao';
+```
+
+Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,
+inclua aqui o `ALTER TABLE` correspondente além de atualizar
+`scripts/init-meta-prod.sql` — bancos de produção já criados só recebem a
+mudança se alguém rodar isso manualmente.
+
 ### 3. Liberar o Postgres nativo do VPS para a rede do EasyPanel
 
 Passo manual no VPS, fora do repositório:
