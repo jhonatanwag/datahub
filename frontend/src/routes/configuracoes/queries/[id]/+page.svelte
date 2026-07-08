@@ -12,7 +12,9 @@
     sql_texto: '', tipo: 'kpi',
     empresa_id: null, cache_ttl: 300, ativo: true,
     kpi_cor_fonte: '#e6edf3', kpi_cor_fundo: '#161b22',
-    mapa_camada: 'padrao'
+    mapa_camada: 'padrao',
+    chart_fonte_tamanho: 12, chart_truncar_label: false,
+    chart_truncar_tamanho: 15, chart_mostrar_valor: false
   };
 
   // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
@@ -54,6 +56,10 @@
         kpi_cor_fonte: q.kpi_cor_fonte || '#e6edf3',
         kpi_cor_fundo: q.kpi_cor_fundo || '#161b22',
         mapa_camada:   q.mapa_camada || 'padrao',
+        chart_fonte_tamanho:   q.chart_fonte_tamanho ?? 12,
+        chart_truncar_label:   q.chart_truncar_label ?? false,
+        chart_truncar_tamanho: q.chart_truncar_tamanho ?? 15,
+        chart_mostrar_valor:   q.chart_mostrar_valor ?? false,
       };
       params = prms.map(p => ({ ...p, _testar_valor: '' }));
     } catch (e) {
@@ -130,6 +136,10 @@
         kpi_cor_fonte: form.kpi_cor_fonte,
         kpi_cor_fundo: form.kpi_cor_fundo,
         mapa_camada:   form.mapa_camada,
+        chart_fonte_tamanho:   form.chart_fonte_tamanho,
+        chart_truncar_label:   form.chart_truncar_label,
+        chart_truncar_tamanho: form.chart_truncar_tamanho,
+        chart_mostrar_valor:   form.chart_mostrar_valor,
       });
       await api.salvarParametrosQuery(id, params.map(({ _testar_valor, ...p }) => p));
       goto('/configuracoes/queries');
@@ -228,6 +238,32 @@
         </div>
       {/if}
 
+      {#if ['chart_bar', 'chart_bar_horizontal', 'chart_line', 'chart_doughnut'].includes(form.tipo)}
+        <div class="section-block">
+          <span class="section-title">Configurações do Gráfico</span>
+          <div class="cores-row">
+            <label class="lbl">
+              Tamanho da fonte (px)
+              <input type="number" bind:value={form.chart_fonte_tamanho} min="8" max="32" style="width:90px" />
+            </label>
+            <label class="check-inline">
+              <input type="checkbox" bind:checked={form.chart_truncar_label} />
+              Truncar rótulos
+            </label>
+            {#if form.chart_truncar_label}
+              <label class="lbl">
+                Caracteres
+                <input type="number" bind:value={form.chart_truncar_tamanho} min="3" max="60" style="width:90px" />
+              </label>
+            {/if}
+            <label class="check-inline">
+              <input type="checkbox" bind:checked={form.chart_mostrar_valor} />
+              Mostrar valor no gráfico
+            </label>
+          </div>
+        </div>
+      {/if}
+
       <!-- Parâmetros -->
       <div class="section-block">
         <div class="section-header">
@@ -323,6 +359,7 @@
 
 <style>
 .lbl { display:flex; flex-direction:column; gap:6px; font-size:13px; color:var(--muted); }
+.check-inline { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); cursor:pointer; text-transform:none; letter-spacing:0; font-weight:400; }
 
 .section-block { border:1px solid var(--border); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
 .section-header { display:flex; justify-content:space-between; align-items:center; }
