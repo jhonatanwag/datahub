@@ -96,6 +96,17 @@
     indicadores = indicadores.filter((_, idx) => idx !== i);
   }
 
+  function moverIndicador(i, direcao) {
+    const j = i + direcao;
+    if (j < 0 || j >= indicadores.length) return;
+    const a = indicadores[i];
+    const b = indicadores[j];
+    [a.query_slug, b.query_slug] = [b.query_slug, a.query_slug];
+    [a.titulo, b.titulo]         = [b.titulo, a.titulo];
+    [a.posicao, b.posicao]       = [b.posicao, a.posicao];
+    indicadores = [...indicadores];
+  }
+
   function toggleVariavel(v) {
     const idx = varSelecionadas.findIndex(s => s.variavel_id === v.id);
     if (idx >= 0) {
@@ -252,6 +263,8 @@
                         {/each}
                       </select>
                     </div>
+                    <button class="btn-ghost btn-sm" on:click={() => moverIndicador(i, -1)} disabled={i === 0} title="Mover pra cima">▲</button>
+                    <button class="btn-ghost btn-sm" on:click={() => moverIndicador(i, 1)} disabled={i === indicadores.length - 1} title="Mover pra baixo">▼</button>
                     <button class="btn-ghost btn-sm danger" on:click={() => removerIndicador(i)}>✕</button>
                   </div>
                   <div class="field">
