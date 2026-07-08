@@ -291,7 +291,7 @@ async def renderizar_painel(
         raise HTTPException(404, "Painel não encontrado")
 
     indicadores = await query_meta("""
-        SELECT pi.*, q.kpi_cor_fonte, q.kpi_cor_fundo
+        SELECT pi.*, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
         WHERE pi.painel_id = $1
