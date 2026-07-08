@@ -198,6 +198,7 @@
                 truncarLabel={ind.chart_truncar_label}
                 truncarTamanho={ind.chart_truncar_tamanho}
                 mostrarValor={ind.chart_mostrar_valor}
+                valorLabel={ind.chart_valor_label}
               />
 
             {:else if ind.query_tipo === 'table'}

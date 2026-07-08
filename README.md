@@ -111,7 +111,7 @@ coluna ainda não exista. Verificar antes de aplicar:
 ```sql
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'queries'
-  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor');
+  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor', 'chart_valor_label');
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -125,6 +125,9 @@ ALTER TABLE queries ADD COLUMN chart_fonte_tamanho INTEGER DEFAULT 12;
 ALTER TABLE queries ADD COLUMN chart_truncar_label BOOLEAN DEFAULT false;
 ALTER TABLE queries ADD COLUMN chart_truncar_tamanho INTEGER DEFAULT 15;
 ALTER TABLE queries ADD COLUMN chart_mostrar_valor BOOLEAN DEFAULT false;
+
+-- 2026-07-08 — nome de exibição customizado pra série "valor" no gráfico
+ALTER TABLE queries ADD COLUMN chart_valor_label VARCHAR(50);
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

@@ -9,6 +9,7 @@
   export let truncarLabel = false;
   export let truncarTamanho = 15;
   export let mostrarValor = false;
+  export let valorLabel = null;
 
   let container;
   let chart;
@@ -23,6 +24,12 @@
     const s = String(texto ?? '');
     if (!truncarLabel || s.length <= truncarTamanho) return s;
     return s.slice(0, truncarTamanho) + '…';
+  }
+
+  // Nome de exibição de uma coluna de série: a coluna 'valor' pode ter um
+  // nome customizado (valorLabel); as demais sempre mostram o próprio alias SQL.
+  function nomeSerie(col) {
+    return col === 'valor' && valorLabel ? valorLabel : col;
   }
 
   // Colunas de série: todas as chaves de dados[0] exceto 'label', que tenham valor numérico
@@ -78,7 +85,7 @@
 
     const series = cols.map((col, i) => ({
       type: tipo === 'chart_line' ? 'line' : 'bar',
-      name: col,
+      name: nomeSerie(col),
       data: dados.map(d => Number(d[col])),
       smooth: tipo === 'chart_line',
       itemStyle: { color: COLORS[i % COLORS.length] },
@@ -93,7 +100,7 @@
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' },
-      legend: multiSerie ? { data: cols, top: 0, textStyle: { color: corTexto, fontSize: fonteTamanho } } : undefined,
+      legend: multiSerie ? { data: cols.map(nomeSerie), top: 0, textStyle: { color: corTexto, fontSize: fonteTamanho } } : undefined,
       grid: { left: 60, right: 20, top: multiSerie ? 40 : 20, bottom: 40 },
       xAxis: isHorizontal ? eixoValor : eixoCategoria,
       yAxis: isHorizontal ? eixoCategoria : eixoValor,

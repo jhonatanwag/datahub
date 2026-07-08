@@ -74,6 +74,7 @@ CREATE TABLE queries (
     chart_truncar_label   BOOLEAN DEFAULT false,
     chart_truncar_tamanho INTEGER DEFAULT 15,
     chart_mostrar_valor   BOOLEAN DEFAULT false,
+    chart_valor_label     VARCHAR(50),
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);
