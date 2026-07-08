@@ -11,7 +11,8 @@
     slug: '', nome: '', descricao: '',
     sql_texto: '', tipo: 'kpi',
     empresa_id: null, cache_ttl: 300, ativo: true,
-    kpi_cor_fonte: '#e6edf3', kpi_cor_fundo: '#161b22'
+    kpi_cor_fonte: '#e6edf3', kpi_cor_fundo: '#161b22',
+    mapa_camada: 'padrao'
   };
 
   // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
@@ -52,6 +53,7 @@
         ativo:         q.ativo,
         kpi_cor_fonte: q.kpi_cor_fonte || '#e6edf3',
         kpi_cor_fundo: q.kpi_cor_fundo || '#161b22',
+        mapa_camada:   q.mapa_camada || 'padrao',
       };
       params = prms.map(p => ({ ...p, _testar_valor: '' }));
     } catch (e) {
@@ -127,6 +129,7 @@
         ativo:         form.ativo,
         kpi_cor_fonte: form.kpi_cor_fonte,
         kpi_cor_fundo: form.kpi_cor_fundo,
+        mapa_camada:   form.mapa_camada,
       });
       await api.salvarParametrosQuery(id, params.map(({ _testar_valor, ...p }) => p));
       goto('/configuracoes/queries');
@@ -209,6 +212,19 @@
               <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
             </div>
           </div>
+        </div>
+      {/if}
+
+      {#if form.tipo === 'map'}
+        <div class="section-block">
+          <span class="section-title">Camada do Mapa</span>
+          <label class="lbl">
+            Camada padrão
+            <select bind:value={form.mapa_camada}>
+              <option value="padrao">Padrão (tema claro/escuro)</option>
+              <option value="satelite">Satélite</option>
+            </select>
+          </label>
         </div>
       {/if}
 
