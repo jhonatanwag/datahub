@@ -69,6 +69,7 @@ CREATE TABLE queries (
     atualizado_em  TIMESTAMP DEFAULT NOW(),
     kpi_cor_fonte  TEXT DEFAULT '#e6edf3',
     kpi_cor_fundo  TEXT DEFAULT '#161b22',
+    mapa_camada    VARCHAR(20) DEFAULT 'padrao',
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);

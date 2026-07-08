@@ -82,6 +82,7 @@ CREATE TABLE queries (
     cache_ttl     INTEGER DEFAULT 300,
     criado_em     TIMESTAMP DEFAULT NOW(),
     atualizado_em TIMESTAMP DEFAULT NOW(),
+    mapa_camada   VARCHAR(20) DEFAULT 'padrao',
     UNIQUE (slug, empresa_id)
 );
 
