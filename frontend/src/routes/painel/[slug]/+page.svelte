@@ -197,7 +197,7 @@
               <DataTable dados={ind.dados} titulo={ind.titulo || ind.query_slug} />
 
             {:else if ind.query_tipo === 'map'}
-              <MapPanel pontos={ind.dados ?? []} />
+              <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} />
 
             {:else}
               <p class="muted" style="font-size:12px; padding:8px">Tipo "{ind.query_tipo}" não suportado</p>
