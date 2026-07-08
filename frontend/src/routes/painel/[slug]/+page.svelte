@@ -191,7 +191,14 @@
               <KPICard dados={ind.dados?.[0]} corFonte={ind.kpi_cor_fonte} corFundo={ind.kpi_cor_fundo} />
 
             {:else if ind.query_tipo?.startsWith('chart_')}
-              <ChartPanel tipo={ind.query_tipo} dados={ind.dados} />
+              <ChartPanel
+                tipo={ind.query_tipo}
+                dados={ind.dados}
+                fonteTamanho={ind.chart_fonte_tamanho}
+                truncarLabel={ind.chart_truncar_label}
+                truncarTamanho={ind.chart_truncar_tamanho}
+                mostrarValor={ind.chart_mostrar_valor}
+              />
 
             {:else if ind.query_tipo === 'table'}
               <DataTable dados={ind.dados} titulo={ind.titulo || ind.query_slug} />
