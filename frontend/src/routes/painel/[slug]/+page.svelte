@@ -16,6 +16,7 @@
   let filtrosAbertos = false;
   let carregando  = true;
   let erro        = null;
+  let opcoesPorVariavel = {}; // { [slug]: [{valor, label}, ...] } — pra exibir o label no chip de resumo
 
   // YYYY-MM-DD → DD/MM/YYYY
   function fmtData(val) {
@@ -34,6 +35,16 @@
     }
     const val = filtrosAtivos[v.slug];
     if (!val) return [];
+
+    if (v.tipo === 'select' || v.tipo === 'multiselect') {
+      const opcoes = opcoesPorVariavel[v.slug] || [];
+      const labels = String(val).split(',').map(id => {
+        const opt = opcoes.find(o => String(o.valor) === id);
+        return opt ? opt.label : id;
+      });
+      return [{ nome: v.nome, valor: labels.join(', ') }];
+    }
+
     return [{ nome: v.nome, valor: String(val) }];
   });
 
@@ -72,6 +83,18 @@
           filtrosAtivos[v.slug] = resolverToken(v.valor_padrao || '');
         }
       });
+
+      // Carrega as opções (valor/label) das variáveis select/multiselect
+      // pra poder mostrar o label (não o id cru) no chip de resumo.
+      const selects = variaveis.filter(v => v.tipo === 'select' || v.tipo === 'multiselect');
+      await Promise.all(selects.map(async v => {
+        try {
+          opcoesPorVariavel[v.slug] = await api.executarFonteVariavel(v.variavel_id || v.id);
+        } catch (e) {
+          opcoesPorVariavel[v.slug] = [];
+        }
+      }));
+      opcoesPorVariavel = { ...opcoesPorVariavel };
 
       await carregarDados();
     } catch (e) {
@@ -261,20 +284,17 @@
 
 .chip {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
   padding: 3px 10px;
-  border-radius: 20px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--accent-blue) 12%, var(--surface2));
   border: 1px solid color-mix(in srgb, var(--accent-blue) 30%, var(--border));
   font-size: 12px;
-  white-space: nowrap;
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 100%;
 }
-.chip-nome { color: var(--muted); }
-.chip-val  { color: var(--text); font-weight: 500; }
+.chip-nome { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.chip-val  { color: var(--text); font-weight: 500; white-space: normal; word-break: break-word; }
 
 .sem-filtro { font-size: 12px; color: var(--muted); font-style: italic; }
 
@@ -340,8 +360,6 @@
   .painel-grid  { grid-template-columns: 1fr !important; gap: 10px; }
   .grid-item    { grid-column: 1 / -1 !important; grid-row: auto !important; }
   .card-titulo  { font-size: 11px; padding: 10px 12px 6px; }
-
-  .chip { max-width: 180px; }
 }
 
 /* ── TV (≥1920px) ───────────────────────────────────────── */
