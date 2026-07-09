@@ -295,6 +295,14 @@
           <code>ano_atual_inicio</code> · <code>ano_atual_fim</code> ·
           <code>hoje</code> · <code>ontem</code>
         </p>
+        <p class="hint-block">
+          <strong>Exemplo — variável Multi-seleção (multiselect):</strong><br>
+          1. Adicione <code>$N</code> no SQL: <code>AND ($N::text IS NULL OR coluna = ANY(string_to_array($N, ',')::tipo[]))</code> — troque <code>tipo</code> por <code>bigint</code>/<code>int</code>/nada (se for texto, remova o <code>::tipo[]</code>).
+        </p>
+        <p class="hint-block">
+          <strong>Exemplo — variável Seleção (dropdown, valor único):</strong><br>
+          Adicione <code>$N</code> no SQL: <code>AND ($N::text IS NULL OR coluna = $N)</code> — sem <code>string_to_array</code>, pois só um valor é selecionado por vez.
+        </p>
       {/if}
     </div>
 
