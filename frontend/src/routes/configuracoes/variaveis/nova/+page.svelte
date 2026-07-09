@@ -1,5 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
 
   let form = {
@@ -11,6 +12,17 @@
   let resultadoTeste = null;
   let salvando       = false;
   let erro           = null;
+  let empresas       = [];
+  let testarEmpresaId = null;
+
+  onMount(async () => {
+    try {
+      empresas = await api.listarEmpresas();
+      if (empresas.length > 0) testarEmpresaId = empresas[0].id;
+    } catch (e) {
+      console.error('Erro ao carregar empresas:', e);
+    }
+  });
 
   const tipos = [
     { value: 'date',        label: 'Data única' },
@@ -51,17 +63,11 @@
     if (!form.query_fonte) return;
     testando = true;
     resultadoTeste = null;
-    const slugTemp = form.slug || `_temp_${Date.now()}`;
-    let criadaId = null;
     try {
-      const criada = await api.criarVariavel({ ...form, slug: slugTemp });
-      criadaId = criada.id;
-      const resultado = await api.executarFonteVariavel(criadaId);
-      resultadoTeste = { ok: true, linhas: resultado.length, amostra: resultado.slice(0, 5) };
+      resultadoTeste = await api.testarFonteVariavel(form.query_fonte, testarEmpresaId);
     } catch (e) {
       resultadoTeste = { ok: false, erro: e.message };
     } finally {
-      if (criadaId) await api.desativarVariavel(criadaId).catch(() => {});
       testando = false;
     }
   }
@@ -136,9 +142,19 @@
           rows="5"
           placeholder="SELECT id AS valor, nome AS label FROM tabela ORDER BY nome"
         ></textarea>
-        <button class="btn-ghost" on:click={testarFonte} disabled={testando}>
-          {testando ? 'Testando...' : 'Testar Query'}
-        </button>
+        <div class="teste-row">
+          <button class="btn-ghost" on:click={testarFonte} disabled={testando}>
+            {testando ? 'Testando...' : 'Testar Query'}
+          </button>
+          <label class="teste-empresa">
+            Testar na empresa:
+            <select bind:value={testarEmpresaId}>
+              {#each empresas as e}
+                <option value={e.id}>{e.nome}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
 
         {#if resultadoTeste}
           {#if resultadoTeste.ok}
@@ -189,6 +205,9 @@ textarea { resize: vertical; font-family: var(--font-display); }
 .hint { font-size: 11px; color: var(--muted); }
 .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
 .error { color: var(--danger, #f85149); font-size: 13px; }
+.teste-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.teste-empresa { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.teste-empresa select { font-size: 12px; padding: 4px 8px; }
 .teste-ok { font-size: 12px; color: #3fb950; }
 .amostra-table { margin-top: 8px; border-collapse: collapse; font-size: 12px; }
 .amostra-table th, .amostra-table td { border: 1px solid var(--border); padding: 4px 8px; color: var(--text); }

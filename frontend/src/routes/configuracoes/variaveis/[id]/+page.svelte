@@ -16,6 +16,8 @@
   let resultadoTeste = null;
   let salvando       = false;
   let erro           = null;
+  let empresas       = [];
+  let testarEmpresaId = null;
 
   const tipos = [
     { value: 'date',        label: 'Data única' },
@@ -37,7 +39,7 @@
 
   onMount(async () => {
     try {
-      const v = await api.buscarVariavel(id);
+      const [v, emps] = await Promise.all([api.buscarVariavel(id), api.listarEmpresas()]);
       form = {
         slug:        v.slug,
         nome:        v.nome,
@@ -47,6 +49,8 @@
         param_names: v.param_names || [],
         ativo:       v.ativo,
       };
+      empresas = emps;
+      if (emps.length > 0) testarEmpresaId = emps[0].id;
     } catch (e) {
       erro = e.message;
     } finally {
@@ -70,7 +74,7 @@
     testando = true;
     resultadoTeste = null;
     try {
-      const resultado = await api.executarFonteVariavel(id);
+      const resultado = await api.executarFonteVariavel(id, testarEmpresaId);
       resultadoTeste = { ok: true, linhas: resultado.length, amostra: resultado.slice(0, 5) };
     } catch (e) {
       resultadoTeste = { ok: false, erro: e.message };
@@ -161,9 +165,19 @@
             rows="5"
             placeholder="SELECT id AS valor, nome AS label FROM tabela ORDER BY nome"
           ></textarea>
-          <button class="btn-ghost" on:click={testarFonte} disabled={testando}>
-            {testando ? 'Testando...' : 'Testar Query'}
-          </button>
+          <div class="teste-row">
+            <button class="btn-ghost" on:click={testarFonte} disabled={testando}>
+              {testando ? 'Testando...' : 'Testar Query'}
+            </button>
+            <label class="teste-empresa">
+              Testar na empresa:
+              <select bind:value={testarEmpresaId}>
+                {#each empresas as e}
+                  <option value={e.id}>{e.nome}</option>
+                {/each}
+              </select>
+            </label>
+          </div>
 
           {#if resultadoTeste}
             {#if resultadoTeste.ok}
@@ -216,6 +230,9 @@ textarea { resize: vertical; font-family: var(--font-display); }
 .check-label { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 13px; cursor: pointer; }
 .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
 .error { color: var(--danger, #f85149); font-size: 13px; }
+.teste-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.teste-empresa { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.teste-empresa select { font-size: 12px; padding: 4px 8px; }
 .teste-ok { font-size: 12px; color: #3fb950; }
 .amostra-table { margin-top: 8px; border-collapse: collapse; font-size: 12px; }
 .amostra-table th, .amostra-table td { border: 1px solid var(--border); padding: 4px 8px; color: var(--text); }

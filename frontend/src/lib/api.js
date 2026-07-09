@@ -113,7 +113,8 @@ export const api = {
     criarVariavel:          (d)         => request('/api/variaveis/', { method: 'POST', body: JSON.stringify(d) }),
     atualizarVariavel:      (id, d)     => request(`/api/variaveis/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
     desativarVariavel:      (id)        => request(`/api/variaveis/${id}`, { method: 'DELETE' }),
-    executarFonteVariavel:  (id)        => request(`/api/variaveis/executar-fonte/${id}`),
+    executarFonteVariavel:  (id, empresa_id) => request(`/api/variaveis/executar-fonte/${id}${empresa_id ? `?empresa_id=${empresa_id}` : ''}`),
+    testarFonteVariavel:    (query_fonte, empresa_id) => request('/api/variaveis/testar-fonte', { method: 'POST', body: JSON.stringify({ query_fonte, empresa_id }) }),
 
     // Painéis
     listarPaineis:          ()          => request('/api/paineis/'),
