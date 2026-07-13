@@ -216,7 +216,7 @@ async def sso_trocar(body: SsoTrocarInput):
             raise HTTPException(status_code=401, detail="Link inválido ou expirado")
 
         dados = json.loads(raw)
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES_EXTERNO)
         token = jwt.encode(
             {
                 "tipo": "externo",

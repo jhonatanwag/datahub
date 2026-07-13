@@ -2,6 +2,9 @@ import asyncio
 import uuid
 import asyncpg
 import pytest
+from datetime import datetime, timezone
+from jose import jwt
+from config.settings import settings
 
 VIEW_NAME = "vw_datahub_sso_acesso"
 
@@ -298,3 +301,82 @@ def test_renderizar_painel_injeta_codigo_usuario_do_token_ignorando_query_string
     assert dados[0]["valor"] == sso_ambiente["codigo_usuario"]
 
     client.delete(f"/api/queries/{query_id}", headers={"Authorization": f"Bearer {auth_token}"})
+
+
+@pytest.fixture
+def outro_painel(client, auth_token, sso_ambiente):
+    """Um segundo painel, distinto do painel escopado no token externo,
+    usado para provar que o token externo NÃO consegue acessá-lo."""
+    sufixo = uuid.uuid4().hex[:8]
+    slug = f"painel_outro_{sufixo}"
+    res = client.post(
+        "/api/paineis/",
+        json={"slug": slug, "nome": "Outro Painel", "empresa_id": sso_ambiente["empresa_id"]},
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert res.status_code == 200
+    painel_id = res.json()["id"]
+
+    try:
+        yield painel_id
+    finally:
+        client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+
+
+def test_listar_indicadores_com_token_externo_de_outro_painel_retorna_403(
+    client, sso_ambiente, outro_painel
+):
+    token = _token_externo(client, sso_ambiente)
+
+    res = client.get(
+        f"/api/paineis/{outro_painel}/indicadores",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 403
+
+
+def test_listar_indicadores_com_token_externo_do_proprio_painel_funciona(client, sso_ambiente):
+    token = _token_externo(client, sso_ambiente)
+
+    res = client.get(
+        f"/api/paineis/{sso_ambiente['painel_id']}/indicadores",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+
+
+def test_listar_variaveis_painel_com_token_externo_de_outro_painel_retorna_403(
+    client, sso_ambiente, outro_painel
+):
+    token = _token_externo(client, sso_ambiente)
+
+    res = client.get(
+        f"/api/paineis/{outro_painel}/variaveis",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 403
+
+
+def test_listar_variaveis_painel_com_token_externo_do_proprio_painel_funciona(client, sso_ambiente):
+    token = _token_externo(client, sso_ambiente)
+
+    res = client.get(
+        f"/api/paineis/{sso_ambiente['painel_id']}/variaveis",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+
+
+def test_sso_trocar_emite_jwt_com_expiracao_curta_de_token_externo(client, sso_ambiente):
+    token = _token_externo(client, sso_ambiente)
+
+    payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+    exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    now = datetime.now(timezone.utc)
+
+    delta_minutos = (exp - now).total_seconds() / 60
+
+    # Tolerância generosa pra evitar flakiness, mas claramente abaixo dos
+    # 480 min do login interno -- prova que usa JWT_EXPIRE_MINUTES_EXTERNO.
+    assert delta_minutos < 60
+    assert abs(delta_minutos - settings.JWT_EXPIRE_MINUTES_EXTERNO) < 5

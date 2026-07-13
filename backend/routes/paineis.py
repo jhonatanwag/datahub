@@ -171,6 +171,11 @@ async def desativar_painel(painel_id: int, user=Depends(require_admin)):
 
 @router.get("/{painel_id}/indicadores")
 async def listar_indicadores(painel_id: int, user=Depends(get_current_user)):
+    if user["role"] == "externo":
+        painel_rows = await query_meta("SELECT slug FROM paineis WHERE id = $1", painel_id)
+        if not painel_rows or painel_rows[0]["slug"] != user["painel_slug"]:
+            raise HTTPException(403, "Sem acesso a este painel")
+
     rows = await query_meta("""
         SELECT pi.*, q.nome AS query_nome, q.tipo AS query_tipo
         FROM painel_indicadores pi
@@ -227,6 +232,11 @@ async def remover_indicador(painel_id: int, indicador_id: int, user=Depends(requ
 
 @router.get("/{painel_id}/variaveis")
 async def listar_variaveis_painel(painel_id: int, user=Depends(get_current_user)):
+    if user["role"] == "externo":
+        painel_rows = await query_meta("SELECT slug FROM paineis WHERE id = $1", painel_id)
+        if not painel_rows or painel_rows[0]["slug"] != user["painel_slug"]:
+            raise HTTPException(403, "Sem acesso a este painel")
+
     rows = await query_meta("""
         SELECT pv.*, v.slug, v.nome, v.tipo, v.query_fonte, v.param_names
         FROM painel_variaveis pv

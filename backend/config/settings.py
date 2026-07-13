@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     PORT: int = 3001
     JWT_SECRET: str
     JWT_EXPIRE_MINUTES: int = 480
+    JWT_EXPIRE_MINUTES_EXTERNO: int = 30
 
     META_DB_HOST: str = "postgres"
     META_DB_PORT: int = 5432
