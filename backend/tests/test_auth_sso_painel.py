@@ -204,3 +204,31 @@ def test_sso_trocar_token_ja_usado_retorna_401(client, sso_ambiente):
 def test_sso_trocar_token_invalido_retorna_401(client):
     res = client.post("/api/auth/sso/trocar", json={"exchange": "token-que-nunca-existiu"})
     assert res.status_code == 401
+
+
+def _token_externo(client, sso_ambiente):
+    handshake = client.post(
+        "/api/auth/sso-painel",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+            "painel_slug": sso_ambiente["painel_slug"],
+        },
+    )
+    exchange = handshake.json()["redirect_url"].split("exchange=")[1]
+    return client.post("/api/auth/sso/trocar", json={"exchange": exchange}).json()["token"]
+
+
+def test_me_com_token_externo_devolve_empresa_real_e_codigo_usuario(client, sso_ambiente):
+    token = _token_externo(client, sso_ambiente)
+
+    res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["role"] == "externo"
+    assert body["id"] is None
+    assert body["company_slug"] == "alpha"
+    assert body["company_name"] == "Empresa Alpha Ltda"
+    assert body["codigo_usuario"] == sso_ambiente["codigo_usuario"]
+    assert body["painel_slug"] == sso_ambiente["painel_slug"]

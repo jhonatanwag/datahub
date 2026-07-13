@@ -24,11 +24,42 @@ async def get_current_user(
     if empresa_id is None:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+    redis = await get_redis()
+
+    if payload.get("tipo") == "externo":
+        jti = payload.get("jti")
+        codigo_usuario = payload.get("codigo_usuario")
+        painel_slug = payload.get("painel_slug")
+        if not jti or not codigo_usuario or not painel_slug:
+            raise HTTPException(status_code=401, detail="Token inválido")
+
+        if await redis.get(f"blacklist:externo:{jti}"):
+            raise HTTPException(status_code=401, detail="Token inválido ou sessão encerrada")
+
+        empresa_rows = await query_meta(
+            "SELECT id, nome, slug FROM empresas WHERE id = $1 AND ativo = true",
+            empresa_id
+        )
+        if not empresa_rows:
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        empresa = dict(empresa_rows[0])
+
+        return {
+            "id": None,
+            "nome": None,
+            "role": "externo",
+            "tema": None,
+            "empresa_id": empresa["id"],
+            "company_slug": empresa["slug"],
+            "company_name": empresa["nome"],
+            "codigo_usuario": codigo_usuario,
+            "painel_slug": painel_slug,
+        }
+
     user_id = payload.get("user_id")
     if user_id is None:
         raise HTTPException(status_code=401, detail="Token inválido")
 
-    redis = await get_redis()
     if await redis.get(f"blacklist:{user_id}"):
         raise HTTPException(status_code=401, detail="Token inválido ou sessão encerrada")
 
