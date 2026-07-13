@@ -232,3 +232,69 @@ def test_me_com_token_externo_devolve_empresa_real_e_codigo_usuario(client, sso_
     assert body["company_name"] == "Empresa Alpha Ltda"
     assert body["codigo_usuario"] == sso_ambiente["codigo_usuario"]
     assert body["painel_slug"] == sso_ambiente["painel_slug"]
+
+
+def test_buscar_painel_por_slug_com_token_externo_de_outro_painel_retorna_403(client, sso_ambiente):
+    token = _token_externo(client, sso_ambiente)
+
+    res = client.get(
+        "/api/paineis/slug/painel-que-nao-foi-autorizado",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 403
+
+
+def test_buscar_painel_por_slug_com_token_externo_do_proprio_painel_funciona(client, sso_ambiente):
+    token = _token_externo(client, sso_ambiente)
+
+    res = client.get(
+        f"/api/paineis/slug/{sso_ambiente['painel_slug']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+    assert res.json()["id"] == sso_ambiente["painel_id"]
+
+
+def test_renderizar_painel_injeta_codigo_usuario_do_token_ignorando_query_string(
+    client, sso_ambiente, auth_token
+):
+    query_slug = f"query_sso_teste_{uuid.uuid4().hex[:8]}"
+    query_res = client.post(
+        "/api/queries/",
+        json={
+            "slug": query_slug,
+            "nome": "Query SSO Teste",
+            "sql_texto": "SELECT $1::text AS valor, 'codigo' AS label",
+            "tipo": "kpi",
+            "empresa_id": sso_ambiente["empresa_id"],
+            "cache_ttl": 0,
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert query_res.status_code == 200
+    query_id = query_res.json()["id"]
+
+    param_res = client.put(
+        f"/api/queries/{query_id}/parametros",
+        json=[{"nome": "codigo_usuario_externo", "tipo": "text", "obrigatorio": False}],
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert param_res.status_code == 200
+
+    ind_res = client.put(
+        f"/api/paineis/{sso_ambiente['painel_id']}/indicadores",
+        json=[{"query_slug": query_slug, "linha": 1, "coluna": 1}],
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert ind_res.status_code == 200
+
+    token = _token_externo(client, sso_ambiente)
+    res = client.get(
+        f"/api/paineis/{sso_ambiente['painel_id']}/renderizar?codigo_usuario_externo=valor-forjado-pelo-cliente",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+    dados = res.json()["indicadores"][0]["dados"]
+    assert dados[0]["valor"] == sso_ambiente["codigo_usuario"]
+
+    client.delete(f"/api/queries/{query_id}", headers={"Authorization": f"Bearer {auth_token}"})

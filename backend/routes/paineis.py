@@ -74,6 +74,17 @@ async def meu_dashboard(user=Depends(get_current_user)):
 
 @router.get("/slug/{slug}")
 async def buscar_painel_por_slug(slug: str, user=Depends(get_current_user)):
+    if user["role"] == "externo":
+        if user["painel_slug"] != slug:
+            raise HTTPException(403, "Sem acesso a este painel")
+        rows = await query_meta("""
+            SELECT * FROM paineis
+            WHERE slug = $1 AND empresa_id = $2 AND ativo = true
+        """, slug, user["empresa_id"])
+        if not rows:
+            raise HTTPException(404, "Painel não encontrado")
+        return dict(rows[0])
+
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug) p.*
         FROM paineis p
@@ -289,6 +300,11 @@ async def renderizar_painel(
     painel_rows = await query_meta("SELECT * FROM paineis WHERE id = $1", painel_id)
     if not painel_rows:
         raise HTTPException(404, "Painel não encontrado")
+
+    if user["role"] == "externo":
+        if painel_rows[0]["slug"] != user["painel_slug"]:
+            raise HTTPException(403, "Sem acesso a este painel")
+        filtros["codigo_usuario_externo"] = user["codigo_usuario"]
 
     indicadores = await query_meta("""
         SELECT pi.*, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada,
