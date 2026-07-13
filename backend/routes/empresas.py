@@ -7,8 +7,9 @@ import secrets
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from config.databases import query_meta
+from config.databases import query_meta, query_company
 from middleware.auth import require_admin
+from services.sso import validar_coluna_painel_slug
 
 router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
 
@@ -45,6 +46,12 @@ class TestarConexaoInput(BaseModel):
     database: str
     user: str
     password: str
+
+
+class TestarSsoAcessoInput(BaseModel):
+    empresa_id: int
+    query: str
+    codigo_usuario: str
 
 
 @router.get("/")
@@ -176,6 +183,25 @@ async def gerar_sso_api_key(id: int, user=Depends(require_admin)):
         api_key_hash, id
     )
     return {"api_key": api_key}
+
+
+@router.post("/testar-sso-acesso")
+async def testar_sso_acesso(body: TestarSsoAcessoInput, user=Depends(require_admin)):
+    emp = await query_meta(
+        "SELECT slug FROM empresas WHERE id = $1 AND ativo = true", body.empresa_id
+    )
+    if not emp:
+        return {"ok": False, "erro": f"Empresa #{body.empresa_id} não encontrada ou inativa"}
+
+    try:
+        rows = await query_company(emp[0]["slug"], body.query, body.codigo_usuario)
+        data = [dict(r) for r in rows]
+        validar_coluna_painel_slug(data)
+        return {"ok": True, "slugs": [r["painel_slug"] for r in data]}
+    except ValueError as e:
+        return {"ok": False, "erro": str(e)}
+    except Exception as e:
+        return {"ok": False, "erro": str(e)}
 
 
 @router.post("/{id}/logo")

@@ -25,3 +25,81 @@ def test_gerar_sso_api_key_empresa_inexistente_retorna_404(client, auth_token):
 def test_gerar_sso_api_key_sem_autenticacao_retorna_403(client):
     res = client.post("/api/empresas/1/sso-api-key")
     assert res.status_code == 403
+
+
+def test_testar_sso_acesso_com_query_valida_devolve_slugs(client, auth_token):
+    empresas = client.get(
+        "/api/empresas/", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+    alpha = next(e for e in empresas if e["slug"] == "alpha")
+
+    res = client.post(
+        "/api/empresas/testar-sso-acesso",
+        json={
+            "empresa_id": alpha["id"],
+            "query": "SELECT painel_slug FROM (VALUES ('teste_a', 'painel_x'), ('teste_a', 'painel_y')) AS t(codigo_usuario, painel_slug) WHERE codigo_usuario = $1",
+            "codigo_usuario": "teste_a",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert sorted(body["slugs"]) == ["painel_x", "painel_y"]
+
+
+def test_testar_sso_acesso_sem_coluna_painel_slug_retorna_erro_claro(client, auth_token):
+    empresas = client.get(
+        "/api/empresas/", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+    alpha = next(e for e in empresas if e["slug"] == "alpha")
+
+    res = client.post(
+        "/api/empresas/testar-sso-acesso",
+        json={
+            "empresa_id": alpha["id"],
+            "query": "SELECT 1 AS id, 'x' AS nome, $1::text AS ignorar",
+            "codigo_usuario": "teste_a",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is False
+    assert "painel_slug" in body["erro"]
+
+
+def test_testar_sso_acesso_com_sql_invalido_retorna_erro_sem_500(client, auth_token):
+    empresas = client.get(
+        "/api/empresas/", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+    alpha = next(e for e in empresas if e["slug"] == "alpha")
+
+    res = client.post(
+        "/api/empresas/testar-sso-acesso",
+        json={
+            "empresa_id": alpha["id"],
+            "query": "SELECT * FROM tabela_que_nao_existe",
+            "codigo_usuario": "teste_a",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is False
+    assert body["erro"]
+
+
+def test_testar_sso_acesso_empresa_invalida_retorna_erro_sem_500(client, auth_token):
+    res = client.post(
+        "/api/empresas/testar-sso-acesso",
+        json={
+            "empresa_id": 999999,
+            "query": "SELECT painel_slug FROM (VALUES ('a', 'b')) AS t(codigo_usuario, painel_slug) WHERE codigo_usuario = $1",
+            "codigo_usuario": "teste_a",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is False
