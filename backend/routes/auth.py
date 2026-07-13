@@ -1,5 +1,6 @@
 import logging
 import secrets
+import json
 from typing import Literal
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -7,7 +8,7 @@ from jose import jwt
 from datetime import datetime, timedelta, timezone
 import bcrypt
 from config.settings import settings
-from config.databases import query_meta
+from config.databases import query_meta, query_company
 from config.redis import get_redis
 from middleware.auth import get_current_user
 
@@ -27,6 +28,13 @@ class SelecionarEmpresaInput(BaseModel):
 
 class TemaInput(BaseModel):
     tema: Literal['claro', 'escuro']
+
+
+class SsoPainelInput(BaseModel):
+    empresa_slug: str
+    api_key: str
+    codigo_usuario: str
+    painel_slug: str
 
 
 @router.post("/login")
@@ -130,6 +138,67 @@ async def selecionar_empresa(body: SelecionarEmpresaInput):
         raise
     except Exception as e:
         logger.error(f"Erro ao selecionar empresa: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
+
+@router.post("/sso-painel")
+async def sso_painel(body: SsoPainelInput):
+    try:
+        empresa_rows = await query_meta(
+            "SELECT id, slug, sso_api_key_hash FROM empresas WHERE slug = $1 AND ativo = true",
+            body.empresa_slug
+        )
+        if not empresa_rows:
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        empresa = dict(empresa_rows[0])
+
+        if not empresa["sso_api_key_hash"]:
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+        if not bcrypt.checkpw(body.api_key.encode(), empresa["sso_api_key_hash"].encode()):
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+        painel_rows = await query_meta(
+            "SELECT id, slug FROM paineis WHERE slug = $1 AND empresa_id = $2 AND ativo = true",
+            body.painel_slug, empresa["id"]
+        )
+        if not painel_rows:
+            raise HTTPException(status_code=404, detail="Painel não encontrado")
+
+        try:
+            acesso_rows = await query_company(
+                empresa["slug"],
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM vw_datahub_sso_acesso
+                    WHERE codigo_usuario = $1 AND painel_slug = $2
+                ) AS tem_acesso
+                """,
+                body.codigo_usuario, body.painel_slug
+            )
+        except Exception as e:
+            logger.error(f"Erro ao verificar acesso SSO: {e}")
+            raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
+        if not acesso_rows[0]["tem_acesso"]:
+            raise HTTPException(status_code=403, detail="Sem acesso a este painel")
+
+        exchange_token = secrets.token_hex(32)
+        redis = await get_redis()
+        payload = json.dumps({
+            "empresa_id": empresa["id"],
+            "company_slug": empresa["slug"],
+            "codigo_usuario": body.codigo_usuario,
+            "painel_slug": body.painel_slug,
+        })
+        await redis.setex(f"sso_exchange:{exchange_token}", 60, payload)
+
+        return {"redirect_url": f"{settings.FRONTEND_URL}/sso?exchange={exchange_token}"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro no sso-painel: {e}")
         raise HTTPException(status_code=500, detail="Erro interno no servidor")
 
 
