@@ -9,7 +9,7 @@ from jose import jwt
 from datetime import datetime, timedelta, timezone
 import bcrypt
 from config.settings import settings
-from config.databases import query_meta, query_company
+from config.databases import query_meta
 from config.redis import get_redis
 from middleware.auth import get_current_user
 from services.sso import validar_empresa_sso, buscar_slugs_liberados
