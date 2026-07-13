@@ -14,6 +14,13 @@
   let erro      = '';
   let slugErro  = '';
 
+  let ssoApiKeyGerada = null;   // texto puro, só existe em memória após gerar
+  let ssoGerando = false;
+  let ssoTesteCodigoUsuario = '';
+  let ssoTesteStatus = null;    // null | 'ok' | 'fail'
+  let ssoTesteResultado = '';
+  let ssoTestando = false;
+
   onMount(async () => {
     try {
       empresa = await api.buscarEmpresa(Number($page.params.id));
@@ -66,6 +73,39 @@
     }
   }
 
+  async function gerarSsoApiKey() {
+    ssoGerando = true;
+    try {
+      const res = await api.gerarSsoApiKey(empresa.id);
+      ssoApiKeyGerada = res.api_key;
+    } catch (e) {
+      erro = e.message || 'Erro ao gerar chave de API.';
+    } finally {
+      ssoGerando = false;
+    }
+  }
+
+  async function testarSsoAcesso() {
+    ssoTestando = true;
+    ssoTesteStatus = null;
+    try {
+      const res = await api.testarSsoAcesso({
+        empresa_id: empresa.id,
+        query: empresa.sso_query_acesso,
+        codigo_usuario: ssoTesteCodigoUsuario,
+      });
+      ssoTesteStatus = res.ok ? 'ok' : 'fail';
+      ssoTesteResultado = res.ok
+        ? (res.slugs.length ? `Painéis liberados: ${res.slugs.join(', ')}` : 'Nenhum painel liberado pra esse código')
+        : `Falha: ${res.erro}`;
+    } catch {
+      ssoTesteStatus = 'fail';
+      ssoTesteResultado = 'Erro ao testar a query.';
+    } finally {
+      ssoTestando = false;
+    }
+  }
+
   async function salvar() {
     validarSlug();
     if (slugErro) return;
@@ -80,6 +120,7 @@
         db_name: empresa.db_name,
         db_user: empresa.db_user,
         ativo:   empresa.ativo,
+        sso_query_acesso: empresa.sso_query_acesso ?? null,
       };
       // Only include db_pass if user typed a new value
       if (empresa.db_pass) {
@@ -177,6 +218,55 @@
         {/if}
       </section>
 
+      <section>
+        <h3>SSO Externo</h3>
+
+        <button
+          class="btn-ghost btn-test"
+          on:click={gerarSsoApiKey}
+          disabled={ssoGerando}
+        >
+          {ssoGerando ? 'Gerando...' : 'Gerar/Regenerar Chave de API'}
+        </button>
+
+        {#if ssoApiKeyGerada}
+          <p class="status-ok">
+            Chave gerada — copie agora, não será mostrada de novo:<br />
+            <code>{ssoApiKeyGerada}</code>
+          </p>
+        {/if}
+
+        <label>
+          Query de acesso (recebe $1 = codigo_usuario, devolve coluna painel_slug)
+          <textarea
+            bind:value={empresa.sso_query_acesso}
+            rows="4"
+            placeholder="SELECT painel_slug FROM minha_tabela WHERE codigo_usuario = $1"
+          ></textarea>
+        </label>
+
+        <div class="row">
+          <label style="flex:1">
+            Código de usuário de exemplo
+            <input bind:value={ssoTesteCodigoUsuario} placeholder="ex: user_123" />
+          </label>
+        </div>
+
+        <button
+          class="btn-ghost btn-test"
+          on:click={testarSsoAcesso}
+          disabled={ssoTestando || !empresa.sso_query_acesso || !ssoTesteCodigoUsuario}
+        >
+          {ssoTestando ? 'Testando...' : 'Testar Query'}
+        </button>
+
+        {#if ssoTesteStatus === 'ok'}
+          <p class="status-ok">✓ {ssoTesteResultado}</p>
+        {:else if ssoTesteStatus === 'fail'}
+          <p class="status-fail">✗ {ssoTesteResultado}</p>
+        {/if}
+      </section>
+
       {#if erro}<p class="error">{erro}</p>{/if}
 
       <div class="actions">
@@ -212,4 +302,5 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color:
 .status-fail { color: #f85149; font-size: 13px; padding: 8px 12px; background: #3d1a1a; border-radius: var(--radius); }
 .field-error { color: #f85149; font-size: 12px; }
 .muted { color: var(--muted); }
+textarea { font-family: monospace; font-size: 13px; padding: 8px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); resize: vertical; }
 </style>

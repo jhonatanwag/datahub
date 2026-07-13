@@ -91,6 +91,8 @@ export const api = {
     desativarEmpresa: (id)       => request(`/api/empresas/${id}`, { method: 'DELETE' }),
     reativarEmpresa:  (id)       => request(`/api/empresas/${id}/reativar`, { method: 'POST' }),
     testarConexao:    (data)     => request('/api/empresas/testar-conexao', { method: 'POST', body: JSON.stringify(data) }),
+    gerarSsoApiKey: (id) => request(`/api/empresas/${id}/sso-api-key`, { method: 'POST' }),
+    testarSsoAcesso: (data) => request('/api/empresas/testar-sso-acesso', { method: 'POST', body: JSON.stringify(data) }),
 
     uploadLogo: (id, formData) => {
         const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
