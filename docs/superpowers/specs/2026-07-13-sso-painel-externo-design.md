@@ -140,18 +140,21 @@ Passa a ramificar pelo claim `tipo` do payload do JWT:
 - ausente ou `"interno"` → comportamento de hoje, sem mudança (join com
   `usuarios` + `usuario_empresas`)
 - `"externo"` → não consulta `usuarios`. Checa blacklist por
-  `blacklist:externo:{jti}` (não por `user_id`, que não existe). Devolve um
-  dict no mesmo formato usado hoje, pra não quebrar código que já lê
-  `user["empresa_id"]` / `user["company_slug"]`:
+  `blacklist:externo:{jti}` (não por `user_id`, que não existe). Busca
+  `SELECT id, nome, slug FROM empresas WHERE id = $1 AND ativo = true` (mesma
+  re-validação de "empresa ainda ativa" que o fluxo interno já faz) e devolve
+  um dict no mesmo formato usado hoje, pra não quebrar código que já lê
+  `user["empresa_id"]` / `user["company_slug"]` — **com o nome real da
+  empresa**, não em branco, já que a topbar do frontend exibe esse campo:
   ```python
   {
       "id": None,
       "nome": None,
       "role": "externo",
       "tema": None,
-      "empresa_id": payload["empresa_id"],
-      "company_slug": payload["company_slug"],
-      "company_name": None,
+      "empresa_id": empresa["id"],
+      "company_slug": empresa["slug"],
+      "company_name": empresa["nome"],
       "codigo_usuario": payload["codigo_usuario"],
       "painel_slug": payload["painel_slug"],
   }
@@ -203,9 +206,24 @@ Nova/Editar Query).
    inválido — **não** redireciona pra `/login` (esse visitante nunca tem
    senha aqui)
 
-Nenhuma mudança em `/login`, `/selecionar-empresa` ou `+layout.svelte` — a
-sidebar/menu geral (`meu_menu`, `meu_dashboard`) continua sendo só pro fluxo
-interno; identidade externa nunca navega por ali, só abre o painel direto.
+Nenhuma mudança em `/login` ou `/selecionar-empresa`. Em `+layout.svelte`, uma
+única mudança obrigatória: adicionar `/sso` em `PUBLIC_ROUTES` — sem isso, o
+guard de autenticação do layout (que roda em toda rota fora dessa lista)
+redireciona pra `/login` antes mesmo da troca de token acontecer, já que
+nesse momento ainda não existe token no `localStorage`.
+
+Fora isso, a sidebar/topbar **não mudam de estrutura** — usuário externo vê a
+mesma casca visual de hoje (mesmo confirmado com o usuário: manter sidebar e
+menu como estão). Na prática, como `role` vem `"externo"` (não `"admin"`) e
+`meu_menu`/`meu_dashboard` não retornam nada pra um `usuario_id` inexistente
+(sempre `NULL` nas comparações), as seções "Meus Painéis" e "Admin" da
+sidebar simplesmente não aparecem (já são condicionais hoje,
+`{#if menuPaineis.length > 0}` / `{#if $isAdmin}`) — nenhuma lógica nova
+precisa ser adicionada pra isso. O nome/logo da empresa na topbar aparece
+normalmente, porque `company_name`/`company_slug` vêm preenchidos de verdade
+(ver seção de middleware). O botão "Sair" continua levando pra `/login`
+exatamente como já funciona hoje, sem tratamento especial para esse tipo de
+sessão.
 
 ## Fora de escopo
 
