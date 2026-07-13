@@ -36,6 +36,9 @@ export const api = {
 
     logout: () => request('/api/auth/logout', { method: 'POST' }),
 
+    ssoTrocar: (exchange) =>
+        request('/api/auth/sso/trocar', { method: 'POST', body: JSON.stringify({ exchange }) }),
+
     // Charts
     chart: (slug, params = {}) => {
         const p = new URLSearchParams(params);

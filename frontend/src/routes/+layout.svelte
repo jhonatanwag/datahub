@@ -6,7 +6,7 @@
   import { api } from '$lib/api.js';
   import '../app.css';
 
-  const PUBLIC_ROUTES = ['/login', '/selecionar-empresa'];
+  const PUBLIC_ROUTES = ['/login', '/selecionar-empresa', '/sso'];
 
   let sidebarOpen = true;
   let isMobile    = false;
