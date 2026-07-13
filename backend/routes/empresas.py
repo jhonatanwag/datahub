@@ -2,6 +2,8 @@ import os
 import asyncpg
 import aiofiles
 import aiofiles.os
+import bcrypt
+import secrets
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -155,6 +157,22 @@ async def reativar_empresa(id: int, user=Depends(require_admin)):
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     await query_meta("UPDATE empresas SET ativo = true WHERE id = $1", id)
     return {"ok": True}
+
+
+@router.post("/{id}/sso-api-key")
+async def gerar_sso_api_key(id: int, user=Depends(require_admin)):
+    rows = await query_meta("SELECT id FROM empresas WHERE id = $1", id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    api_key = secrets.token_urlsafe(32)
+    api_key_hash = bcrypt.hashpw(api_key.encode(), bcrypt.gensalt()).decode()
+
+    await query_meta(
+        "UPDATE empresas SET sso_api_key_hash = $1 WHERE id = $2",
+        api_key_hash, id
+    )
+    return {"api_key": api_key}
 
 
 @router.post("/{id}/logo")

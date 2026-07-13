@@ -29,7 +29,8 @@ CREATE TABLE empresas (
     db_user      VARCHAR(100) NOT NULL,
     db_pass      VARCHAR(100) NOT NULL,
     ativo        BOOLEAN DEFAULT true,
-    criado_em    TIMESTAMP DEFAULT NOW()
+    criado_em    TIMESTAMP DEFAULT NOW(),
+    sso_api_key_hash VARCHAR(255)
 );
 
 CREATE TABLE usuarios (
