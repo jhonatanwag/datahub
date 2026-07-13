@@ -1,55 +1,15 @@
-import asyncio
 import uuid
-import asyncpg
 import pytest
 from datetime import datetime, timezone
 from jose import jwt
 from config.settings import settings
 
-VIEW_NAME = "vw_datahub_sso_acesso"
-
-
-def _run(coro):
-    return asyncio.run(coro)
-
-
-async def _conn_alpha_admin():
-    return await asyncpg.connect(
-        host="postgres", port=5432, database="alpha_db",
-        user="postgres", password="postgres123",
-    )
-
-
-def _criar_view_acesso(codigo_usuario, painel_slug):
-    async def _go():
-        conn = await _conn_alpha_admin()
-        try:
-            await conn.execute(f"""
-                CREATE OR REPLACE VIEW {VIEW_NAME} AS
-                SELECT '{codigo_usuario}'::text AS codigo_usuario,
-                       '{painel_slug}'::text AS painel_slug
-            """)
-            await conn.execute(f"GRANT SELECT ON {VIEW_NAME} TO alpha_user")
-        finally:
-            await conn.close()
-    _run(_go())
-
-
-def _dropar_view_acesso():
-    async def _go():
-        conn = await _conn_alpha_admin()
-        try:
-            await conn.execute(f"DROP VIEW IF EXISTS {VIEW_NAME}")
-        finally:
-            await conn.close()
-    _run(_go())
-
 
 @pytest.fixture
 def sso_ambiente(client, auth_token):
-    """Cria empresa (alpha) com SSO habilitado + view de acesso liberando
-    um codigo_usuario/painel_slug específicos. Devolve os dados pra cada teste
-    montar seu próprio cenário, e limpa a view no final."""
+    """Cria empresa (alpha) com SSO habilitado (API key + sso_query_acesso)
+    e um painel de teste. Devolve os dados pra cada teste montar seu
+    próprio cenário."""
     empresas = client.get(
         "/api/empresas/", headers={"Authorization": f"Bearer {auth_token}"}
     ).json()
@@ -66,7 +26,31 @@ def sso_ambiente(client, auth_token):
     codigo_usuario = f"user_{sufixo}"
     painel_slug = f"painel_sso_teste_{sufixo}"
 
-    _criar_view_acesso(codigo_usuario, painel_slug)
+    # Query auto-contida (sem precisar de tabela/view real no banco da
+    # empresa): libera só esse codigo_usuario pra esse painel_slug.
+    sso_query_acesso = (
+        f"SELECT painel_slug FROM (VALUES ('{codigo_usuario}', '{painel_slug}')) "
+        f"AS t(codigo_usuario, painel_slug) WHERE codigo_usuario = $1"
+    )
+
+    empresa_atual = client.get(
+        f"/api/empresas/{alpha['id']}", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+    patch_res = client.patch(
+        f"/api/empresas/{alpha['id']}",
+        json={
+            "slug": empresa_atual["slug"],
+            "nome": empresa_atual["nome"],
+            "db_host": empresa_atual["db_host"],
+            "db_port": empresa_atual["db_port"],
+            "db_name": empresa_atual["db_name"],
+            "db_user": empresa_atual["db_user"],
+            "ativo": empresa_atual["ativo"],
+            "sso_query_acesso": sso_query_acesso,
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert patch_res.status_code == 200
 
     painel_res = client.post(
         "/api/paineis/",
@@ -85,7 +69,6 @@ def sso_ambiente(client, auth_token):
         "painel_id": painel_id,
     }
 
-    _dropar_view_acesso()
     client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
 
 

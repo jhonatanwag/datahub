@@ -12,6 +12,7 @@ from config.settings import settings
 from config.databases import query_meta, query_company
 from config.redis import get_redis
 from middleware.auth import get_current_user
+from services.sso import validar_empresa_sso, buscar_slugs_liberados
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 logger = logging.getLogger("datahub")
@@ -149,19 +150,7 @@ async def selecionar_empresa(body: SelecionarEmpresaInput):
 @router.post("/sso-painel")
 async def sso_painel(body: SsoPainelInput):
     try:
-        empresa_rows = await query_meta(
-            "SELECT id, slug, sso_api_key_hash FROM empresas WHERE slug = $1 AND ativo = true",
-            body.empresa_slug
-        )
-        if not empresa_rows:
-            raise HTTPException(status_code=401, detail="Credenciais inválidas")
-        empresa = dict(empresa_rows[0])
-
-        if not empresa["sso_api_key_hash"]:
-            raise HTTPException(status_code=401, detail="Credenciais inválidas")
-
-        if not bcrypt.checkpw(body.api_key.encode(), empresa["sso_api_key_hash"].encode()):
-            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        empresa = await validar_empresa_sso(body.empresa_slug, body.api_key)
 
         painel_rows = await query_meta(
             "SELECT id, slug FROM paineis WHERE slug = $1 AND empresa_id = $2 AND ativo = true",
@@ -170,22 +159,8 @@ async def sso_painel(body: SsoPainelInput):
         if not painel_rows:
             raise HTTPException(status_code=404, detail="Painel não encontrado")
 
-        try:
-            acesso_rows = await query_company(
-                empresa["slug"],
-                """
-                SELECT EXISTS (
-                    SELECT 1 FROM vw_datahub_sso_acesso
-                    WHERE codigo_usuario = $1 AND painel_slug = $2
-                ) AS tem_acesso
-                """,
-                body.codigo_usuario, body.painel_slug
-            )
-        except Exception as e:
-            logger.error(f"Erro ao verificar acesso SSO: {e}")
-            raise HTTPException(status_code=500, detail="Erro interno no servidor")
-
-        if not acesso_rows[0]["tem_acesso"]:
+        slugs_liberados = await buscar_slugs_liberados(empresa, body.codigo_usuario)
+        if body.painel_slug not in slugs_liberados:
             raise HTTPException(status_code=403, detail="Sem acesso a este painel")
 
         exchange_token = secrets.token_hex(32)

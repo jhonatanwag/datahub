@@ -115,7 +115,7 @@ WHERE table_name = 'queries'
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'empresas'
-  AND column_name = 'sso_api_key_hash';
+  AND column_name IN ('sso_api_key_hash', 'sso_query_acesso');
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -135,6 +135,9 @@ ALTER TABLE queries ADD COLUMN chart_valor_label VARCHAR(50);
 
 -- 2026-07-13 — hash da API key de SSO por empresa (app externo -> painel sem login)
 ALTER TABLE empresas ADD COLUMN sso_api_key_hash VARCHAR(255);
+
+-- 2026-07-13 — query configurável de acesso SSO por empresa (codigo_usuario -> lista de painel_slug)
+ALTER TABLE empresas ADD COLUMN sso_query_acesso TEXT;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

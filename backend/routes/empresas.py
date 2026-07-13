@@ -36,6 +36,7 @@ class EmpresaUpdate(BaseModel):
     db_user: str
     db_pass: str | None = None  # None = keep existing
     ativo: bool = True
+    sso_query_acesso: str | None = None
 
 
 class TestarConexaoInput(BaseModel):
@@ -82,7 +83,7 @@ async def testar_conexao(body: TestarConexaoInput, user=Depends(require_admin)):
 @router.get("/{id}")
 async def buscar_empresa(id: int, user=Depends(require_admin)):
     rows = await query_meta(
-        "SELECT id, slug, nome, db_host, db_port, db_name, db_user, ativo, criado_em FROM empresas WHERE id = $1",
+        "SELECT id, slug, nome, db_host, db_port, db_name, db_user, ativo, criado_em, sso_query_acesso FROM empresas WHERE id = $1",
         id
     )
     if not rows:
@@ -131,11 +132,13 @@ async def atualizar_empresa(id: int, body: EmpresaUpdate, user=Depends(require_a
             SET slug=$1, nome=$2, db_host=$3, db_port=$4, db_name=$5,
                 db_user=$6,
                 db_pass=COALESCE($7, db_pass),
-                ativo=$8
-            WHERE id=$9
+                ativo=$8,
+                sso_query_acesso=$9
+            WHERE id=$10
             RETURNING id, slug, nome, ativo
         """, body.slug, body.nome, body.db_host, body.db_port,
-            body.db_name, body.db_user, body.db_pass, body.ativo, id)
+            body.db_name, body.db_user, body.db_pass, body.ativo,
+            body.sso_query_acesso, id)
         return dict(rows[0])
     except asyncpg.UniqueViolationError:
         raise HTTPException(status_code=409, detail="Slug já está em uso")
