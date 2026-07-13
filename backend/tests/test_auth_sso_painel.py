@@ -149,6 +149,47 @@ def test_sso_painel_sem_acesso_na_view_retorna_403(client, sso_ambiente):
     assert res.status_code == 403
 
 
+def test_sso_meus_paineis_lista_paineis_liberados(client, sso_ambiente):
+    res = client.post(
+        "/api/auth/sso-meus-paineis",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+        },
+    )
+    assert res.status_code == 200
+    slugs = [p["slug"] for p in res.json()]
+    assert slugs == [sso_ambiente["painel_slug"]]
+    assert "redirect_url" not in res.json()
+    assert res.json()[0]["nome"] == "Painel SSO Teste"
+
+
+def test_sso_meus_paineis_codigo_sem_acesso_devolve_lista_vazia(client, sso_ambiente):
+    res = client.post(
+        "/api/auth/sso-meus-paineis",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": "codigo-sem-permissao-nenhuma",
+        },
+    )
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_sso_meus_paineis_api_key_errada_retorna_401(client, sso_ambiente):
+    res = client.post(
+        "/api/auth/sso-meus-paineis",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": "chave-errada-completamente",
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+        },
+    )
+    assert res.status_code == 401
+
+
 def test_sso_trocar_token_valido_emite_jwt_externo(client, sso_ambiente):
     handshake = client.post(
         "/api/auth/sso-painel",

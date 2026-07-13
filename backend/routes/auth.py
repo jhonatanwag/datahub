@@ -39,6 +39,12 @@ class SsoPainelInput(BaseModel):
     painel_slug: str
 
 
+class SsoMeusPaineisInput(BaseModel):
+    empresa_slug: str
+    api_key: str
+    codigo_usuario: str
+
+
 class SsoTrocarInput(BaseModel):
     exchange: str
 
@@ -179,6 +185,28 @@ async def sso_painel(body: SsoPainelInput):
         raise
     except Exception as e:
         logger.error(f"Erro no sso-painel: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
+
+@router.post("/sso-meus-paineis")
+async def sso_meus_paineis(body: SsoMeusPaineisInput):
+    try:
+        empresa = await validar_empresa_sso(body.empresa_slug, body.api_key)
+        slugs_liberados = await buscar_slugs_liberados(empresa, body.codigo_usuario)
+
+        if not slugs_liberados:
+            return []
+
+        rows = await query_meta(
+            "SELECT slug, nome, icone FROM paineis WHERE empresa_id = $1 AND slug = ANY($2::text[]) AND ativo = true",
+            empresa["id"], slugs_liberados
+        )
+        return [dict(r) for r in rows]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro no sso-meus-paineis: {e}")
         raise HTTPException(status_code=500, detail="Erro interno no servidor")
 
 
