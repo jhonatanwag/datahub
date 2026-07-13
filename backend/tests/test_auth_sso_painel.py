@@ -161,3 +161,46 @@ def test_sso_painel_sem_acesso_na_view_retorna_403(client, sso_ambiente):
         },
     )
     assert res.status_code == 403
+
+
+def test_sso_trocar_token_valido_emite_jwt_externo(client, sso_ambiente):
+    handshake = client.post(
+        "/api/auth/sso-painel",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+            "painel_slug": sso_ambiente["painel_slug"],
+        },
+    )
+    exchange = handshake.json()["redirect_url"].split("exchange=")[1]
+
+    res = client.post("/api/auth/sso/trocar", json={"exchange": exchange})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["painel_slug"] == sso_ambiente["painel_slug"]
+    assert len(body["token"]) > 20
+
+
+def test_sso_trocar_token_ja_usado_retorna_401(client, sso_ambiente):
+    handshake = client.post(
+        "/api/auth/sso-painel",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+            "painel_slug": sso_ambiente["painel_slug"],
+        },
+    )
+    exchange = handshake.json()["redirect_url"].split("exchange=")[1]
+
+    primeira = client.post("/api/auth/sso/trocar", json={"exchange": exchange})
+    assert primeira.status_code == 200
+
+    segunda = client.post("/api/auth/sso/trocar", json={"exchange": exchange})
+    assert segunda.status_code == 401
+
+
+def test_sso_trocar_token_invalido_retorna_401(client):
+    res = client.post("/api/auth/sso/trocar", json={"exchange": "token-que-nunca-existiu"})
+    assert res.status_code == 401

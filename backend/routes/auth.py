@@ -1,6 +1,7 @@
 import logging
 import secrets
 import json
+import uuid
 from typing import Literal
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -35,6 +36,10 @@ class SsoPainelInput(BaseModel):
     api_key: str
     codigo_usuario: str
     painel_slug: str
+
+
+class SsoTrocarInput(BaseModel):
+    exchange: str
 
 
 @router.post("/login")
@@ -199,6 +204,38 @@ async def sso_painel(body: SsoPainelInput):
         raise
     except Exception as e:
         logger.error(f"Erro no sso-painel: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
+
+@router.post("/sso/trocar")
+async def sso_trocar(body: SsoTrocarInput):
+    try:
+        redis = await get_redis()
+        raw = await redis.getdel(f"sso_exchange:{body.exchange}")
+        if not raw:
+            raise HTTPException(status_code=401, detail="Link inválido ou expirado")
+
+        dados = json.loads(raw)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+        token = jwt.encode(
+            {
+                "tipo": "externo",
+                "empresa_id": dados["empresa_id"],
+                "company_slug": dados["company_slug"],
+                "codigo_usuario": dados["codigo_usuario"],
+                "painel_slug": dados["painel_slug"],
+                "jti": str(uuid.uuid4()),
+                "exp": expire,
+            },
+            settings.JWT_SECRET,
+            algorithm="HS256",
+        )
+        return {"token": token, "token_type": "bearer", "painel_slug": dados["painel_slug"]}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao trocar token SSO: {e}")
         raise HTTPException(status_code=500, detail="Erro interno no servidor")
 
 
