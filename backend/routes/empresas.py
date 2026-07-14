@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from config.databases import query_meta, query_company
 from middleware.auth import require_admin
 from services.sso import validar_coluna_painel_slug
+from services.query_runner import validar_sql
 
 router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
 
@@ -133,6 +134,11 @@ async def atualizar_empresa(id: int, body: EmpresaUpdate, user=Depends(require_a
     rows = await query_meta("SELECT id FROM empresas WHERE id = $1", id)
     if not rows:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    if body.sso_query_acesso is not None:
+        try:
+            validar_sql(body.sso_query_acesso)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     try:
         rows = await query_meta("""
             UPDATE empresas
@@ -194,6 +200,7 @@ async def testar_sso_acesso(body: TestarSsoAcessoInput, user=Depends(require_adm
         return {"ok": False, "erro": f"Empresa #{body.empresa_id} não encontrada ou inativa"}
 
     try:
+        validar_sql(body.query)
         rows = await query_company(emp[0]["slug"], body.query, body.codigo_usuario)
         data = [dict(r) for r in rows]
         validar_coluna_painel_slug(data)

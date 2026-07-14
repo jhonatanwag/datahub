@@ -178,6 +178,89 @@ def test_sso_meus_paineis_codigo_sem_acesso_devolve_lista_vazia(client, sso_ambi
     assert res.json() == []
 
 
+def test_sso_meus_paineis_ignora_slug_estrangeiro_ou_inexistente(client, sso_ambiente, auth_token):
+    """A query configurada pela empresa pode (por erro do admin, dado
+    obsoleto, etc.) devolver um painel_slug que não existe de fato, ou que
+    pertence a outra empresa. O endpoint deve simplesmente omitir esse slug
+    da resposta, não devolver erro nem vazar dados de outro painel."""
+    slug_falso = f"slug_que_nao_existe_{uuid.uuid4().hex[:8]}"
+    query_com_slug_falso = (
+        f"SELECT painel_slug FROM (VALUES ('{sso_ambiente['codigo_usuario']}', '{sso_ambiente['painel_slug']}'), "
+        f"('{sso_ambiente['codigo_usuario']}', '{slug_falso}')) AS t(codigo_usuario, painel_slug) "
+        f"WHERE codigo_usuario = $1"
+    )
+
+    empresa_atual = client.get(
+        f"/api/empresas/{sso_ambiente['empresa_id']}",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ).json()
+    patch_res = client.patch(
+        f"/api/empresas/{sso_ambiente['empresa_id']}",
+        json={
+            "slug": empresa_atual["slug"],
+            "nome": empresa_atual["nome"],
+            "db_host": empresa_atual["db_host"],
+            "db_port": empresa_atual["db_port"],
+            "db_name": empresa_atual["db_name"],
+            "db_user": empresa_atual["db_user"],
+            "ativo": empresa_atual["ativo"],
+            "sso_query_acesso": query_com_slug_falso,
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert patch_res.status_code == 200
+
+    res = client.post(
+        "/api/auth/sso-meus-paineis",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+        },
+    )
+    assert res.status_code == 200
+    slugs = [p["slug"] for p in res.json()]
+    assert slugs == [sso_ambiente["painel_slug"]]
+    assert slug_falso not in slugs
+
+
+def test_sso_painel_com_apenas_api_key_sem_query_acesso_retorna_401(client, sso_ambiente, auth_token):
+    """'sso_ambiente' já deixa a empresa com api_key + sso_query_acesso
+    configurados; aqui removemos a query (mantendo a api_key) pra provar que
+    a trava 'os dois precisam estar configurados' de validar_empresa_sso
+    realmente exige ambos, não só a chave."""
+    empresa_atual = client.get(
+        f"/api/empresas/{sso_ambiente['empresa_id']}",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ).json()
+    patch_res = client.patch(
+        f"/api/empresas/{sso_ambiente['empresa_id']}",
+        json={
+            "slug": empresa_atual["slug"],
+            "nome": empresa_atual["nome"],
+            "db_host": empresa_atual["db_host"],
+            "db_port": empresa_atual["db_port"],
+            "db_name": empresa_atual["db_name"],
+            "db_user": empresa_atual["db_user"],
+            "ativo": empresa_atual["ativo"],
+            # sso_query_acesso omitido -> None -> limpa a coluna
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert patch_res.status_code == 200
+
+    res = client.post(
+        "/api/auth/sso-painel",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+            "painel_slug": sso_ambiente["painel_slug"],
+        },
+    )
+    assert res.status_code == 401
+
+
 def test_sso_meus_paineis_api_key_errada_retorna_401(client, sso_ambiente):
     res = client.post(
         "/api/auth/sso-meus-paineis",

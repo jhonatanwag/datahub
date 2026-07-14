@@ -103,3 +103,49 @@ def test_testar_sso_acesso_empresa_invalida_retorna_erro_sem_500(client, auth_to
     assert res.status_code == 200
     body = res.json()
     assert body["ok"] is False
+
+
+def test_patch_empresa_com_sso_query_acesso_sql_proibido_retorna_400(client, auth_token):
+    empresas = client.get(
+        "/api/empresas/", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+    alpha = next(e for e in empresas if e["slug"] == "alpha")
+    empresa_atual = client.get(
+        f"/api/empresas/{alpha['id']}", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+
+    res = client.patch(
+        f"/api/empresas/{alpha['id']}",
+        json={
+            "slug": empresa_atual["slug"],
+            "nome": empresa_atual["nome"],
+            "db_host": empresa_atual["db_host"],
+            "db_port": empresa_atual["db_port"],
+            "db_name": empresa_atual["db_name"],
+            "db_user": empresa_atual["db_user"],
+            "ativo": empresa_atual["ativo"],
+            "sso_query_acesso": "DROP TABLE empresas",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert res.status_code == 400
+
+
+def test_testar_sso_acesso_com_sql_proibido_retorna_erro_sem_500(client, auth_token):
+    empresas = client.get(
+        "/api/empresas/", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+    alpha = next(e for e in empresas if e["slug"] == "alpha")
+
+    res = client.post(
+        "/api/empresas/testar-sso-acesso",
+        json={
+            "empresa_id": alpha["id"],
+            "query": "DROP TABLE empresas",
+            "codigo_usuario": "teste_a",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is False

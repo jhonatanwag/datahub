@@ -1,5 +1,9 @@
 # SSO de painel para app externo — Implementation Plan
 
+> **⚠️ Superseded:** o contrato de acesso descrito aqui (view fixa `vw_datahub_sso_acesso`, 2 parâmetros `codigo_usuario`+`painel_slug`) foi substituído por
+> `docs/superpowers/specs/2026-07-13-sso-configuracao-empresa-design.md` — agora é uma query configurável por empresa (`empresas.sso_query_acesso`), recebendo só
+> `codigo_usuario` e devolvendo a lista de `painel_slug` liberados. Este documento fica só como registro histórico de como o feature original foi desenhado/planejado.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Permitir que um app externo (com seu próprio cadastro de usuários) abra um painel específico do DataHub direto pro navegador do usuário final, sem passar por `/login`, autenticando server-to-server com uma API key por empresa e validando o acesso contra uma view no banco da própria empresa.

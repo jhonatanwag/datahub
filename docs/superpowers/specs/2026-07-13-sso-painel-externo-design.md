@@ -1,5 +1,9 @@
 # Autenticação via API para app externo (SSO sem tela de login) — Design
 
+> **⚠️ Superseded:** o contrato de acesso descrito aqui (view fixa `vw_datahub_sso_acesso`, 2 parâmetros `codigo_usuario`+`painel_slug`) foi substituído por
+> `docs/superpowers/specs/2026-07-13-sso-configuracao-empresa-design.md` — agora é uma query configurável por empresa (`empresas.sso_query_acesso`), recebendo só
+> `codigo_usuario` e devolvendo a lista de `painel_slug` liberados. Este documento fica só como registro histórico de como o feature original foi desenhado/planejado.
+
 ## Contexto
 
 Hoje o único jeito de entrar no DataHub é `/login` (email + senha) →

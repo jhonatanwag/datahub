@@ -4,6 +4,7 @@ import bcrypt
 from typing import List
 from fastapi import HTTPException
 from config.databases import query_meta, query_company
+from services.query_runner import validar_sql
 
 logger = logging.getLogger("datahub")
 
@@ -47,6 +48,12 @@ async def buscar_slugs_liberados(empresa: dict, codigo_usuario: str) -> List[str
     """Roda a query_acesso configurada da empresa (banco da própria empresa,
     via query_company) e devolve a lista de painel_slug liberados pro
     codigo_usuario informado."""
+    try:
+        validar_sql(empresa["sso_query_acesso"])
+    except ValueError as e:
+        logger.error(f"sso_query_acesso da empresa {empresa['slug']} falhou validação: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
     try:
         rows = await query_company(empresa["slug"], empresa["sso_query_acesso"], codigo_usuario)
     except Exception as e:
