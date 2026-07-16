@@ -1,6 +1,6 @@
 <script>
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
   import { api } from '$lib/api.js';
   import KPICard        from '$lib/components/KPICard.svelte';
   import ChartPanel     from '$lib/components/ChartPanel.svelte';
@@ -70,7 +70,17 @@
     return tokens[val] ?? val;
   }
 
-  onMount(async () => {
+  async function carregarPainel() {
+    slug = $page.params.slug;
+    painel = null;
+    indicadores = [];
+    variaveis = [];
+    filtrosAtivos = {};
+    filtrosAbertos = false;
+    opcoesPorVariavel = {};
+    carregando = true;
+    erro = null;
+
     try {
       painel    = await api.buscarPainelPorSlug(slug);
       variaveis = await api.variaveisPainel(painel.id);
@@ -101,6 +111,10 @@
       erro = e.message;
       carregando = false;
     }
+  }
+
+  afterNavigate(() => {
+    carregarPainel();
   });
 
   async function carregarDados() {

@@ -29,8 +29,8 @@ async def get_current_user(
     if payload.get("tipo") == "externo":
         jti = payload.get("jti")
         codigo_usuario = payload.get("codigo_usuario")
-        painel_slug = payload.get("painel_slug")
-        if not jti or not codigo_usuario or not painel_slug:
+        paineis_liberados = payload.get("paineis_liberados")
+        if not jti or not codigo_usuario or paineis_liberados is None:
             raise HTTPException(status_code=401, detail="Token inválido")
 
         if await redis.get(f"blacklist:externo:{jti}"):
@@ -53,7 +53,7 @@ async def get_current_user(
             "company_slug": empresa["slug"],
             "company_name": empresa["nome"],
             "codigo_usuario": codigo_usuario,
-            "painel_slug": painel_slug,
+            "paineis_liberados": paineis_liberados,
         }
 
     user_id = payload.get("user_id")

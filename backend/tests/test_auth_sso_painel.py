@@ -72,14 +72,34 @@ def sso_ambiente(client, auth_token):
     client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
 
 
-def test_sso_painel_sucesso_devolve_redirect_url_com_exchange(client, sso_ambiente):
+def _patch_query_acesso(client, auth_token, empresa_id, nova_query):
+    empresa_atual = client.get(
+        f"/api/empresas/{empresa_id}", headers={"Authorization": f"Bearer {auth_token}"}
+    ).json()
+    patch_res = client.patch(
+        f"/api/empresas/{empresa_id}",
+        json={
+            "slug": empresa_atual["slug"],
+            "nome": empresa_atual["nome"],
+            "db_host": empresa_atual["db_host"],
+            "db_port": empresa_atual["db_port"],
+            "db_name": empresa_atual["db_name"],
+            "db_user": empresa_atual["db_user"],
+            "ativo": empresa_atual["ativo"],
+            "sso_query_acesso": nova_query,
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert patch_res.status_code == 200
+
+
+def test_sso_entrar_sucesso_devolve_redirect_url_com_exchange(client, sso_ambiente):
     res = client.post(
-        "/api/auth/sso-painel",
+        "/api/auth/sso-entrar",
         json={
             "empresa_slug": sso_ambiente["empresa_slug"],
             "api_key": sso_ambiente["api_key"],
             "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": sso_ambiente["painel_slug"],
         },
     )
     assert res.status_code == 200
@@ -87,66 +107,204 @@ def test_sso_painel_sucesso_devolve_redirect_url_com_exchange(client, sso_ambien
     assert "/sso?exchange=" in redirect_url
 
 
-def test_sso_painel_api_key_errada_retorna_401(client, sso_ambiente):
+def test_sso_entrar_api_key_errada_retorna_401(client, sso_ambiente):
     res = client.post(
-        "/api/auth/sso-painel",
+        "/api/auth/sso-entrar",
         json={
             "empresa_slug": sso_ambiente["empresa_slug"],
             "api_key": "chave-errada-completamente",
             "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": sso_ambiente["painel_slug"],
         },
     )
     assert res.status_code == 401
 
 
-def test_sso_painel_empresa_inexistente_retorna_401(client, sso_ambiente):
+def test_sso_entrar_empresa_inexistente_retorna_401(client, sso_ambiente):
     res = client.post(
-        "/api/auth/sso-painel",
+        "/api/auth/sso-entrar",
         json={
             "empresa_slug": "empresa-que-nao-existe",
             "api_key": sso_ambiente["api_key"],
             "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": sso_ambiente["painel_slug"],
         },
     )
     assert res.status_code == 401
 
 
-def test_sso_painel_slug_de_outra_empresa_retorna_404(client, sso_ambiente, auth_token):
-    empresas = client.get(
-        "/api/empresas/", headers={"Authorization": f"Bearer {auth_token}"}
-    ).json()
-    # A intenção do teste é usar um slug de painel que não pertence à "alpha"
-    # (nomeado com base em outra empresa qualquer só pra ser único); o nome
-    # da outra empresa em si não importa, então pegamos qualquer uma != alpha
-    # em vez de depender de uma empresa "beta" fixa que pode não existir no
-    # seed deste ambiente.
-    outra_empresa = next(e for e in empresas if e["slug"] != "alpha")
-
+def test_sso_entrar_codigo_sem_acesso_ainda_gera_sessao_mas_sem_paineis(client, sso_ambiente):
+    """codigo_usuario sem nenhum painel liberado ainda consegue entrar
+    (a query rodou e devolveu zero linhas, não é erro) -- só não vê nada
+    depois de trocar o token."""
     res = client.post(
-        "/api/auth/sso-painel",
-        json={
-            "empresa_slug": sso_ambiente["empresa_slug"],
-            "api_key": sso_ambiente["api_key"],
-            "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": f"painel-que-so-existe-em-outra-empresa-{outra_empresa['id']}",
-        },
-    )
-    assert res.status_code == 404
-
-
-def test_sso_painel_sem_acesso_na_view_retorna_403(client, sso_ambiente):
-    res = client.post(
-        "/api/auth/sso-painel",
+        "/api/auth/sso-entrar",
         json={
             "empresa_slug": sso_ambiente["empresa_slug"],
             "api_key": sso_ambiente["api_key"],
             "codigo_usuario": "codigo-sem-permissao-nenhuma",
-            "painel_slug": sso_ambiente["painel_slug"],
         },
     )
-    assert res.status_code == 403
+    assert res.status_code == 200
+    exchange = res.json()["redirect_url"].split("exchange=")[1]
+
+    token_res = client.post("/api/auth/sso/trocar", json={"exchange": exchange})
+    assert token_res.status_code == 200
+    token = token_res.json()["token"]
+
+    menu_res = client.get(
+        "/api/paineis/meu-menu", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert menu_res.status_code == 200
+    assert menu_res.json() == []
+
+    acesso_res = client.get(
+        f"/api/paineis/slug/{sso_ambiente['painel_slug']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert acesso_res.status_code == 403
+
+
+def test_sso_entrar_com_apenas_api_key_sem_query_acesso_retorna_401(client, sso_ambiente, auth_token):
+    """'sso_ambiente' já deixa a empresa com api_key + sso_query_acesso
+    configurados; aqui removemos a query (mantendo a api_key) pra provar que
+    a trava 'os dois precisam estar configurados' de validar_empresa_sso
+    realmente exige ambos, não só a chave."""
+    empresa_atual = client.get(
+        f"/api/empresas/{sso_ambiente['empresa_id']}",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ).json()
+    patch_res = client.patch(
+        f"/api/empresas/{sso_ambiente['empresa_id']}",
+        json={
+            "slug": empresa_atual["slug"],
+            "nome": empresa_atual["nome"],
+            "db_host": empresa_atual["db_host"],
+            "db_port": empresa_atual["db_port"],
+            "db_name": empresa_atual["db_name"],
+            "db_user": empresa_atual["db_user"],
+            "ativo": empresa_atual["ativo"],
+            # sso_query_acesso omitido -> None -> limpa a coluna
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert patch_res.status_code == 200
+
+    res = client.post(
+        "/api/auth/sso-entrar",
+        json={
+            "empresa_slug": sso_ambiente["empresa_slug"],
+            "api_key": sso_ambiente["api_key"],
+            "codigo_usuario": sso_ambiente["codigo_usuario"],
+        },
+    )
+    assert res.status_code == 401
+
+
+def test_sso_entrar_permite_navegar_entre_multiplos_paineis(client, sso_ambiente, auth_token):
+    """Depois de trocar o token, o usuário externo precisa conseguir acessar
+    QUALQUER painel da lista liberada -- não só um fixo -- e continuar
+    barrado de painéis fora da lista."""
+    sufixo = uuid.uuid4().hex[:8]
+    segundo_slug = f"painel_sso_teste2_{sufixo}"
+    painel_res = client.post(
+        "/api/paineis/",
+        json={"slug": segundo_slug, "nome": "Segundo Painel SSO", "empresa_id": sso_ambiente["empresa_id"]},
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert painel_res.status_code == 200
+    segundo_painel_id = painel_res.json()["id"]
+
+    try:
+        query_com_dois = (
+            f"SELECT painel_slug FROM (VALUES ('{sso_ambiente['codigo_usuario']}', '{sso_ambiente['painel_slug']}'), "
+            f"('{sso_ambiente['codigo_usuario']}', '{segundo_slug}')) AS t(codigo_usuario, painel_slug) "
+            f"WHERE codigo_usuario = $1"
+        )
+        _patch_query_acesso(client, auth_token, sso_ambiente["empresa_id"], query_com_dois)
+
+        entrar_res = client.post(
+            "/api/auth/sso-entrar",
+            json={
+                "empresa_slug": sso_ambiente["empresa_slug"],
+                "api_key": sso_ambiente["api_key"],
+                "codigo_usuario": sso_ambiente["codigo_usuario"],
+            },
+        )
+        assert entrar_res.status_code == 200
+        exchange = entrar_res.json()["redirect_url"].split("exchange=")[1]
+        token = client.post("/api/auth/sso/trocar", json={"exchange": exchange}).json()["token"]
+
+        res_um = client.get(
+            f"/api/paineis/slug/{sso_ambiente['painel_slug']}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert res_um.status_code == 200
+
+        res_dois = client.get(
+            f"/api/paineis/slug/{segundo_slug}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert res_dois.status_code == 200
+
+        res_fora = client.get(
+            "/api/paineis/slug/painel-que-nao-foi-autorizado",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert res_fora.status_code == 403
+
+        menu_res = client.get(
+            "/api/paineis/meu-menu", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert menu_res.status_code == 200
+        slugs_menu = {p["slug"] for p in menu_res.json()}
+        assert slugs_menu == {sso_ambiente["painel_slug"], segundo_slug}
+
+        dashboard_res = client.get(
+            "/api/paineis/meu-dashboard", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert dashboard_res.status_code == 200
+        slugs_dashboard = {p["slug"] for p in dashboard_res.json()}
+        assert slugs_dashboard == {sso_ambiente["painel_slug"], segundo_slug}
+    finally:
+        client.delete(f"/api/paineis/{segundo_painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+
+
+def test_sso_entrar_funciona_com_painel_global(client, sso_ambiente, auth_token):
+    sufixo = uuid.uuid4().hex[:8]
+    slug_global = f"painel_global_handshake_{sufixo}"
+    painel_res = client.post(
+        "/api/paineis/",
+        json={"slug": slug_global, "nome": "Painel Global Handshake", "empresa_id": None},
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert painel_res.status_code == 200
+    painel_id = painel_res.json()["id"]
+
+    try:
+        query_com_global = (
+            f"SELECT painel_slug FROM (VALUES ('{sso_ambiente['codigo_usuario']}', '{slug_global}')) "
+            f"AS t(codigo_usuario, painel_slug) WHERE codigo_usuario = $1"
+        )
+        _patch_query_acesso(client, auth_token, sso_ambiente["empresa_id"], query_com_global)
+
+        entrar_res = client.post(
+            "/api/auth/sso-entrar",
+            json={
+                "empresa_slug": sso_ambiente["empresa_slug"],
+                "api_key": sso_ambiente["api_key"],
+                "codigo_usuario": sso_ambiente["codigo_usuario"],
+            },
+        )
+        assert entrar_res.status_code == 200
+        exchange = entrar_res.json()["redirect_url"].split("exchange=")[1]
+        token = client.post("/api/auth/sso/trocar", json={"exchange": exchange}).json()["token"]
+
+        res = client.get(
+            f"/api/paineis/slug/{slug_global}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert res.status_code == 200
+    finally:
+        client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
 
 
 def test_sso_meus_paineis_lista_paineis_liberados(client, sso_ambiente):
@@ -178,6 +336,44 @@ def test_sso_meus_paineis_codigo_sem_acesso_devolve_lista_vazia(client, sso_ambi
     assert res.json() == []
 
 
+def test_sso_meus_paineis_inclui_painel_global(client, sso_ambiente, auth_token):
+    """Um painel global (empresa_id = NULL) precisa aparecer na lista igual a
+    um painel específico da empresa -- o filtro de empresa não pode excluir
+    os globais, mesmo padrão já usado no menu interno (paineis.py)."""
+    sufixo = uuid.uuid4().hex[:8]
+    slug_global = f"painel_global_teste_{sufixo}"
+    painel_res = client.post(
+        "/api/paineis/",
+        json={"slug": slug_global, "nome": "Painel Global Teste", "empresa_id": None},
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert painel_res.status_code == 200
+    painel_id = painel_res.json()["id"]
+
+    try:
+        query_com_global = (
+            f"SELECT painel_slug FROM (VALUES ('{sso_ambiente['codigo_usuario']}', '{sso_ambiente['painel_slug']}'), "
+            f"('{sso_ambiente['codigo_usuario']}', '{slug_global}')) AS t(codigo_usuario, painel_slug) "
+            f"WHERE codigo_usuario = $1"
+        )
+        _patch_query_acesso(client, auth_token, sso_ambiente["empresa_id"], query_com_global)
+
+        res = client.post(
+            "/api/auth/sso-meus-paineis",
+            json={
+                "empresa_slug": sso_ambiente["empresa_slug"],
+                "api_key": sso_ambiente["api_key"],
+                "codigo_usuario": sso_ambiente["codigo_usuario"],
+            },
+        )
+        assert res.status_code == 200
+        slugs = [p["slug"] for p in res.json()]
+        assert slug_global in slugs
+        assert sso_ambiente["painel_slug"] in slugs
+    finally:
+        client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+
+
 def test_sso_meus_paineis_ignora_slug_estrangeiro_ou_inexistente(client, sso_ambiente, auth_token):
     """A query configurada pela empresa pode (por erro do admin, dado
     obsoleto, etc.) devolver um painel_slug que não existe de fato, ou que
@@ -189,26 +385,7 @@ def test_sso_meus_paineis_ignora_slug_estrangeiro_ou_inexistente(client, sso_amb
         f"('{sso_ambiente['codigo_usuario']}', '{slug_falso}')) AS t(codigo_usuario, painel_slug) "
         f"WHERE codigo_usuario = $1"
     )
-
-    empresa_atual = client.get(
-        f"/api/empresas/{sso_ambiente['empresa_id']}",
-        headers={"Authorization": f"Bearer {auth_token}"},
-    ).json()
-    patch_res = client.patch(
-        f"/api/empresas/{sso_ambiente['empresa_id']}",
-        json={
-            "slug": empresa_atual["slug"],
-            "nome": empresa_atual["nome"],
-            "db_host": empresa_atual["db_host"],
-            "db_port": empresa_atual["db_port"],
-            "db_name": empresa_atual["db_name"],
-            "db_user": empresa_atual["db_user"],
-            "ativo": empresa_atual["ativo"],
-            "sso_query_acesso": query_com_slug_falso,
-        },
-        headers={"Authorization": f"Bearer {auth_token}"},
-    )
-    assert patch_res.status_code == 200
+    _patch_query_acesso(client, auth_token, sso_ambiente["empresa_id"], query_com_slug_falso)
 
     res = client.post(
         "/api/auth/sso-meus-paineis",
@@ -222,43 +399,6 @@ def test_sso_meus_paineis_ignora_slug_estrangeiro_ou_inexistente(client, sso_amb
     slugs = [p["slug"] for p in res.json()]
     assert slugs == [sso_ambiente["painel_slug"]]
     assert slug_falso not in slugs
-
-
-def test_sso_painel_com_apenas_api_key_sem_query_acesso_retorna_401(client, sso_ambiente, auth_token):
-    """'sso_ambiente' já deixa a empresa com api_key + sso_query_acesso
-    configurados; aqui removemos a query (mantendo a api_key) pra provar que
-    a trava 'os dois precisam estar configurados' de validar_empresa_sso
-    realmente exige ambos, não só a chave."""
-    empresa_atual = client.get(
-        f"/api/empresas/{sso_ambiente['empresa_id']}",
-        headers={"Authorization": f"Bearer {auth_token}"},
-    ).json()
-    patch_res = client.patch(
-        f"/api/empresas/{sso_ambiente['empresa_id']}",
-        json={
-            "slug": empresa_atual["slug"],
-            "nome": empresa_atual["nome"],
-            "db_host": empresa_atual["db_host"],
-            "db_port": empresa_atual["db_port"],
-            "db_name": empresa_atual["db_name"],
-            "db_user": empresa_atual["db_user"],
-            "ativo": empresa_atual["ativo"],
-            # sso_query_acesso omitido -> None -> limpa a coluna
-        },
-        headers={"Authorization": f"Bearer {auth_token}"},
-    )
-    assert patch_res.status_code == 200
-
-    res = client.post(
-        "/api/auth/sso-painel",
-        json={
-            "empresa_slug": sso_ambiente["empresa_slug"],
-            "api_key": sso_ambiente["api_key"],
-            "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": sso_ambiente["painel_slug"],
-        },
-    )
-    assert res.status_code == 401
 
 
 def test_sso_meus_paineis_api_key_errada_retorna_401(client, sso_ambiente):
@@ -275,12 +415,11 @@ def test_sso_meus_paineis_api_key_errada_retorna_401(client, sso_ambiente):
 
 def test_sso_trocar_token_valido_emite_jwt_externo(client, sso_ambiente):
     handshake = client.post(
-        "/api/auth/sso-painel",
+        "/api/auth/sso-entrar",
         json={
             "empresa_slug": sso_ambiente["empresa_slug"],
             "api_key": sso_ambiente["api_key"],
             "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": sso_ambiente["painel_slug"],
         },
     )
     exchange = handshake.json()["redirect_url"].split("exchange=")[1]
@@ -288,18 +427,17 @@ def test_sso_trocar_token_valido_emite_jwt_externo(client, sso_ambiente):
     res = client.post("/api/auth/sso/trocar", json={"exchange": exchange})
     assert res.status_code == 200
     body = res.json()
-    assert body["painel_slug"] == sso_ambiente["painel_slug"]
     assert len(body["token"]) > 20
+    assert "painel_slug" not in body
 
 
 def test_sso_trocar_token_ja_usado_retorna_401(client, sso_ambiente):
     handshake = client.post(
-        "/api/auth/sso-painel",
+        "/api/auth/sso-entrar",
         json={
             "empresa_slug": sso_ambiente["empresa_slug"],
             "api_key": sso_ambiente["api_key"],
             "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": sso_ambiente["painel_slug"],
         },
     )
     exchange = handshake.json()["redirect_url"].split("exchange=")[1]
@@ -318,12 +456,11 @@ def test_sso_trocar_token_invalido_retorna_401(client):
 
 def _token_externo(client, sso_ambiente):
     handshake = client.post(
-        "/api/auth/sso-painel",
+        "/api/auth/sso-entrar",
         json={
             "empresa_slug": sso_ambiente["empresa_slug"],
             "api_key": sso_ambiente["api_key"],
             "codigo_usuario": sso_ambiente["codigo_usuario"],
-            "painel_slug": sso_ambiente["painel_slug"],
         },
     )
     exchange = handshake.json()["redirect_url"].split("exchange=")[1]
@@ -341,7 +478,7 @@ def test_me_com_token_externo_devolve_empresa_real_e_codigo_usuario(client, sso_
     assert body["company_slug"] == "alpha"
     assert body["company_name"] == "Empresa Alpha Ltda"
     assert body["codigo_usuario"] == sso_ambiente["codigo_usuario"]
-    assert body["painel_slug"] == sso_ambiente["painel_slug"]
+    assert body["paineis_liberados"] == [sso_ambiente["painel_slug"]]
 
 
 def test_buscar_painel_por_slug_com_token_externo_de_outro_painel_retorna_403(client, sso_ambiente):

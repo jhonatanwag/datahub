@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { token } from '$lib/stores/auth.js';
+  import { token, usuario, empresaAtiva, menuPaineis } from '$lib/stores/auth.js';
   import { api } from '$lib/api.js';
 
   let erro = '';
@@ -14,7 +14,17 @@
     try {
       const res = await api.ssoTrocar(exchange);
       token.set(res.token);
-      goto(`/painel/${res.painel_slug}`);
+
+      const me = await api.me();
+      usuario.set(me);
+      empresaAtiva.set({
+        id: me.empresa_id, slug: me.company_slug,
+        nome: me.company_name,
+        logo_url: `/api/empresas/${me.empresa_id}/logo`
+      });
+      menuPaineis.set(await api.meuMenu());
+
+      goto('/');
     } catch {
       erro = 'Link inválido ou expirado.';
     }

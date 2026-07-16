@@ -43,6 +43,17 @@ class VariavelPainelInput(BaseModel):
 
 @router.get("/meu-menu")
 async def meu_menu(user=Depends(get_current_user)):
+    if user["role"] == "externo":
+        rows = await query_meta("""
+            SELECT id, slug, nome, icone, ordem_menu, empresa_id
+            FROM paineis
+            WHERE slug = ANY($1::text[])
+              AND ativo = true
+              AND (empresa_id = $2 OR empresa_id IS NULL)
+            ORDER BY ordem_menu
+        """, user["paineis_liberados"], user["empresa_id"])
+        return sorted([dict(r) for r in rows], key=lambda x: x["ordem_menu"])
+
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug)
             p.id, p.slug, p.nome, p.icone, p.ordem_menu, p.empresa_id
@@ -58,6 +69,18 @@ async def meu_menu(user=Depends(get_current_user)):
 
 @router.get("/meu-dashboard")
 async def meu_dashboard(user=Depends(get_current_user)):
+    if user["role"] == "externo":
+        rows = await query_meta("""
+            SELECT p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu,
+                (SELECT COUNT(*)::int FROM painel_indicadores pi WHERE pi.painel_id = p.id) AS total_indicadores
+            FROM paineis p
+            WHERE p.slug = ANY($1::text[])
+              AND p.ativo = true
+              AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
+            ORDER BY p.ordem_menu
+        """, user["paineis_liberados"], user["empresa_id"])
+        return sorted([dict(r) for r in rows], key=lambda x: x["ordem_menu"])
+
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug)
             p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu,
@@ -75,11 +98,11 @@ async def meu_dashboard(user=Depends(get_current_user)):
 @router.get("/slug/{slug}")
 async def buscar_painel_por_slug(slug: str, user=Depends(get_current_user)):
     if user["role"] == "externo":
-        if user["painel_slug"] != slug:
+        if slug not in user["paineis_liberados"]:
             raise HTTPException(403, "Sem acesso a este painel")
         rows = await query_meta("""
             SELECT * FROM paineis
-            WHERE slug = $1 AND empresa_id = $2 AND ativo = true
+            WHERE slug = $1 AND (empresa_id = $2 OR empresa_id IS NULL) AND ativo = true
         """, slug, user["empresa_id"])
         if not rows:
             raise HTTPException(404, "Painel não encontrado")
@@ -173,7 +196,7 @@ async def desativar_painel(painel_id: int, user=Depends(require_admin)):
 async def listar_indicadores(painel_id: int, user=Depends(get_current_user)):
     if user["role"] == "externo":
         painel_rows = await query_meta("SELECT slug FROM paineis WHERE id = $1", painel_id)
-        if not painel_rows or painel_rows[0]["slug"] != user["painel_slug"]:
+        if not painel_rows or painel_rows[0]["slug"] not in user["paineis_liberados"]:
             raise HTTPException(403, "Sem acesso a este painel")
 
     rows = await query_meta("""
@@ -234,7 +257,7 @@ async def remover_indicador(painel_id: int, indicador_id: int, user=Depends(requ
 async def listar_variaveis_painel(painel_id: int, user=Depends(get_current_user)):
     if user["role"] == "externo":
         painel_rows = await query_meta("SELECT slug FROM paineis WHERE id = $1", painel_id)
-        if not painel_rows or painel_rows[0]["slug"] != user["painel_slug"]:
+        if not painel_rows or painel_rows[0]["slug"] not in user["paineis_liberados"]:
             raise HTTPException(403, "Sem acesso a este painel")
 
     rows = await query_meta("""
@@ -312,7 +335,7 @@ async def renderizar_painel(
         raise HTTPException(404, "Painel não encontrado")
 
     if user["role"] == "externo":
-        if painel_rows[0]["slug"] != user["painel_slug"]:
+        if painel_rows[0]["slug"] not in user["paineis_liberados"]:
             raise HTTPException(403, "Sem acesso a este painel")
         filtros["codigo_usuario_externo"] = user["codigo_usuario"]
 

@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/stores';
-  import { token, usuario, empresaAtiva, isAdmin, logout } from '$lib/stores/auth.js';
+  import { token, usuario, empresaAtiva, menuPaineis, isAdmin, logout } from '$lib/stores/auth.js';
   import { api } from '$lib/api.js';
   import '../app.css';
 
@@ -47,10 +47,8 @@
     { href: '/configuracoes/usuarios',  label: 'Usuários',  icon: I.users    },
   ];
 
-  let menuPaineis = [];
-
   async function carregarMenu() {
-    try { menuPaineis = await api.meuMenu(); }
+    try { menuPaineis.set(await api.meuMenu()); }
     catch (e) { console.error('Erro ao carregar menu:', e); }
   }
 
@@ -127,6 +125,8 @@
     return $page.url.pathname === href || $page.url.pathname.startsWith(href + '/');
   }
 
+  $: isExterno = $usuario?.role === 'externo';
+  $: nomeExibido = $usuario?.nome ?? (isExterno ? `Usuário ${$usuario?.codigo_usuario ?? ''}` : '');
   $: collapsed = !isMobile && !sidebarOpen;
   $: tooltipAtivo = collapsed; // mostra title nos itens só quando colapsado
   $: if (typeof document !== 'undefined') {
@@ -182,9 +182,9 @@
           </li>
         {/each}
 
-        {#if menuPaineis.length > 0}
+        {#if $menuPaineis.length > 0}
           <li class="nav-section"><span class="nav-label">Meus Painéis</span></li>
-          {#each menuPaineis as painel}
+          {#each $menuPaineis as painel}
             <li class:active={isActive(`/painel/${painel.slug}`)}>
               <a href="/painel/{painel.slug}" title={tooltipAtivo ? painel.nome : null}>
                 <span class="nav-icon">{@html svg(I.chart)}</span>
@@ -232,7 +232,9 @@
             on:error={(e) => { e.target.style.display = 'none'; }}
           />
           <span class="empresa-nome">{$empresaAtiva?.nome ?? ''}</span>
-          <button class="btn-ghost btn-sm" on:click={trocarEmpresa}>Trocar empresa</button>
+          {#if !isExterno}
+            <button class="btn-ghost btn-sm" on:click={trocarEmpresa}>Trocar empresa</button>
+          {/if}
         </div>
 
         <button
@@ -245,8 +247,8 @@
         </button>
 
         <div class="topbar-user">
-          <span class="user-avatar">{$usuario?.nome?.charAt(0)?.toUpperCase() ?? '?'}</span>
-          <span class="user-nome">{$usuario?.nome ?? ''}</span>
+          <span class="user-avatar">{nomeExibido?.charAt(0)?.toUpperCase() ?? '?'}</span>
+          <span class="user-nome">{nomeExibido}</span>
         </div>
       </header>
 
