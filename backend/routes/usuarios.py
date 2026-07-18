@@ -20,8 +20,13 @@ class UsuarioInput(BaseModel):
     ativo: bool = True
 
 
+class VinculoEmpresa(BaseModel):
+    empresa_id: int
+    codigo_usuario_externo: str | None = None
+
+
 class VincularEmpresasInput(BaseModel):
-    empresa_ids: List[int]
+    vinculos: List[VinculoEmpresa]
 
 
 async def _hash_senha(senha: str) -> str:
@@ -120,12 +125,17 @@ async def vincular_empresas(id: int, body: VincularEmpresasInput, user=Depends(r
                 WHERE usuario_id = $1
                   AND empresa_id IN (SELECT id FROM empresas WHERE ativo = true)
             """, id)
-            for empresa_id in body.empresa_ids:
+            for vinculo in body.vinculos:
                 await conn.execute(
-                    "INSERT INTO usuario_empresas (usuario_id, empresa_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                    id, empresa_id
+                    """
+                    INSERT INTO usuario_empresas (usuario_id, empresa_id, codigo_usuario_externo)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (usuario_id, empresa_id)
+                    DO UPDATE SET codigo_usuario_externo = EXCLUDED.codigo_usuario_externo
+                    """,
+                    id, vinculo.empresa_id, vinculo.codigo_usuario_externo
                 )
-    return {"ok": True, "empresa_ids": body.empresa_ids}
+    return {"ok": True, "vinculos": [v.dict() for v in body.vinculos]}
 
 
 @router.get("/{id}/empresas")
@@ -134,7 +144,7 @@ async def listar_empresas_usuario(id: int, user=Depends(require_admin)):
     if not rows:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     empresas = await query_meta("""
-        SELECT e.id, e.slug, e.nome, e.ativo
+        SELECT e.id, e.slug, e.nome, e.ativo, ue.codigo_usuario_externo
         FROM empresas e
         JOIN usuario_empresas ue ON ue.empresa_id = e.id
         WHERE ue.usuario_id = $1 AND e.ativo = true

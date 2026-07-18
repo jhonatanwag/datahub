@@ -116,6 +116,10 @@ WHERE table_name = 'queries'
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'empresas'
   AND column_name IN ('sso_api_key_hash', 'sso_query_acesso');
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'usuario_empresas'
+  AND column_name = 'codigo_usuario_externo';
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -138,6 +142,10 @@ ALTER TABLE empresas ADD COLUMN sso_api_key_hash VARCHAR(255);
 
 -- 2026-07-13 — query configurável de acesso SSO por empresa (codigo_usuario -> lista de painel_slug)
 ALTER TABLE empresas ADD COLUMN sso_query_acesso TEXT;
+
+-- 2026-07-16 — código do usuário no sistema da empresa, por vínculo usuário+empresa
+-- (aplica o mesmo filtro codigo_usuario_externo do SSO pra usuários logados normalmente)
+ALTER TABLE usuario_empresas ADD COLUMN codigo_usuario_externo TEXT;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

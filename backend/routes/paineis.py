@@ -338,6 +338,8 @@ async def renderizar_painel(
         if painel_rows[0]["slug"] not in user["paineis_liberados"]:
             raise HTTPException(403, "Sem acesso a este painel")
         filtros["codigo_usuario_externo"] = user["codigo_usuario"]
+    elif user.get("codigo_usuario_externo"):
+        filtros["codigo_usuario_externo"] = user["codigo_usuario_externo"]
 
     indicadores = await query_meta("""
         SELECT pi.*, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada,

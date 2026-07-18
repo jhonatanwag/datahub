@@ -46,8 +46,9 @@ CREATE TABLE usuarios (
 );
 
 CREATE TABLE usuario_empresas (
-    usuario_id   INTEGER REFERENCES usuarios(id),
-    empresa_id   INTEGER REFERENCES empresas(id),
+    usuario_id             INTEGER REFERENCES usuarios(id),
+    empresa_id             INTEGER REFERENCES empresas(id),
+    codigo_usuario_externo TEXT,
     PRIMARY KEY  (usuario_id, empresa_id)
 );
 

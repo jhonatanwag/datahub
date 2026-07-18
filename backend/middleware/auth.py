@@ -65,7 +65,8 @@ async def get_current_user(
 
     rows = await query_meta("""
         SELECT u.id, u.nome, u.role, u.tema,
-               e.id AS empresa_id, e.slug AS company_slug, e.nome AS company_name
+               e.id AS empresa_id, e.slug AS company_slug, e.nome AS company_name,
+               ue.codigo_usuario_externo
         FROM usuarios u
         JOIN usuario_empresas ue ON ue.usuario_id = u.id
         JOIN empresas e ON e.id = ue.empresa_id

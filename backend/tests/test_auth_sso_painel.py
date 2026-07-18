@@ -3,6 +3,7 @@ import pytest
 from datetime import datetime, timezone
 from jose import jwt
 from config.settings import settings
+from conftest import hard_delete_painel
 
 
 @pytest.fixture
@@ -69,7 +70,7 @@ def sso_ambiente(client, auth_token):
         "painel_id": painel_id,
     }
 
-    client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+    hard_delete_painel(painel_id)
 
 
 def _patch_query_acesso(client, auth_token, empresa_id, nova_query):
@@ -265,7 +266,7 @@ def test_sso_entrar_permite_navegar_entre_multiplos_paineis(client, sso_ambiente
         slugs_dashboard = {p["slug"] for p in dashboard_res.json()}
         assert slugs_dashboard == {sso_ambiente["painel_slug"], segundo_slug}
     finally:
-        client.delete(f"/api/paineis/{segundo_painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+        hard_delete_painel(segundo_painel_id)
 
 
 def test_sso_entrar_funciona_com_painel_global(client, sso_ambiente, auth_token):
@@ -304,7 +305,7 @@ def test_sso_entrar_funciona_com_painel_global(client, sso_ambiente, auth_token)
         )
         assert res.status_code == 200
     finally:
-        client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+        hard_delete_painel(painel_id)
 
 
 def test_sso_meus_paineis_lista_paineis_liberados(client, sso_ambiente):
@@ -371,7 +372,7 @@ def test_sso_meus_paineis_inclui_painel_global(client, sso_ambiente, auth_token)
         assert slug_global in slugs
         assert sso_ambiente["painel_slug"] in slugs
     finally:
-        client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+        hard_delete_painel(painel_id)
 
 
 def test_sso_meus_paineis_ignora_slug_estrangeiro_ou_inexistente(client, sso_ambiente, auth_token):
@@ -564,7 +565,7 @@ def outro_painel(client, auth_token, sso_ambiente):
     try:
         yield painel_id
     finally:
-        client.delete(f"/api/paineis/{painel_id}", headers={"Authorization": f"Bearer {auth_token}"})
+        hard_delete_painel(painel_id)
 
 
 def test_listar_indicadores_com_token_externo_de_outro_painel_retorna_403(

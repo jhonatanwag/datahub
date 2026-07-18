@@ -108,8 +108,8 @@ export const api = {
     criarUsuario:      (data)            => request('/api/usuarios/', { method: 'POST', body: JSON.stringify(data) }),
     atualizarUsuario:  (id, data)        => request(`/api/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     desativarUsuario:  (id)              => request(`/api/usuarios/${id}`, { method: 'DELETE' }),
-    vincularEmpresas:  (id, empresa_ids) =>
-        request(`/api/usuarios/${id}/empresas`, { method: 'POST', body: JSON.stringify({ empresa_ids }) }),
+    vincularEmpresas:  (id, vinculos) =>
+        request(`/api/usuarios/${id}/empresas`, { method: 'POST', body: JSON.stringify({ vinculos }) }),
     listarEmpresasUsuario: (id)          => request(`/api/usuarios/${id}/empresas`),
 
     // Variáveis

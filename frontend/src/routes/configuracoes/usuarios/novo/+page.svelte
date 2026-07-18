@@ -9,6 +9,7 @@
   let role     = 'viewer';
   let empresasDisponiveis  = [];
   let empresasSelecionadas = new Set();
+  let codigosPorEmpresa    = {}; // { [empresaId]: string }
   let salvando = false;
   let erro     = '';
 
@@ -40,7 +41,11 @@
     salvando = true;
     try {
       const u = await api.criarUsuario({ nome, email, senha, role });
-      await api.vincularEmpresas(u.id, [...empresasSelecionadas]);
+      const vinculos = [...empresasSelecionadas].map(empresa_id => ({
+        empresa_id,
+        codigo_usuario_externo: codigosPorEmpresa[empresa_id]?.trim() || null
+      }));
+      await api.vincularEmpresas(u.id, vinculos);
       goto('/configuracoes/usuarios');
     } catch (e) {
       erro = e.message || 'Erro ao salvar usuário.';
@@ -82,14 +87,23 @@
     <fieldset>
       <legend>Empresas com acesso</legend>
       {#each empresasDisponiveis as empresa}
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            checked={empresasSelecionadas.has(empresa.id)}
-            on:change={() => toggleEmpresa(empresa.id)}
-          />
-          {empresa.nome}
-        </label>
+        <div class="empresa-vinculo">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              checked={empresasSelecionadas.has(empresa.id)}
+              on:change={() => toggleEmpresa(empresa.id)}
+            />
+            {empresa.nome}
+          </label>
+          {#if empresasSelecionadas.has(empresa.id)}
+            <input
+              class="codigo-input"
+              bind:value={codigosPorEmpresa[empresa.id]}
+              placeholder="Código de usuário nessa empresa (opcional)"
+            />
+          {/if}
+        </div>
       {/each}
       {#if empresasDisponiveis.length === 0}
         <p class="empty-msg">Nenhuma empresa disponível.</p>
@@ -120,6 +134,8 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color:
 fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
 legend { font-size: 13px; color: var(--muted); padding: 0 4px; }
 .checkbox-label { flex-direction: row; align-items: center; gap: 8px; cursor: pointer; color: var(--text); }
+.empresa-vinculo { display: flex; flex-direction: column; gap: 6px; }
+.codigo-input { margin-left: 26px; font-size: 13px; padding: 6px 10px; }
 .empty-msg { font-size: 12px; color: var(--muted); margin: 0; }
 .actions { display: flex; gap: 12px; justify-content: flex-end; }
 .error { color: var(--danger, #f85149); font-size: 13px; }

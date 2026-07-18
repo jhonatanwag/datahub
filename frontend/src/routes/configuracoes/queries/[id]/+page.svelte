@@ -346,6 +346,10 @@
             <strong>Exemplo — variável Seleção (dropdown, valor único):</strong><br>
             Adicione <code>$N</code> no SQL: <code>AND ($N::text IS NULL OR coluna = $N)</code> — sem <code>string_to_array</code>, pois só um valor é selecionado por vez.
           </p>
+          <p class="hint-block">
+            <strong>Filtro automático por usuário (<code>codigo_usuario_externo</code>):</strong><br>
+            Adicione um parâmetro <strong>manual</strong> (sem Variável do Painel vinculada) com o nome exato <code>codigo_usuario_externo</code>, na posição <code>$N</code> onde quiser usá-lo no SQL — ex: <code>WHERE usuario_id = $N</code>. O backend preenche esse valor sozinho (código do usuário da sessão SSO, ou o código vinculado ao usuário em Configurações → Usuários) e sempre ignora qualquer valor vindo da tela. Não expõe filtro nenhum pro usuário — fica invisível.
+          </p>
         {/if}
       </div>
 
