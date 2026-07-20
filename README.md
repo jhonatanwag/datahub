@@ -85,15 +85,22 @@ proxy de `/api/` para `backend:3001` internamente, então `backend` e
 no EasyPanel precisa ser `backend`** (é o hostname que o `nginx.conf`
 resolve).
 
-No serviço `postgres`, definir `POSTGRES_USER` e `POSTGRES_DB` como
-`datahub_user` / `datahub_meta` — a própria imagem cria o banco e o
-usuário na primeira subida.
+No serviço `postgres`, definir `POSTGRES_DB` como `datahub_meta`. Na
+prática, o `POSTGRES_USER` não costuma ficar como `datahub_user` — o
+deploy real neste projeto ficou só com a role padrão da imagem
+`postgres:16-alpine`, que é **`postgres`**. Confirme com `\du` dentro do
+terminal do serviço antes de assumir o nome da role.
 
 ### 2. Aplicar o schema no `datahub_meta`
 
 Com o serviço `postgres` no ar, rodar `scripts/init-meta-prod.sql` contra
-ele (via terminal do EasyPanel ou `psql` apontando pro serviço). Esse
-script só cria a estrutura — sem empresas de demo, sem usuário.
+ele (via terminal do EasyPanel ou `psql` apontando pro serviço):
+
+```bash
+psql -U postgres -d datahub_meta -f scripts/init-meta-prod.sql
+```
+
+Esse script só cria a estrutura — sem empresas de demo, sem usuário.
 
 **Importante se o banco `datahub_meta` já existe** (deploy anterior, banco
 já em uso): `init-meta-prod.sql` é um `CREATE TABLE` completo — só ajuda
@@ -105,8 +112,9 @@ abaixo antes de seguir pro passo 3.
 #### Deltas de schema pendentes (aplicar se o banco já existe)
 
 Rodar contra `datahub_meta` (via terminal do serviço `postgres` no
-EasyPanel ou `psql` apontando pro serviço) qualquer item abaixo cuja
-coluna ainda não exista. Verificar antes de aplicar:
+EasyPanel — `psql -U postgres -d datahub_meta` — ou `psql` externo
+apontando pro serviço) qualquer item abaixo cuja coluna ainda não exista.
+Verificar antes de aplicar:
 
 ```sql
 SELECT column_name FROM information_schema.columns
@@ -183,7 +191,7 @@ Passo manual no VPS, fora do repositório:
 | `META_DB_HOST` | `postgres` |
 | `META_DB_PORT` | `5432` |
 | `META_DB_NAME` | `datahub_meta` |
-| `META_DB_USER` | `datahub_user` |
+| `META_DB_USER` | `postgres` (role padrão da imagem — ver nota no passo 1) |
 | `META_DB_PASS` | senha definida no serviço `postgres` |
 
 **`frontend`:** não definir `VITE_API_URL` no build — fica vazio, e
