@@ -149,6 +149,34 @@
     </tbody>
   </table>
 
+  <div class="cards-mobile">
+    {#each dadosPaginados as row}
+      <div class="card-linha">
+        {#if mostrarAcoes && row[impressaoColuna]}
+          <button class="btn-ghost btn-sm card-acao" on:click={() => imprimir(row)} title="Imprimir">🖨</button>
+        {/if}
+        {#each colunasEfetivas as col}
+          <div class="card-campo">
+            <span class="card-rotulo">{col.label ?? col.key}</span>
+            <span
+              class="card-valor"
+              style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}
+            >
+              {#if col.key === 'status'}
+                <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>
+                {row[col.key]}
+              {:else if col.key === 'valor'}
+                {fmtValor(row[col.key])}
+              {:else}
+                {row[col.key] ?? '—'}
+              {/if}
+            </span>
+          </div>
+        {/each}
+      </div>
+    {/each}
+  </div>
+
   <div class="pagination">
     <button class="btn-ghost btn-sm" on:click={baixarCSV} disabled={dados.length === 0}>
       ⬇ CSV
@@ -194,4 +222,24 @@ tr:hover td { background: var(--surface2); }
 .btn-sm { font-size: 12px; padding: 4px 10px; }
 .tamanho-pagina { display: flex; align-items: center; gap: 6px; }
 .tamanho-pagina select { width: auto; padding: 4px 8px; }
+
+.cards-mobile { display: none; }
+
+@media (max-width: 768px) {
+  table { display: none; }
+  .cards-mobile { display: flex; flex-direction: column; gap: 10px; }
+  .card-linha {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card-acao { position: absolute; top: 8px; right: 8px; }
+  .card-campo { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .card-rotulo { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .card-valor { text-align: right; }
+}
 </style>
