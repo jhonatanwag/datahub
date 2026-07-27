@@ -55,9 +55,13 @@
 
   function corMeta(row) {
     if (!metaHabilitada || !metaColunaValor || !metaColunaInicio || !metaColunaFim) return null;
-    const valor  = Number(row[metaColunaValor]);
-    const inicio = Number(row[metaColunaInicio]);
-    const fim    = Number(row[metaColunaFim]);
+    const brutoValor  = row[metaColunaValor];
+    const brutoInicio = row[metaColunaInicio];
+    const brutoFim    = row[metaColunaFim];
+    if (brutoValor == null || brutoInicio == null || brutoFim == null) return null;
+    const valor  = Number(brutoValor);
+    const inicio = Number(brutoInicio);
+    const fim    = Number(brutoFim);
     if (Number.isNaN(valor) || Number.isNaN(inicio) || Number.isNaN(fim)) return null;
     return (valor >= inicio && valor <= fim) ? metaCorDentro : metaCorFora;
   }
