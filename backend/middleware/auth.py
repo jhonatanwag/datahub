@@ -37,7 +37,7 @@ async def get_current_user(
             raise HTTPException(status_code=401, detail="Token inválido ou sessão encerrada")
 
         empresa_rows = await query_meta(
-            "SELECT id, nome, slug FROM empresas WHERE id = $1 AND ativo = true",
+            "SELECT id, nome, slug, url_impressao_base FROM empresas WHERE id = $1 AND ativo = true",
             empresa_id
         )
         if not empresa_rows:
@@ -52,6 +52,7 @@ async def get_current_user(
             "empresa_id": empresa["id"],
             "company_slug": empresa["slug"],
             "company_name": empresa["nome"],
+            "url_impressao_base": empresa["url_impressao_base"],
             "codigo_usuario": codigo_usuario,
             "paineis_liberados": paineis_liberados,
         }
@@ -66,6 +67,7 @@ async def get_current_user(
     rows = await query_meta("""
         SELECT u.id, u.nome, u.role, u.tema,
                e.id AS empresa_id, e.slug AS company_slug, e.nome AS company_name,
+               e.url_impressao_base,
                ue.codigo_usuario_externo
         FROM usuarios u
         JOIN usuario_empresas ue ON ue.usuario_id = u.id
