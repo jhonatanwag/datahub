@@ -123,7 +123,7 @@ WHERE table_name = 'queries'
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'empresas'
-  AND column_name IN ('sso_api_key_hash', 'sso_query_acesso');
+  AND column_name IN ('sso_api_key_hash', 'sso_query_acesso', 'url_impressao_base');
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'usuario_empresas'
@@ -150,6 +150,9 @@ ALTER TABLE empresas ADD COLUMN sso_api_key_hash VARCHAR(255);
 
 -- 2026-07-13 — query configurável de acesso SSO por empresa (codigo_usuario -> lista de painel_slug)
 ALTER TABLE empresas ADD COLUMN sso_query_acesso TEXT;
+
+-- 2026-07-26 — URL base do sistema legado de impressão de relatórios, por empresa
+ALTER TABLE empresas ADD COLUMN url_impressao_base TEXT;
 
 -- 2026-07-16 — código do usuário no sistema da empresa, por vínculo usuário+empresa
 -- (aplica o mesmo filtro codigo_usuario_externo do SSO pra usuários logados normalmente)

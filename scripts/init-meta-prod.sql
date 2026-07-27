@@ -25,7 +25,8 @@ CREATE TABLE empresas (
     ativo        BOOLEAN DEFAULT true,
     criado_em    TIMESTAMP DEFAULT NOW(),
     sso_api_key_hash VARCHAR(255),
-    sso_query_acesso TEXT
+    sso_query_acesso TEXT,
+    url_impressao_base TEXT
 );
 
 CREATE TABLE usuarios (
