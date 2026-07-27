@@ -95,6 +95,12 @@ CREATE TABLE queries (
     impressao_habilitada  BOOLEAN DEFAULT false,
     impressao_caminho     TEXT,
     impressao_coluna      TEXT,
+    meta_habilitada    BOOLEAN DEFAULT false,
+    meta_coluna_valor  TEXT,
+    meta_coluna_inicio TEXT,
+    meta_coluna_fim    TEXT,
+    meta_cor_dentro    TEXT DEFAULT '#3fb950',
+    meta_cor_fora      TEXT DEFAULT '#f85149',
     UNIQUE (slug, empresa_id)
 );
 

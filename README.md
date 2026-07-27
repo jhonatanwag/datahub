@@ -119,7 +119,7 @@ Verificar antes de aplicar:
 ```sql
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'queries'
-  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor', 'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna');
+  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor', 'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna', 'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim', 'meta_cor_dentro', 'meta_cor_fora');
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'empresas'
@@ -149,6 +149,14 @@ ALTER TABLE queries ADD COLUMN chart_valor_label VARCHAR(50);
 ALTER TABLE queries ADD COLUMN impressao_habilitada BOOLEAN DEFAULT false;
 ALTER TABLE queries ADD COLUMN impressao_caminho TEXT;
 ALTER TABLE queries ADD COLUMN impressao_coluna TEXT;
+
+-- 2026-07-27 — coloração condicional de uma coluna por meta (início/fim), queries tipo table
+ALTER TABLE queries ADD COLUMN meta_habilitada BOOLEAN DEFAULT false;
+ALTER TABLE queries ADD COLUMN meta_coluna_valor TEXT;
+ALTER TABLE queries ADD COLUMN meta_coluna_inicio TEXT;
+ALTER TABLE queries ADD COLUMN meta_coluna_fim TEXT;
+ALTER TABLE queries ADD COLUMN meta_cor_dentro TEXT DEFAULT '#3fb950';
+ALTER TABLE queries ADD COLUMN meta_cor_fora TEXT DEFAULT '#f85149';
 
 -- 2026-07-13 — hash da API key de SSO por empresa (app externo -> painel sem login)
 ALTER TABLE empresas ADD COLUMN sso_api_key_hash VARCHAR(255);

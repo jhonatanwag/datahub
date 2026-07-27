@@ -28,6 +28,12 @@ class QueryInput(BaseModel):
     impressao_habilitada: bool = False
     impressao_caminho: Optional[str] = None
     impressao_coluna: Optional[str] = None
+    meta_habilitada: bool = False
+    meta_coluna_valor: Optional[str] = None
+    meta_coluna_inicio: Optional[str] = None
+    meta_coluna_fim: Optional[str] = None
+    meta_cor_dentro: Optional[str] = '#3fb950'
+    meta_cor_fora: Optional[str] = '#f85149'
     testar_empresa_id: Optional[int] = None
     testar_parametros: List[dict] = []  # [{nome, valor}] em ordem — só usado no /testar
 
@@ -50,6 +56,12 @@ class QueryUpdate(BaseModel):
     impressao_habilitada: Optional[bool] = None
     impressao_caminho: Optional[str] = None
     impressao_coluna: Optional[str] = None
+    meta_habilitada: Optional[bool] = None
+    meta_coluna_valor: Optional[str] = None
+    meta_coluna_inicio: Optional[str] = None
+    meta_coluna_fim: Optional[str] = None
+    meta_cor_dentro: Optional[str] = None
+    meta_cor_fora: Optional[str] = None
 
 
 class ParamInput(BaseModel):
@@ -231,9 +243,11 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
                 kpi_cor_fonte, kpi_cor_fundo, mapa_camada,
                 chart_fonte_tamanho, chart_truncar_label, chart_truncar_tamanho, chart_mostrar_valor,
-                chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna
+                chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna,
+                meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
+                meta_cor_dentro, meta_cor_fora
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -241,7 +255,10 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.chart_fonte_tamanho, body.chart_truncar_label,
             body.chart_truncar_tamanho, body.chart_mostrar_valor,
             body.chart_valor_label, body.impressao_habilitada,
-            body.impressao_caminho, body.impressao_coluna)
+            body.impressao_caminho, body.impressao_coluna,
+            body.meta_habilitada, body.meta_coluna_valor,
+            body.meta_coluna_inicio, body.meta_coluna_fim,
+            body.meta_cor_dentro, body.meta_cor_fora)
         return dict(rows[0])
     except HTTPException:
         raise
@@ -268,7 +285,9 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo',
             'kpi_cor_fonte', 'kpi_cor_fundo', 'mapa_camada',
             'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor',
-            'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna'
+            'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna',
+            'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim',
+            'meta_cor_dentro', 'meta_cor_fora'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
