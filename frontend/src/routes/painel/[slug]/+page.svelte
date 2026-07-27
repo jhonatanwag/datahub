@@ -7,6 +7,7 @@
   import DataTable      from '$lib/components/DataTable.svelte';
   import MapPanel       from '$lib/components/MapPanel.svelte';
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
+  import { empresaAtiva } from '$lib/stores/auth.js';
 
   let slug        = $page.params.slug;
   let painel      = null;
@@ -239,7 +240,17 @@
               />
 
             {:else if ind.query_tipo === 'table'}
-              <DataTable dados={ind.dados} titulo={ind.titulo || ind.query_slug} />
+              <DataTable
+                dados={ind.dados}
+                titulo={ind.titulo || ind.query_slug}
+                impressaoHabilitada={ind.impressao_habilitada}
+                impressaoUrlBase={
+                  ind.impressao_habilitada && $empresaAtiva?.url_impressao_base && ind.impressao_caminho
+                    ? `${$empresaAtiva.url_impressao_base}${ind.impressao_caminho}`
+                    : null
+                }
+                impressaoColuna={ind.impressao_coluna}
+              />
 
             {:else if ind.query_tipo === 'map'}
               <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} />

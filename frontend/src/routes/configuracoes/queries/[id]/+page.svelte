@@ -15,7 +15,8 @@
     mapa_camada: 'padrao',
     chart_fonte_tamanho: 12, chart_truncar_label: false,
     chart_truncar_tamanho: 15, chart_mostrar_valor: false,
-    chart_valor_label: ''
+    chart_valor_label: '',
+    impressao_habilitada: false, impressao_caminho: '', impressao_coluna: ''
   };
 
   // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
@@ -62,6 +63,9 @@
         chart_truncar_tamanho: q.chart_truncar_tamanho ?? 15,
         chart_mostrar_valor:   q.chart_mostrar_valor ?? false,
         chart_valor_label:     q.chart_valor_label || '',
+        impressao_habilitada: q.impressao_habilitada ?? false,
+        impressao_caminho:    q.impressao_caminho || '',
+        impressao_coluna:     q.impressao_coluna || '',
       };
       params = prms.map(p => ({ ...p, _testar_valor: '' }));
     } catch (e) {
@@ -147,6 +151,9 @@
         chart_truncar_tamanho: form.chart_truncar_tamanho,
         chart_mostrar_valor:   form.chart_mostrar_valor,
         chart_valor_label:     form.chart_valor_label,
+        impressao_habilitada: form.impressao_habilitada,
+        impressao_caminho:    form.impressao_caminho || null,
+        impressao_coluna:     form.impressao_coluna || null,
       });
       await api.salvarParametrosQuery(id, params.map(({ _testar_valor, ...p }) => p));
       goto('/configuracoes/queries');
@@ -242,6 +249,36 @@
               <option value="satelite">Satélite</option>
             </select>
           </label>
+        </div>
+      {/if}
+
+      {#if form.tipo === 'table'}
+        <div class="section-block">
+          <span class="section-title">Botão de Impressão</span>
+          <label class="check-inline">
+            <input type="checkbox" bind:checked={form.impressao_habilitada} />
+            Habilitar botão de impressão nesta tabela
+          </label>
+          {#if form.impressao_habilitada}
+            <label class="lbl">
+              Caminho do relatório (concatenado após a URL base da empresa)
+              <input type="text" bind:value={form.impressao_caminho} placeholder="relatorioPerda/Impressao.xhtml?uuid=" />
+            </label>
+            <label class="lbl">
+              Coluna com o UUID/link (teste a query pra ver as colunas disponíveis)
+              <select bind:value={form.impressao_coluna}>
+                <option value="">— selecione —</option>
+                {#each resultadoTeste?.colunas ?? (form.impressao_coluna ? [form.impressao_coluna] : []) as c}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+            </label>
+            <p class="hint-block">
+              A coluna escolhida fica oculta na tabela do painel — usada só pra montar o link. O link final é
+              <code>URL base da empresa + caminho acima + valor da coluna</code>. Sem URL base cadastrada na
+              empresa (Configurações → Empresas), o botão não aparece pra ela, mesmo com o recurso habilitado aqui.
+            </p>
+          {/if}
         </div>
       {/if}
 

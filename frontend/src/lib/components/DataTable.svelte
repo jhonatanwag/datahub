@@ -4,6 +4,9 @@
   export let colunas = [];
   export let dados   = [];
   export let titulo  = 'dados';
+  export let impressaoHabilitada = false;
+  export let impressaoUrlBase    = null;
+  export let impressaoColuna     = null;
 
   const TAMANHOS_PAGINA = [10, 50, 100, 500];
   let paginaAtual   = 1;
@@ -11,9 +14,18 @@
 
   // Queries dinâmicas não têm schema fixo — se o chamador não informar as
   // colunas, deriva a partir das chaves da primeira linha retornada.
-  $: colunasEfetivas = colunas.length > 0
+  $: colunasEfetivas = (colunas.length > 0
     ? colunas
-    : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : []);
+    : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : [])
+  ).filter(c => c.key !== impressaoColuna);
+
+  $: mostrarAcoes = impressaoHabilitada && !!impressaoUrlBase && !!impressaoColuna;
+
+  function imprimir(row) {
+    const valor = row[impressaoColuna];
+    if (!valor) return;
+    window.open(`${impressaoUrlBase}${valor}`, '_blank');
+  }
 
   $: totalPaginas = Math.max(1, Math.ceil(dados.length / tamanhoPagina));
   $: dadosPaginados = dados.slice(
@@ -87,6 +99,7 @@
         {#each colunasEfetivas as col}
           <th>{col.label ?? col.key}</th>
         {/each}
+        {#if mostrarAcoes}<th>Ações</th>{/if}
       </tr>
     </thead>
     <tbody>
@@ -104,6 +117,13 @@
               {/if}
             </td>
           {/each}
+          {#if mostrarAcoes}
+            <td>
+              {#if row[impressaoColuna]}
+                <button class="btn-ghost btn-sm" on:click={() => imprimir(row)} title="Imprimir">🖨</button>
+              {/if}
+            </td>
+          {/if}
         </tr>
       {/each}
     </tbody>

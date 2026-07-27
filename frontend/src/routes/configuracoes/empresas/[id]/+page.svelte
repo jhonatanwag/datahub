@@ -121,6 +121,7 @@
         db_user: empresa.db_user,
         ativo:   empresa.ativo,
         sso_query_acesso: empresa.sso_query_acesso ?? null,
+        url_impressao_base: empresa.url_impressao_base ?? null,
       };
       // Only include db_pass if user typed a new value
       if (empresa.db_pass) {
@@ -175,6 +176,10 @@
               on:error={(e) => { e.target.style.display = 'none'; }}
             />
           {/if}
+        </label>
+        <label>
+          URL base de impressão (opcional)
+          <input bind:value={empresa.url_impressao_base} placeholder="https://www.psosistemas.com.br:8443/NomeDaEmpresa/" />
         </label>
       </section>
 

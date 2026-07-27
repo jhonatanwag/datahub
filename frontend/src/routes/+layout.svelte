@@ -86,7 +86,8 @@
           empresaAtiva.set({
             id: me.empresa_id, slug: me.company_slug,
             nome: me.company_name,
-            logo_url: `/api/empresas/${me.empresa_id}/logo`
+            logo_url: `/api/empresas/${me.empresa_id}/logo`,
+            url_impressao_base: me.url_impressao_base ?? null
           });
         }
       } catch {

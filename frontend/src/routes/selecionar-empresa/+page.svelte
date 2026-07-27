@@ -35,7 +35,7 @@
       // Fetch full user profile (includes role from JWT-validated session)
       const me = await api.me();
       usuario.set(me);
-      empresaAtiva.set({ id: empresa.id, slug: empresa.slug, nome: empresa.nome, logo_url: empresa.logo_url });
+      empresaAtiva.set({ id: empresa.id, slug: empresa.slug, nome: empresa.nome, logo_url: empresa.logo_url, url_impressao_base: me.url_impressao_base ?? null });
       sessionStorage.removeItem('temp_user');
       goto('/');
     } catch {

@@ -9,6 +9,7 @@
   let db_name = '';
   let db_user = '';
   let db_pass = '';
+  let url_impressao_base = '';
   let logoFile    = null;
   let logoPreview = null;
 
@@ -86,7 +87,7 @@
     erro = '';
     salvando = true;
     try {
-      const empresa = await api.criarEmpresa({ slug, nome, db_host, db_port, db_name, db_user, db_pass });
+      const empresa = await api.criarEmpresa({ slug, nome, db_host, db_port, db_name, db_user, db_pass, url_impressao_base: url_impressao_base || null });
       if (logoFile) {
         const fd = new FormData();
         fd.append('file', logoFile);
@@ -127,6 +128,10 @@
         {#if logoPreview}
           <img class="logo-preview" src={logoPreview} alt="preview do logo" />
         {/if}
+      </label>
+      <label>
+        URL base de impressão (opcional)
+        <input bind:value={url_impressao_base} placeholder="https://www.psosistemas.com.br:8443/NomeDaEmpresa/" />
       </label>
     </section>
 
