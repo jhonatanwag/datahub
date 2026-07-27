@@ -24,7 +24,7 @@
   function imprimir(row) {
     const valor = row[impressaoColuna];
     if (!valor) return;
-    window.open(`${impressaoUrlBase}${valor}`, '_blank');
+    window.open(`${impressaoUrlBase}${valor}`, '_blank', 'noopener');
   }
 
   $: totalPaginas = Math.max(1, Math.ceil(dados.length / tamanhoPagina));

@@ -372,5 +372,6 @@ async def renderizar_painel(
 
     return {
         "painel": dict(painel_rows[0]),
-        "indicadores": resultado
+        "indicadores": resultado,
+        "url_impressao_base": user.get("url_impressao_base")
     }
