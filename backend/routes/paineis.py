@@ -344,7 +344,9 @@ async def renderizar_painel(
     indicadores = await query_meta("""
         SELECT pi.*, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada,
                q.chart_fonte_tamanho, q.chart_truncar_label, q.chart_truncar_tamanho, q.chart_mostrar_valor,
-               q.chart_valor_label, q.impressao_habilitada, q.impressao_caminho, q.impressao_coluna
+               q.chart_valor_label, q.impressao_habilitada, q.impressao_caminho, q.impressao_coluna,
+               q.meta_habilitada, q.meta_coluna_valor, q.meta_coluna_inicio, q.meta_coluna_fim,
+               q.meta_cor_dentro, q.meta_cor_fora
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
         WHERE pi.painel_id = $1
