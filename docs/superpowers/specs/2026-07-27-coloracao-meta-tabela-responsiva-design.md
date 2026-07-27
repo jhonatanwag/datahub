@@ -214,17 +214,28 @@ $: colunasEfetivas = (colunas.length > 0
 ```js
 function corMeta(row) {
   if (!metaHabilitada || !metaColunaValor || !metaColunaInicio || !metaColunaFim) return null;
-  const valor  = Number(row[metaColunaValor]);
-  const inicio = Number(row[metaColunaInicio]);
-  const fim    = Number(row[metaColunaFim]);
+  const brutoValor  = row[metaColunaValor];
+  const brutoInicio = row[metaColunaInicio];
+  const brutoFim    = row[metaColunaFim];
+  if (brutoValor == null || brutoInicio == null || brutoFim == null) return null;
+  const valor  = Number(brutoValor);
+  const inicio = Number(brutoInicio);
+  const fim    = Number(brutoFim);
   if (Number.isNaN(valor) || Number.isNaN(inicio) || Number.isNaN(fim)) return null;
   return (valor >= inicio && valor <= fim) ? metaCorDentro : metaCorFora;
 }
+
+function estiloMeta(row, col) {
+  if (col.key !== metaColunaValor) return '';
+  const cor = corMeta(row);
+  return cor ? `color:${cor}` : '';
+}
 ```
 
-Retorna `null` (sem estilo aplicado, cor padrão) nos casos de "sem meta" e
-"não numérico" — usado como `style="color: {corMeta(row) ?? 'inherit'}"` (ou
-omitindo o `style` quando `null`) na célula/linha correspondente à coluna
+Retorna `null` (sem estilo aplicado, cor padrão) nos casos de "sem meta",
+"valor ausente" e "não numérico" — usado através do helper `estiloMeta(row, col)`
+(que centraliza a checagem `col.key === metaColunaValor` e evita chamar
+`corMeta` duas vezes por célula) na célula/linha correspondente à coluna
 `metaColunaValor`, tanto na tabela desktop quanto no card mobile.
 
 ### Marcação — tabela desktop (ajuste na célula existente)
@@ -234,7 +245,7 @@ condicional na branch que já existe (sem criar uma branch nova — só aplicar
 `style` quando `col.key === metaColunaValor`):
 
 ```svelte
-<td style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}>
+<td style={estiloMeta(row, col)}>
   {#if col.key === 'status'}
     ...
   {:else if col.key === 'valor'}
@@ -261,7 +272,7 @@ Bloco novo, paralelo ao `<table>` existente, dentro do mesmo `.table-wrap`:
           <span class="card-rotulo">{col.label ?? col.key}</span>
           <span
             class="card-valor"
-            style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}
+            style={estiloMeta(row, col)}
           >
             {#if col.key === 'status'}
               <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>

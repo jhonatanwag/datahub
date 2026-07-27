@@ -604,11 +604,21 @@ Adicionar a função (perto de `fmtValor`/`STATUS_COLOR`):
 ```js
   function corMeta(row) {
     if (!metaHabilitada || !metaColunaValor || !metaColunaInicio || !metaColunaFim) return null;
-    const valor  = Number(row[metaColunaValor]);
-    const inicio = Number(row[metaColunaInicio]);
-    const fim    = Number(row[metaColunaFim]);
+    const brutoValor  = row[metaColunaValor];
+    const brutoInicio = row[metaColunaInicio];
+    const brutoFim    = row[metaColunaFim];
+    if (brutoValor == null || brutoInicio == null || brutoFim == null) return null;
+    const valor  = Number(brutoValor);
+    const inicio = Number(brutoInicio);
+    const fim    = Number(brutoFim);
     if (Number.isNaN(valor) || Number.isNaN(inicio) || Number.isNaN(fim)) return null;
     return (valor >= inicio && valor <= fim) ? metaCorDentro : metaCorFora;
+  }
+
+  function estiloMeta(row, col) {
+    if (col.key !== metaColunaValor) return '';
+    const cor = corMeta(row);
+    return cor ? `color:${cor}` : '';
   }
 ```
 
@@ -618,7 +628,7 @@ No `<tbody>`, no `<td>` de cada coluna (dentro do `{#each colunasEfetivas as col
 existente), adicionar o `style` condicional na tag já existente:
 
 ```svelte
-            <td style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}>
+            <td style={estiloMeta(row, col)}>
               {#if col.key === 'status'}
                 <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>
                 {row[col.key]}
@@ -717,7 +727,7 @@ Dentro do `.table-wrap`, logo depois do `</table>` de fechamento e antes da
             <span class="card-rotulo">{col.label ?? col.key}</span>
             <span
               class="card-valor"
-              style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}
+              style={estiloMeta(row, col)}
             >
               {#if col.key === 'status'}
                 <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>

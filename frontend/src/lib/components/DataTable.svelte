@@ -20,7 +20,10 @@
 
   // Queries dinâmicas não têm schema fixo — se o chamador não informar as
   // colunas, deriva a partir das chaves da primeira linha retornada.
-  $: colunasOcultas = new Set([impressaoColuna, metaColunaInicio, metaColunaFim].filter(Boolean));
+  $: colunasOcultas = new Set([
+    impressaoHabilitada ? impressaoColuna : null,
+    ...(metaHabilitada ? [metaColunaInicio, metaColunaFim] : []),
+  ].filter(Boolean));
   $: colunasEfetivas = (colunas.length > 0
     ? colunas
     : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : [])
@@ -64,6 +67,12 @@
     const fim    = Number(brutoFim);
     if (Number.isNaN(valor) || Number.isNaN(inicio) || Number.isNaN(fim)) return null;
     return (valor >= inicio && valor <= fim) ? metaCorDentro : metaCorFora;
+  }
+
+  function estiloMeta(row, col) {
+    if (col.key !== metaColunaValor) return '';
+    const cor = corMeta(row);
+    return cor ? `color:${cor}` : '';
   }
 
   function escaparCSV(valor) {
@@ -126,7 +135,7 @@
       {#each dadosPaginados as row}
         <tr>
           {#each colunasEfetivas as col}
-            <td style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}>
+            <td style={estiloMeta(row, col)}>
               {#if col.key === 'status'}
                 <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>
                 {row[col.key]}
@@ -160,7 +169,7 @@
             <span class="card-rotulo">{col.label ?? col.key}</span>
             <span
               class="card-valor"
-              style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}
+              style={estiloMeta(row, col)}
             >
               {#if col.key === 'status'}
                 <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>
@@ -238,8 +247,8 @@ tr:hover td { background: var(--surface2); }
     gap: 6px;
   }
   .card-acao { position: absolute; top: 8px; right: 8px; }
-  .card-campo { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
-  .card-rotulo { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-  .card-valor { text-align: right; }
+  .card-campo { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; align-items: baseline; }
+  .card-rotulo { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .card-valor { text-align: right; min-width: 0; overflow-wrap: anywhere; }
 }
 </style>
