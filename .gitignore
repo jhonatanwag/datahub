@@ -16,3 +16,6 @@ frontend/.svelte-kit/
 
 # Docker
 *.log
+
+# Worktrees
+.worktrees/
