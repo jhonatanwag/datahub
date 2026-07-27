@@ -160,7 +160,7 @@
 
   <div class="cards-mobile">
     {#each dadosPaginados as row}
-      <div class="card-linha">
+      <div class="card-linha" class:com-acao={mostrarAcoes && row[impressaoColuna]}>
         {#if mostrarAcoes && row[impressaoColuna]}
           <button class="btn-ghost btn-sm card-acao" on:click={() => imprimir(row)} title="Imprimir">🖨</button>
         {/if}
@@ -247,6 +247,7 @@ tr:hover td { background: var(--surface2); }
     gap: 6px;
   }
   .card-acao { position: absolute; top: 8px; right: 8px; }
+  .card-linha.com-acao { padding-right: 48px; }
   .card-campo { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; align-items: baseline; }
   .card-rotulo { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
   .card-valor { text-align: right; min-width: 0; overflow-wrap: anywhere; }
