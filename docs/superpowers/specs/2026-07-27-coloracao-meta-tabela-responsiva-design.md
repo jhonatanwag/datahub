@@ -200,7 +200,10 @@ export let metaCorFora       = '#f85149';
 Trocar o filtro atual de uma chave só por um conjunto:
 
 ```js
-$: colunasOcultas = new Set([impressaoColuna, metaColunaInicio, metaColunaFim].filter(Boolean));
+$: colunasOcultas = new Set([
+  impressaoHabilitada ? impressaoColuna : null,
+  ...(metaHabilitada ? [metaColunaInicio, metaColunaFim] : []),
+].filter(Boolean));
 $: colunasEfetivas = (colunas.length > 0
   ? colunas
   : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : [])
