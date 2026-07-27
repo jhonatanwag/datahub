@@ -251,6 +251,12 @@
                     : null
                 }
                 impressaoColuna={ind.impressao_coluna}
+                metaHabilitada={ind.meta_habilitada}
+                metaColunaValor={ind.meta_coluna_valor}
+                metaColunaInicio={ind.meta_coluna_inicio}
+                metaColunaFim={ind.meta_coluna_fim}
+                metaCorDentro={ind.meta_cor_dentro}
+                metaCorFora={ind.meta_cor_fora}
               />
 
             {:else if ind.query_tipo === 'map'}

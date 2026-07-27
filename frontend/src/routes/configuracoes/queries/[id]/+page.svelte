@@ -16,7 +16,9 @@
     chart_fonte_tamanho: 12, chart_truncar_label: false,
     chart_truncar_tamanho: 15, chart_mostrar_valor: false,
     chart_valor_label: '',
-    impressao_habilitada: false, impressao_caminho: '', impressao_coluna: ''
+    impressao_habilitada: false, impressao_caminho: '', impressao_coluna: '',
+    meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
+    meta_coluna_fim: '', meta_cor_dentro: '#3fb950', meta_cor_fora: '#f85149'
   };
 
   // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
@@ -66,6 +68,12 @@
         impressao_habilitada: q.impressao_habilitada ?? false,
         impressao_caminho:    q.impressao_caminho || '',
         impressao_coluna:     q.impressao_coluna || '',
+        meta_habilitada:    q.meta_habilitada ?? false,
+        meta_coluna_valor:  q.meta_coluna_valor || '',
+        meta_coluna_inicio: q.meta_coluna_inicio || '',
+        meta_coluna_fim:    q.meta_coluna_fim || '',
+        meta_cor_dentro:    q.meta_cor_dentro || '#3fb950',
+        meta_cor_fora:      q.meta_cor_fora || '#f85149',
       };
       params = prms.map(p => ({ ...p, _testar_valor: '' }));
     } catch (e) {
@@ -154,6 +162,12 @@
         impressao_habilitada: form.impressao_habilitada,
         impressao_caminho:    form.impressao_caminho || null,
         impressao_coluna:     form.impressao_coluna || null,
+        meta_habilitada:    form.meta_habilitada,
+        meta_coluna_valor:  form.meta_coluna_valor || null,
+        meta_coluna_inicio: form.meta_coluna_inicio || null,
+        meta_coluna_fim:    form.meta_coluna_fim || null,
+        meta_cor_dentro:    form.meta_cor_dentro,
+        meta_cor_fora:      form.meta_cor_fora,
       });
       await api.salvarParametrosQuery(id, params.map(({ _testar_valor, ...p }) => p));
       goto('/configuracoes/queries');
@@ -277,6 +291,66 @@
               A coluna escolhida fica oculta na tabela do painel — usada só pra montar o link. O link final é
               <code>URL base da empresa + caminho acima + valor da coluna</code>. Sem URL base cadastrada na
               empresa (Configurações → Empresas), o botão não aparece pra ela, mesmo com o recurso habilitado aqui.
+            </p>
+          {/if}
+        </div>
+      {/if}
+
+      {#if form.tipo === 'table'}
+        <div class="section-block">
+          <span class="section-title">Coloração por Meta</span>
+          <label class="check-inline">
+            <input type="checkbox" bind:checked={form.meta_habilitada} />
+            Colorir uma coluna conforme uma meta (início/fim)
+          </label>
+          {#if form.meta_habilitada}
+            <label class="lbl">
+              Coluna a colorir (continua visível na tabela)
+              <select bind:value={form.meta_coluna_valor}>
+                <option value="">— selecione —</option>
+                {#each resultadoTeste?.colunas ?? (form.meta_coluna_valor ? [form.meta_coluna_valor] : []) as c}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="lbl">
+              Coluna com o início da meta (fica oculta na tabela)
+              <select bind:value={form.meta_coluna_inicio}>
+                <option value="">— selecione —</option>
+                {#each resultadoTeste?.colunas ?? (form.meta_coluna_inicio ? [form.meta_coluna_inicio] : []) as c}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="lbl">
+              Coluna com o fim da meta (fica oculta na tabela)
+              <select bind:value={form.meta_coluna_fim}>
+                <option value="">— selecione —</option>
+                {#each resultadoTeste?.colunas ?? (form.meta_coluna_fim ? [form.meta_coluna_fim] : []) as c}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+            </label>
+            <div class="cores-row">
+              <label class="lbl">
+                Cor dentro da meta
+                <div class="color-pick">
+                  <input type="color" bind:value={form.meta_cor_dentro} />
+                  <input type="text"  bind:value={form.meta_cor_dentro} placeholder="#3fb950" style="width:90px" />
+                </div>
+              </label>
+              <label class="lbl">
+                Cor fora da meta
+                <div class="color-pick">
+                  <input type="color" bind:value={form.meta_cor_fora} />
+                  <input type="text"  bind:value={form.meta_cor_fora} placeholder="#f85149" style="width:90px" />
+                </div>
+              </label>
+            </div>
+            <p class="hint-block">
+              Se o valor da coluna escolhida estiver entre início e fim (incluindo os limites), o texto
+              fica na "cor dentro da meta"; fora disso, na "cor fora da meta". Linha sem meta definida ou
+              com valor não numérico fica com a cor padrão, sem indicar dentro/fora.
             </p>
           {/if}
         </div>

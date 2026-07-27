@@ -7,6 +7,12 @@
   export let impressaoHabilitada = false;
   export let impressaoUrlBase    = null;
   export let impressaoColuna     = null;
+  export let metaHabilitada    = false;
+  export let metaColunaValor   = null;
+  export let metaColunaInicio  = null;
+  export let metaColunaFim     = null;
+  export let metaCorDentro     = '#3fb950';
+  export let metaCorFora       = '#f85149';
 
   const TAMANHOS_PAGINA = [10, 50, 100, 500];
   let paginaAtual   = 1;
@@ -14,10 +20,11 @@
 
   // Queries dinâmicas não têm schema fixo — se o chamador não informar as
   // colunas, deriva a partir das chaves da primeira linha retornada.
+  $: colunasOcultas = new Set([impressaoColuna, metaColunaInicio, metaColunaFim].filter(Boolean));
   $: colunasEfetivas = (colunas.length > 0
     ? colunas
     : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : [])
-  ).filter(c => c.key !== impressaoColuna);
+  ).filter(c => !colunasOcultas.has(c.key));
 
   $: mostrarAcoes = impressaoHabilitada && !!impressaoUrlBase && !!impressaoColuna;
 
@@ -45,6 +52,15 @@
     pendente:  'var(--accent-orange)',
     cancelado: 'var(--accent)',
   };
+
+  function corMeta(row) {
+    if (!metaHabilitada || !metaColunaValor || !metaColunaInicio || !metaColunaFim) return null;
+    const valor  = Number(row[metaColunaValor]);
+    const inicio = Number(row[metaColunaInicio]);
+    const fim    = Number(row[metaColunaFim]);
+    if (Number.isNaN(valor) || Number.isNaN(inicio) || Number.isNaN(fim)) return null;
+    return (valor >= inicio && valor <= fim) ? metaCorDentro : metaCorFora;
+  }
 
   function escaparCSV(valor) {
     // Quebras de linha dentro de um campo (dado real vindo da fonte, ex:
@@ -106,7 +122,7 @@
       {#each dadosPaginados as row}
         <tr>
           {#each colunasEfetivas as col}
-            <td>
+            <td style={col.key === metaColunaValor && corMeta(row) ? `color:${corMeta(row)}` : ''}>
               {#if col.key === 'status'}
                 <span class="dot" style="background:{STATUS_COLOR[row[col.key]] ?? 'var(--muted)'}"></span>
                 {row[col.key]}
