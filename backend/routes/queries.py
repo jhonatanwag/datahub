@@ -25,6 +25,9 @@ class QueryInput(BaseModel):
     chart_truncar_tamanho: Optional[int] = 15
     chart_mostrar_valor: Optional[bool] = False
     chart_valor_label: Optional[str] = None
+    impressao_habilitada: bool = False
+    impressao_caminho: Optional[str] = None
+    impressao_coluna: Optional[str] = None
     testar_empresa_id: Optional[int] = None
     testar_parametros: List[dict] = []  # [{nome, valor}] em ordem — só usado no /testar
 
@@ -44,6 +47,9 @@ class QueryUpdate(BaseModel):
     chart_truncar_tamanho: Optional[int] = None
     chart_mostrar_valor: Optional[bool] = None
     chart_valor_label: Optional[str] = None
+    impressao_habilitada: Optional[bool] = None
+    impressao_caminho: Optional[str] = None
+    impressao_coluna: Optional[str] = None
 
 
 class ParamInput(BaseModel):
@@ -225,16 +231,17 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
                 kpi_cor_fonte, kpi_cor_fundo, mapa_camada,
                 chart_fonte_tamanho, chart_truncar_label, chart_truncar_tamanho, chart_mostrar_valor,
-                chart_valor_label
+                chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
             body.kpi_cor_fonte, body.kpi_cor_fundo, body.mapa_camada,
             body.chart_fonte_tamanho, body.chart_truncar_label,
             body.chart_truncar_tamanho, body.chart_mostrar_valor,
-            body.chart_valor_label)
+            body.chart_valor_label, body.impressao_habilitada,
+            body.impressao_caminho, body.impressao_coluna)
         return dict(rows[0])
     except HTTPException:
         raise
@@ -261,7 +268,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo',
             'kpi_cor_fonte', 'kpi_cor_fundo', 'mapa_camada',
             'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor',
-            'chart_valor_label'
+            'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna'
         }
         for k in updates:
             if k not in ALLOWED_COLS:

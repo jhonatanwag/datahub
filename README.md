@@ -119,7 +119,7 @@ Verificar antes de aplicar:
 ```sql
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'queries'
-  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor', 'chart_valor_label');
+  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor', 'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna');
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'empresas'
@@ -144,6 +144,11 @@ ALTER TABLE queries ADD COLUMN chart_mostrar_valor BOOLEAN DEFAULT false;
 
 -- 2026-07-08 — nome de exibição customizado pra série "valor" no gráfico
 ALTER TABLE queries ADD COLUMN chart_valor_label VARCHAR(50);
+
+-- 2026-07-26 — botão de impressão opcional em queries tipo table (link pro sistema legado de relatórios)
+ALTER TABLE queries ADD COLUMN impressao_habilitada BOOLEAN DEFAULT false;
+ALTER TABLE queries ADD COLUMN impressao_caminho TEXT;
+ALTER TABLE queries ADD COLUMN impressao_coluna TEXT;
 
 -- 2026-07-13 — hash da API key de SSO por empresa (app externo -> painel sem login)
 ALTER TABLE empresas ADD COLUMN sso_api_key_hash VARCHAR(255);
