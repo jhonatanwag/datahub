@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+import os
+import aiofiles
+import aiofiles.os
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta
 
 router = APIRouter(prefix="/api/paineis", tags=["Painéis"])
+
+IMAGENS_DIR = "/data/imagens_paineis"
+os.makedirs(IMAGENS_DIR, exist_ok=True)
 
 
 class PainelInput(BaseModel):
@@ -79,7 +86,7 @@ async def meu_dashboard(user=Depends(get_current_user)):
               AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
             ORDER BY p.ordem_menu
         """, user["paineis_liberados"], user["empresa_id"])
-        return sorted([dict(r) for r in rows], key=lambda x: x["ordem_menu"])
+        return sorted([{**dict(r), "imagem_url": f"/api/paineis/{r['id']}/imagem"} for r in rows], key=lambda x: x["ordem_menu"])
 
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug)
@@ -92,7 +99,7 @@ async def meu_dashboard(user=Depends(get_current_user)):
           AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
         ORDER BY p.slug, p.empresa_id NULLS LAST, p.ordem_menu
     """, user["id"], user["empresa_id"])
-    return sorted([dict(r) for r in rows], key=lambda x: x["ordem_menu"])
+    return sorted([{**dict(r), "imagem_url": f"/api/paineis/{r['id']}/imagem"} for r in rows], key=lambda x: x["ordem_menu"])
 
 
 @router.get("/slug/{slug}")
@@ -136,7 +143,7 @@ async def listar_paineis(user=Depends(get_current_user)):
             WHERE pu.usuario_id = $1 AND p.ativo = true
             ORDER BY p.ordem_menu, p.nome
         """, user["id"])
-    return [dict(r) for r in rows]
+    return [{**dict(r), "imagem_url": f"/api/paineis/{r['id']}/imagem"} for r in rows]
 
 
 @router.get("/{painel_id}")
@@ -144,7 +151,9 @@ async def buscar_painel(painel_id: int, user=Depends(get_current_user)):
     rows = await query_meta("SELECT * FROM paineis WHERE id = $1", painel_id)
     if not rows:
         raise HTTPException(404, "Painel não encontrado")
-    return dict(rows[0])
+    row = dict(rows[0])
+    row["imagem_url"] = f"/api/paineis/{painel_id}/imagem"
+    return row
 
 
 @router.post("/")
@@ -188,6 +197,25 @@ async def desativar_painel(painel_id: int, user=Depends(require_admin)):
     if not rows:
         raise HTTPException(404, "Painel não encontrado")
     return {"desativado": True, "slug": rows[0]["slug"]}
+
+
+@router.post("/{painel_id}/imagem")
+async def upload_imagem(painel_id: int, file: UploadFile = File(...), user=Depends(require_admin)):
+    rows = await query_meta("SELECT id FROM paineis WHERE id = $1", painel_id)
+    if not rows:
+        raise HTTPException(404, "Painel não encontrado")
+    content = await file.read()
+    async with aiofiles.open(f"{IMAGENS_DIR}/{painel_id}.png", "wb") as f:
+        await f.write(content)
+    return {"ok": True, "imagem_url": f"/api/paineis/{painel_id}/imagem"}
+
+
+@router.get("/{painel_id}/imagem")
+async def get_imagem(painel_id: int):
+    imagem_path = f"{IMAGENS_DIR}/{painel_id}.png"
+    if not await aiofiles.os.path.exists(imagem_path):
+        raise HTTPException(404, "Imagem não encontrada")
+    return FileResponse(imagem_path, media_type="image/png")
 
 
 # ── Indicadores do painel ─────────────────────────────────────

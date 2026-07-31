@@ -131,7 +131,7 @@
   }
 </script>
 
-<svelte:head><title>Nova Query — DataHub</title></svelte:head>
+<svelte:head><title>Nova Query — GPA Analytics</title></svelte:head>
 
 <div style="padding:24px; max-width:860px; margin:0 auto;">
   <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px;">

@@ -54,7 +54,7 @@
   }
 </script>
 
-<svelte:head><title>Selecionar Empresa — DataHub</title></svelte:head>
+<svelte:head><title>Selecionar Empresa — GPA Analytics</title></svelte:head>
 
 <div class="wrap">
   <div class="header">

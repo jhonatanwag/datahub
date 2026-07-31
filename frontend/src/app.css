@@ -1,18 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
 
 :root {
-  --bg:          #0d1117;
-  --surface:     #161b22;
-  --surface2:    #1c2128;
-  --border:      #21262d;
-  --text:        #e6edf3;
-  --muted:       #7d8590;
-  --accent:      #f78166;
-  --accent-blue: #79c0ff;
-  --accent-green:#56d364;
-  --danger:      #f85149;
-  --accent-purple:#d2a8ff;
-  --accent-orange:#ffa657;
+  --bg:          #071F15;
+  --surface:     #0F2E20;
+  --surface2:    #18412F;
+  --border:      #2B5A45;
+  --text:        #F3F8F5;
+  --muted:       #A4B7AE;
+  --accent:      #3DBE67;
+  --accent-blue: #2F80ED;
+  --accent-green:#54C571;
+  --danger:      #E25A52;
+  --accent-purple:#8B6FE8;
+  --accent-orange:#E89B3C;
   --font-display:'IBM Plex Mono', monospace;
   --font-body:   'Inter', sans-serif;
   --radius:      6px;
@@ -20,18 +20,18 @@
 }
 
 :root[data-theme="claro"] {
-  --bg:          #ffffff;
-  --surface:     #f6f8fa;
-  --surface2:    #eaeef2;
-  --border:      #d0d7de;
-  --text:        #1f2328;
-  --muted:       #656d76;
-  --accent:      #bc4c00;
-  --accent-blue: #0969da;
-  --accent-green:#1a7f37;
-  --danger:      #cf222e;
-  --accent-purple:#8250df;
-  --accent-orange:#9a6700;
+  --bg:          #F7FAF8;
+  --surface:     #FFFFFF;
+  --surface2:    #EDF5F0;
+  --border:      #D6E4DA;
+  --text:        #183126;
+  --muted:       #5F7268;
+  --accent:      #1F8F48;
+  --accent-blue: #1565C0;
+  --accent-green:#2E9E4F;
+  --danger:      #C63C3C;
+  --accent-purple:#6F42C1;
+  --accent-orange:#C97A14;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

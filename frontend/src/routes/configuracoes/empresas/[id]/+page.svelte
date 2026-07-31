@@ -142,7 +142,7 @@
   }
 </script>
 
-<svelte:head><title>Editar Empresa — DataHub</title></svelte:head>
+<svelte:head><title>Editar Empresa — GPA Analytics</title></svelte:head>
 
 <div class="page">
   <div class="page-header">

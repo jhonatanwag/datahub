@@ -55,7 +55,7 @@
   }
 </script>
 
-<svelte:head><title>Novo Usuário — DataHub</title></svelte:head>
+<svelte:head><title>Novo Usuário — GPA Analytics</title></svelte:head>
 
 <div class="page">
   <div class="page-header">

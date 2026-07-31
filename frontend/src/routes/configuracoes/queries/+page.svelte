@@ -74,7 +74,7 @@
   }
 </script>
 
-<svelte:head><title>Queries — DataHub</title></svelte:head>
+<svelte:head><title>Queries — GPA Analytics</title></svelte:head>
 
 <div style="padding:24px;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">

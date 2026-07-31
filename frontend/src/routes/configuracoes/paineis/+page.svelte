@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
 
   let paineis    = [];
   let carregando = true;
@@ -27,7 +27,7 @@
   }
 </script>
 
-<svelte:head><title>Painéis — DataHub</title></svelte:head>
+<svelte:head><title>Painéis — GPA Analytics</title></svelte:head>
 
 <div class="page">
   <div class="page-header">
@@ -45,15 +45,27 @@
     <div class="cards-grid">
       {#each paineis as p}
         <div class="card" class:inativo={!p.ativo}>
-          <div class="card-top">
-            <span class="card-nome">{p.nome}</span>
-            <span class="badge" class:ativo={p.ativo}>{p.ativo ? 'Ativo' : 'Inativo'}</span>
-          </div>
-          <div class="card-meta">
-            <span class="meta-item">slug: <code>{p.slug}</code></span>
-            <span class="meta-item">{p.colunas} colunas</span>
-            <span class="meta-item">{p.empresa_id ? `Empresa #${p.empresa_id}` : 'Global'}</span>
-            {#if p.descricao}<span class="meta-descricao">{p.descricao}</span>{/if}
+          <div class="card-main">
+            <div class="card-info">
+              <div class="card-top">
+                <span class="card-nome">{p.nome}</span>
+                <span class="badge" class:ativo={p.ativo}>{p.ativo ? 'Ativo' : 'Inativo'}</span>
+              </div>
+              <div class="card-meta">
+                <span class="meta-item">slug: <code>{p.slug}</code></span>
+                <span class="meta-item">{p.colunas} colunas</span>
+                <span class="meta-item">{p.empresa_id ? `Empresa #${p.empresa_id}` : 'Global'}</span>
+                {#if p.descricao}<span class="meta-descricao">{p.descricao}</span>{/if}
+              </div>
+            </div>
+            {#if p.imagem_url}
+              <img
+                class="card-imagem"
+                src={assetUrl(p.imagem_url)}
+                alt={p.nome}
+                on:error={(e) => { e.target.style.display = 'none'; }}
+              />
+            {/if}
           </div>
           <div class="card-actions">
             <a href="/painel/{p.slug}" class="btn-ghost btn-sm" target="_blank">Ver painel</a>
@@ -75,6 +87,9 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .card.inativo { opacity: .5; }
+.card-main { display: flex; gap: 12px; justify-content: space-between; }
+.card-info { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card-imagem { width: 88px; height: 64px; object-fit: contain; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; }
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
 .card-nome { font-size: 15px; font-weight: 600; color: var(--text); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--surface2); color: var(--muted); }

@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
 
   const id = $page.params.id;
 
@@ -17,6 +17,10 @@
   let indicadores          = [];
   let varSelecionadas      = [];
   let usuariosSelecionados = [];
+
+  let imagemUrl     = null;
+  let imagemFile    = null;
+  let imagemPreview = null;
 
   let queries    = [];
   let variaveis  = [];
@@ -51,6 +55,7 @@
         ativo:       painel.ativo,
         ordem_menu:  painel.ordem_menu,
       };
+      imagemUrl = painel.imagem_url;
 
       indicadores = inds.map(i => ({
         query_slug: i.query_slug,
@@ -94,6 +99,13 @@
 
   function removerIndicador(i) {
     indicadores = indicadores.filter((_, idx) => idx !== i);
+  }
+
+  function onImagemChange(e) {
+    imagemFile = e.target.files[0];
+    if (imagemFile) {
+      imagemPreview = URL.createObjectURL(imagemFile);
+    }
   }
 
   function moverIndicador(i, direcao) {
@@ -148,6 +160,11 @@
         ativo:       form.ativo,
         ordem_menu:  form.ordem_menu,
       });
+      if (imagemFile) {
+        const fd = new FormData();
+        fd.append('file', imagemFile);
+        await api.uploadImagemPainel(id, fd);
+      }
       await api.salvarIndicadores(id, indicadores);
       await api.salvarVariaveisPainel(id, varSelecionadas);
       await api.salvarUsuariosPainel(id, usuariosSelecionados);
@@ -160,7 +177,7 @@
   }
 </script>
 
-<svelte:head><title>Editar Painel — DataHub</title></svelte:head>
+<svelte:head><title>Editar Painel — GPA Analytics</title></svelte:head>
 
 <div class="page">
   <div class="page-header">
@@ -202,6 +219,21 @@
         <div class="field">
           <label>Descrição</label>
           <input type="text" bind:value={form.descricao} placeholder="Opcional" />
+        </div>
+        <div class="field">
+          <label>Imagem (opcional)</label>
+          <input type="file" accept="image/*" on:change={onImagemChange} />
+          <span class="hint">Aparece no card do painel na tela de Painéis</span>
+          {#if imagemPreview}
+            <img class="imagem-preview" src={imagemPreview} alt="preview da imagem" />
+          {:else if imagemUrl}
+            <img
+              class="imagem-preview"
+              src={assetUrl(imagemUrl)}
+              alt={form.nome}
+              on:error={(e) => { e.target.style.display = 'none'; }}
+            />
+          {/if}
         </div>
         <div class="field">
           <label>Empresa</label>
@@ -409,6 +441,7 @@ input, select { background: var(--surface2); border: 1px solid var(--border); bo
 .radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); text-transform: none; letter-spacing: 0; font-weight: 400; cursor: pointer; }
 .check-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .hint { font-size: 11px; color: var(--muted); }
+.imagem-preview { width: 120px; height: 80px; object-fit: contain; background: var(--surface2); border-radius: 6px; margin-top: 8px; border: 1px solid var(--border); }
 
 .ind-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .ind-editor { display: flex; flex-direction: column; gap: 12px; }

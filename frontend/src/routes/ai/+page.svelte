@@ -14,7 +14,7 @@
   });
 </script>
 
-<svelte:head><title>IA / Chat — DataHub</title></svelte:head>
+<svelte:head><title>IA / Chat — GPA Analytics</title></svelte:head>
 
 <div style="padding:24px; max-width:800px; margin:0 auto;">
   <h2 style="margin-bottom:20px; font-family:var(--font-display); color:var(--accent-blue)">Assistente de Analytics</h2>

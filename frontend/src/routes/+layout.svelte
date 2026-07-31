@@ -159,7 +159,7 @@
       <!-- Header -->
       <div class="sidebar-header">
         {#if !collapsed}
-          <span class="logo">DataHub</span>
+          <span class="logo">GPA Analytics</span>
         {/if}
         <button
           class="icon-btn toggle-btn"

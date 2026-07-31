@@ -15,6 +15,9 @@
   let varSelecionadas    = [];
   let usuariosSelecionados = [];
 
+  let imagemFile    = null;
+  let imagemPreview = null;
+
   let queries    = [];
   let variaveis  = [];
   let usuarios   = [];
@@ -56,6 +59,13 @@
     indicadores = indicadores.filter((_, idx) => idx !== i);
   }
 
+  function onImagemChange(e) {
+    imagemFile = e.target.files[0];
+    if (imagemFile) {
+      imagemPreview = URL.createObjectURL(imagemFile);
+    }
+  }
+
   function toggleVariavel(v) {
     const idx = varSelecionadas.findIndex(s => s.variavel_id === v.id);
     if (idx >= 0) {
@@ -86,6 +96,11 @@
     salvando = true;
     try {
       const painel = await api.criarPainel(form);
+      if (imagemFile) {
+        const fd = new FormData();
+        fd.append('file', imagemFile);
+        await api.uploadImagemPainel(painel.id, fd);
+      }
       if (indicadores.length > 0) {
         await api.salvarIndicadores(painel.id, indicadores);
       }
@@ -104,7 +119,7 @@
   }
 </script>
 
-<svelte:head><title>Novo Painel — DataHub</title></svelte:head>
+<svelte:head><title>Novo Painel — GPA Analytics</title></svelte:head>
 
 <div class="page">
   <div class="page-header">
@@ -147,6 +162,14 @@
         <div class="field">
           <label>Descrição</label>
           <input type="text" bind:value={form.descricao} placeholder="Opcional" />
+        </div>
+        <div class="field">
+          <label>Imagem (opcional)</label>
+          <input type="file" accept="image/*" on:change={onImagemChange} />
+          <span class="hint">Aparece no card do painel na tela de Painéis</span>
+          {#if imagemPreview}
+            <img class="imagem-preview" src={imagemPreview} alt="preview da imagem" />
+          {/if}
         </div>
         <div class="field">
           <label>Empresa</label>
@@ -323,6 +346,7 @@ input, select { background: var(--surface2); border: 1px solid var(--border); bo
 .radio-group { display: flex; gap: 16px; align-items: center; }
 .radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); text-transform: none; letter-spacing: 0; font-weight: 400; cursor: pointer; }
 .hint { font-size: 11px; color: var(--muted); }
+.imagem-preview { width: 120px; height: 80px; object-fit: contain; background: var(--surface2); border-radius: 6px; margin-top: 8px; border: 1px solid var(--border); }
 
 .ind-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .ind-editor { display: flex; flex-direction: column; gap: 12px; }

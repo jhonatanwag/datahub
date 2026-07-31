@@ -142,7 +142,7 @@
   }
 </script>
 
-<svelte:head><title>{painel?.nome ?? 'Painel'} — DataHub</title></svelte:head>
+<svelte:head><title>{painel?.nome ?? 'Painel'} — GPA Analytics</title></svelte:head>
 
 <div class="painel-page">
   {#if erro && !painel}

@@ -1,5 +1,9 @@
 const BASE = import.meta.env.VITE_API_URL || '';
 
+export function assetUrl(path) {
+    return path ? `${BASE}${path}` : path;
+}
+
 async function request(path, options = {}) {
     const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
     const res = await fetch(`${BASE}${path}`, {
@@ -130,6 +134,14 @@ export const api = {
     criarPainel:            (d)         => request('/api/paineis/', { method: 'POST', body: JSON.stringify(d) }),
     atualizarPainel:        (id, d)     => request(`/api/paineis/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
     desativarPainel:        (id)        => request(`/api/paineis/${id}`, { method: 'DELETE' }),
+    uploadImagemPainel: (id, formData) => {
+        const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+        return fetch(`${BASE}/api/paineis/${id}/imagem`, {
+            method: 'POST',
+            headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+            body: formData,
+        }).then(r => r.json());
+    },
 
     // Indicadores do painel
     indicadoresPainel:      (id)        => request(`/api/paineis/${id}/indicadores`),

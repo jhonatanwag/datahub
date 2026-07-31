@@ -32,7 +32,7 @@
   });
 </script>
 
-<svelte:head><title>Entrando... — DataHub</title></svelte:head>
+<svelte:head><title>Entrando... — GPA Analytics</title></svelte:head>
 
 <div class="wrap">
   {#if erro}

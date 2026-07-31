@@ -1,10 +1,10 @@
 <script>
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
 
   const carregarPaineis = api.meuDashboard();
 </script>
 
-<svelte:head><title>Dashboard — DataHub</title></svelte:head>
+<svelte:head><title>Dashboard — GPA Analytics</title></svelte:head>
 
 <div class="page">
   <div class="page-header">
@@ -32,13 +32,23 @@
         {#each paineis as p}
           <div class="card painel-card">
             <div class="card-body">
-              <h3 class="painel-nome">{p.nome}</h3>
-              {#if p.descricao}
-                <p class="painel-desc">{p.descricao}</p>
+              <div class="card-text">
+                <h3 class="painel-nome">{p.nome}</h3>
+                {#if p.descricao}
+                  <p class="painel-desc">{p.descricao}</p>
+                {/if}
+                <span class="badge-ind">
+                  {p.total_indicadores} {p.total_indicadores === 1 ? 'indicador' : 'indicadores'}
+                </span>
+              </div>
+              {#if p.imagem_url}
+                <img
+                  class="painel-imagem"
+                  src={assetUrl(p.imagem_url)}
+                  alt={p.nome}
+                  on:error={(e) => { e.target.style.display = 'none'; }}
+                />
               {/if}
-              <span class="badge-ind">
-                {p.total_indicadores} {p.total_indicadores === 1 ? 'indicador' : 'indicadores'}
-              </span>
             </div>
             <div class="card-footer">
               <a href="/painel/{p.slug}" class="btn-primary btn-sm">Ver painel →</a>
@@ -71,7 +81,9 @@ h2           { font-size: 20px; color: var(--text); font-family: var(--font-disp
   overflow: hidden;
 }
 
-.card-body   { padding: 20px 20px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.card-body   { padding: 20px 20px 14px; display: flex; flex-direction: row; align-items: stretch; gap: 12px; flex: 1; }
+.card-text   { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.painel-imagem { width: 96px; flex-shrink: 0; align-self: center; object-fit: contain; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
 .card-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
 
 .painel-nome { font-size: 15px; font-weight: 600; color: var(--text); font-family: var(--font-display); }
@@ -87,7 +99,7 @@ h2           { font-size: 20px; color: var(--text); font-family: var(--font-disp
   width: fit-content;
 }
 
-.btn-sm { font-size: 13px; padding: 6px 14px; }
+.btn-sm { font-size: 13px; padding: 6px 14px; border-radius: 20px; }
 
 .empty {
   display: flex;

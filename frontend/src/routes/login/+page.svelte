@@ -32,11 +32,11 @@
   }
 </script>
 
-<svelte:head><title>Login — DataHub</title></svelte:head>
+<svelte:head><title>Login — GPA Analytics</title></svelte:head>
 
 <div class="login-wrap">
   <div class="login-box card">
-    <h1>DataHub</h1>
+    <h1>GPA Analytics</h1>
     <p class="subtitle">Analytics Multiempresa</p>
 
     <label>

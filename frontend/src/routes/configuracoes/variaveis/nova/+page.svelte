@@ -89,7 +89,7 @@
   }
 </script>
 
-<svelte:head><title>Nova Variável — DataHub</title></svelte:head>
+<svelte:head><title>Nova Variável — GPA Analytics</title></svelte:head>
 
 <div class="page">
   <div class="page-header">
