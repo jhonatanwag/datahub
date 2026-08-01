@@ -1,8 +1,4 @@
-import os
-import aiofiles
-import aiofiles.os
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Response
 from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
@@ -10,8 +6,18 @@ from config.databases import query_meta
 
 router = APIRouter(prefix="/api/paineis", tags=["Painéis"])
 
-IMAGENS_DIR = "/data/imagens_paineis"
-os.makedirs(IMAGENS_DIR, exist_ok=True)
+
+def _com_imagem_url(row: dict) -> dict:
+    """Substitui a coluna bytea `imagem` (nunca deve ir pro JSON) por uma
+    URL, só quando o painel de fato tem imagem salva."""
+    tem_imagem = row.pop("tem_imagem", None)
+    if tem_imagem is None:
+        tem_imagem = row.pop("imagem", None) is not None
+    else:
+        row.pop("imagem", None)
+    row.pop("imagem_mime", None)
+    row["imagem_url"] = f"/api/paineis/{row['id']}/imagem" if tem_imagem else None
+    return row
 
 
 class PainelInput(BaseModel):
@@ -79,6 +85,7 @@ async def meu_dashboard(user=Depends(get_current_user)):
     if user["role"] == "externo":
         rows = await query_meta("""
             SELECT p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu,
+                (p.imagem IS NOT NULL) AS tem_imagem,
                 (SELECT COUNT(*)::int FROM painel_indicadores pi WHERE pi.painel_id = p.id) AS total_indicadores
             FROM paineis p
             WHERE p.slug = ANY($1::text[])
@@ -86,11 +93,12 @@ async def meu_dashboard(user=Depends(get_current_user)):
               AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
             ORDER BY p.ordem_menu
         """, user["paineis_liberados"], user["empresa_id"])
-        return sorted([{**dict(r), "imagem_url": f"/api/paineis/{r['id']}/imagem"} for r in rows], key=lambda x: x["ordem_menu"])
+        return sorted([_com_imagem_url(dict(r)) for r in rows], key=lambda x: x["ordem_menu"])
 
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug)
             p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu,
+            (p.imagem IS NOT NULL) AS tem_imagem,
             (SELECT COUNT(*)::int FROM painel_indicadores pi WHERE pi.painel_id = p.id) AS total_indicadores
         FROM paineis p
         JOIN painel_usuarios pu ON pu.painel_id = p.id
@@ -99,7 +107,7 @@ async def meu_dashboard(user=Depends(get_current_user)):
           AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
         ORDER BY p.slug, p.empresa_id NULLS LAST, p.ordem_menu
     """, user["id"], user["empresa_id"])
-    return sorted([{**dict(r), "imagem_url": f"/api/paineis/{r['id']}/imagem"} for r in rows], key=lambda x: x["ordem_menu"])
+    return sorted([_com_imagem_url(dict(r)) for r in rows], key=lambda x: x["ordem_menu"])
 
 
 @router.get("/slug/{slug}")
@@ -113,7 +121,7 @@ async def buscar_painel_por_slug(slug: str, user=Depends(get_current_user)):
         """, slug, user["empresa_id"])
         if not rows:
             raise HTTPException(404, "Painel não encontrado")
-        return dict(rows[0])
+        return _com_imagem_url(dict(rows[0]))
 
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug) p.*
@@ -127,7 +135,7 @@ async def buscar_painel_por_slug(slug: str, user=Depends(get_current_user)):
     """, slug, user["id"], user["empresa_id"])
     if not rows:
         raise HTTPException(404, "Painel não encontrado ou sem acesso")
-    return dict(rows[0])
+    return _com_imagem_url(dict(rows[0]))
 
 
 # ── CRUD Painéis ─────────────────────────────────────────────
@@ -143,7 +151,7 @@ async def listar_paineis(user=Depends(get_current_user)):
             WHERE pu.usuario_id = $1 AND p.ativo = true
             ORDER BY p.ordem_menu, p.nome
         """, user["id"])
-    return [{**dict(r), "imagem_url": f"/api/paineis/{r['id']}/imagem"} for r in rows]
+    return [_com_imagem_url(dict(r)) for r in rows]
 
 
 @router.get("/{painel_id}")
@@ -151,9 +159,7 @@ async def buscar_painel(painel_id: int, user=Depends(get_current_user)):
     rows = await query_meta("SELECT * FROM paineis WHERE id = $1", painel_id)
     if not rows:
         raise HTTPException(404, "Painel não encontrado")
-    row = dict(rows[0])
-    row["imagem_url"] = f"/api/paineis/{painel_id}/imagem"
-    return row
+    return _com_imagem_url(dict(rows[0]))
 
 
 @router.post("/")
@@ -167,7 +173,7 @@ async def criar_painel(body: PainelInput, user=Depends(require_admin)):
     """, body.slug, body.nome, body.descricao, body.icone,
         body.colunas, body.linhas_fixas, body.total_linhas,
         body.empresa_id, body.ativo, body.ordem_menu)
-    return dict(rows[0])
+    return _com_imagem_url(dict(rows[0]))
 
 
 @router.patch("/{painel_id}")
@@ -185,7 +191,7 @@ async def atualizar_painel(painel_id: int, body: dict, user=Depends(require_admi
     valores.append(painel_id)
     sql = f"UPDATE paineis SET {', '.join(campos)} WHERE id = ${len(valores)} RETURNING *"
     rows = await query_meta(sql, *valores)
-    return dict(rows[0])
+    return _com_imagem_url(dict(rows[0]))
 
 
 @router.delete("/{painel_id}")
@@ -205,17 +211,19 @@ async def upload_imagem(painel_id: int, file: UploadFile = File(...), user=Depen
     if not rows:
         raise HTTPException(404, "Painel não encontrado")
     content = await file.read()
-    async with aiofiles.open(f"{IMAGENS_DIR}/{painel_id}.png", "wb") as f:
-        await f.write(content)
+    await query_meta(
+        "UPDATE paineis SET imagem = $1, imagem_mime = $2 WHERE id = $3",
+        content, file.content_type or "image/png", painel_id
+    )
     return {"ok": True, "imagem_url": f"/api/paineis/{painel_id}/imagem"}
 
 
 @router.get("/{painel_id}/imagem")
 async def get_imagem(painel_id: int):
-    imagem_path = f"{IMAGENS_DIR}/{painel_id}.png"
-    if not await aiofiles.os.path.exists(imagem_path):
+    rows = await query_meta("SELECT imagem, imagem_mime FROM paineis WHERE id = $1", painel_id)
+    if not rows or rows[0]["imagem"] is None:
         raise HTTPException(404, "Imagem não encontrada")
-    return FileResponse(imagem_path, media_type="image/png")
+    return Response(content=rows[0]["imagem"], media_type=rows[0]["imagem_mime"] or "image/png")
 
 
 # ── Indicadores do painel ─────────────────────────────────────

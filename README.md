@@ -128,6 +128,10 @@ WHERE table_name = 'empresas'
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'usuario_empresas'
   AND column_name = 'codigo_usuario_externo';
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'paineis'
+  AND column_name IN ('imagem', 'imagem_mime');
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -170,6 +174,10 @@ ALTER TABLE empresas ADD COLUMN url_impressao_base TEXT;
 -- 2026-07-16 — código do usuário no sistema da empresa, por vínculo usuário+empresa
 -- (aplica o mesmo filtro codigo_usuario_externo do SSO pra usuários logados normalmente)
 ALTER TABLE usuario_empresas ADD COLUMN codigo_usuario_externo TEXT;
+
+-- 2026-07-31 — imagem de capa do painel guardada no banco (BYTEA), não em arquivo
+ALTER TABLE paineis ADD COLUMN imagem BYTEA;
+ALTER TABLE paineis ADD COLUMN imagem_mime TEXT;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

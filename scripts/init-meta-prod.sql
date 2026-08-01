@@ -118,6 +118,8 @@ CREATE TABLE paineis (
     empresa_id     INTEGER REFERENCES empresas(id),
     ativo          BOOLEAN DEFAULT true,
     ordem_menu     INTEGER DEFAULT 0,
+    imagem         BYTEA,
+    imagem_mime    TEXT,
     criado_em      TIMESTAMP DEFAULT NOW(),
     atualizado_em  TIMESTAMP DEFAULT NOW()
 );
