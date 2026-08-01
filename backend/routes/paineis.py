@@ -409,7 +409,7 @@ async def renderizar_painel(
         resultado.append(ind_dict)
 
     return {
-        "painel": dict(painel_rows[0]),
+        "painel": _com_imagem_url(dict(painel_rows[0])),
         "indicadores": resultado,
         "url_impressao_base": user.get("url_impressao_base")
     }
