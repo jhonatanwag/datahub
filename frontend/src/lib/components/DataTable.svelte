@@ -14,9 +14,9 @@
   export let metaCorDentro     = '#3fb950';
   export let metaCorFora       = '#f85149';
 
-  const TAMANHOS_PAGINA = [10, 50, 100, 500];
+  const TAMANHOS_PAGINA = [5, 10, 50, 100, 500];
   let paginaAtual   = 1;
-  let tamanhoPagina = 50;
+  let tamanhoPagina = 5;
 
   // Queries dinâmicas não têm schema fixo — se o chamador não informar as
   // colunas, deriva a partir das chaves da primeira linha retornada.
@@ -187,10 +187,10 @@
   </div>
 
   <div class="pagination">
-    <button class="btn-ghost btn-sm" on:click={baixarCSV} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-csv btn-sm" on:click={baixarCSV} disabled={dados.length === 0}>
       ⬇ CSV
     </button>
-    <button class="btn-ghost btn-sm" on:click={baixarXLSX} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-xlsx btn-sm" on:click={baixarXLSX} disabled={dados.length === 0}>
       ⬇ Excel
     </button>
     <span>{dados.length} registros</span>
@@ -229,6 +229,9 @@ tr:hover td { background: var(--surface2); }
 }
 .btns { display: flex; gap: 8px; align-items: center; }
 .btn-sm { font-size: 12px; padding: 4px 10px; }
+.btn-export { color: #0d1117; font-weight: 600; border: none; }
+.btn-export-csv { background: var(--accent); }
+.btn-export-xlsx { background: var(--accent-blue); color: #fff; }
 .tamanho-pagina { display: flex; align-items: center; gap: 6px; }
 .tamanho-pagina select { width: auto; padding: 4px 8px; }
 
