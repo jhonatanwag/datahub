@@ -489,7 +489,7 @@
                 <span class="pos-badge">{p.nome}</span>
                 <select bind:value={mapeamentoSubquery[i].coluna_origem}>
                   <option value="">— coluna —</option>
-                  {#each resultadoTeste?.colunas ?? [] as c}
+                  {#each resultadoTeste?.colunas ?? (mapeamentoSubquery[i].coluna_origem ? [mapeamentoSubquery[i].coluna_origem] : []) as c}
                     <option value={c}>{c}</option>
                   {/each}
                 </select>
