@@ -88,7 +88,7 @@ CREATE TABLE queries (
     meta_coluna_fim    TEXT,
     meta_cor_dentro    TEXT DEFAULT '#3fb950',
     meta_cor_fora      TEXT DEFAULT '#f85149',
-    subquery_id        INTEGER REFERENCES queries(id),
+    subquery_id        INTEGER REFERENCES queries(id) ON DELETE SET NULL,
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);

@@ -132,11 +132,17 @@ async def layout_dashboard(user=Depends(get_current_user)):
 @router.get("/executar/{slug}")
 async def executar_query(slug: str, request: Request, user=Depends(get_current_user)):
     try:
+        parametros = dict(request.query_params)
+        if user["role"] == "externo":
+            parametros["codigo_usuario_externo"] = user["codigo_usuario"]
+        elif user.get("codigo_usuario_externo"):
+            parametros["codigo_usuario_externo"] = user["codigo_usuario_externo"]
+
         return await resolver_query(
             slug=slug,
             company_slug=user["company_slug"],
             empresa_id=user["empresa_id"],
-            parametros=dict(request.query_params)
+            parametros=parametros
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

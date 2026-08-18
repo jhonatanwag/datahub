@@ -183,7 +183,7 @@ ALTER TABLE paineis ADD COLUMN imagem BYTEA;
 ALTER TABLE paineis ADD COLUMN imagem_mime TEXT;
 
 -- 2026-08-18 — query tipo table_dynamic (agrupamento, agregação, subconsulta drill-down)
-ALTER TABLE queries ADD COLUMN subquery_id INTEGER REFERENCES queries(id);
+ALTER TABLE queries ADD COLUMN subquery_id INTEGER REFERENCES queries(id) ON DELETE SET NULL;
 
 CREATE TABLE query_agrupamentos (
     id        SERIAL PRIMARY KEY,

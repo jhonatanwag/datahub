@@ -161,6 +161,56 @@ def test_renderizar_painel_injeta_codigo_usuario_externo_do_vinculo_ignorando_qu
         client.delete(f"/api/queries/{query_id}", headers={"Authorization": f"Bearer {auth_token}"})
 
 
+def test_executar_query_injeta_codigo_usuario_externo_do_vinculo_ignorando_query_string(
+    client, auth_token, usuario_teste
+):
+    """GET /api/queries/executar/{slug}: o filtro codigo_usuario_externo tem
+    que vir travado no valor vinculado, mesmo se a URL tentar passar outro
+    (evita que um usuário externo leia dados de outro forjando o parâmetro)."""
+    client.post(
+        f"/api/usuarios/{usuario_teste['id']}/empresas",
+        json={"vinculos": [{"empresa_id": usuario_teste["empresa_id"], "codigo_usuario_externo": "MEU_CODIGO"}]},
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+
+    query_slug = f"query_codigo_executar_teste_{uuid.uuid4().hex[:8]}"
+    query_res = client.post(
+        "/api/queries/",
+        json={
+            "slug": query_slug,
+            "nome": "Query Código Executar Teste",
+            "sql_texto": "SELECT $1::text AS valor, 'codigo' AS label",
+            "tipo": "kpi",
+            "empresa_id": usuario_teste["empresa_id"],
+            "cache_ttl": 0,
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert query_res.status_code == 200
+    query_id = query_res.json()["id"]
+
+    param_res = client.put(
+        f"/api/queries/{query_id}/parametros",
+        json=[{"nome": "codigo_usuario_externo", "tipo": "text", "obrigatorio": False}],
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert param_res.status_code == 200
+
+    try:
+        token_usuario = _login_como(
+            client, usuario_teste["email"], usuario_teste["senha"], usuario_teste["empresa_id"]
+        )
+
+        res = client.get(
+            f"/api/queries/executar/{query_slug}?codigo_usuario_externo=valor-forjado-pelo-cliente",
+            headers={"Authorization": f"Bearer {token_usuario}"},
+        )
+        assert res.status_code == 200
+        assert res.json()["data"][0]["valor"] == "MEU_CODIGO"
+    finally:
+        client.delete(f"/api/queries/{query_id}", headers={"Authorization": f"Bearer {auth_token}"})
+
+
 def test_renderizar_painel_sem_codigo_vinculado_nao_injeta_filtro(client, auth_token, usuario_teste):
     """Usuário sem código vinculado (padrão) não deve ter o filtro
     codigo_usuario_externo forçado -- a query cai no valor_padrao normal."""

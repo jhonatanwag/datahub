@@ -122,3 +122,35 @@ def test_subquery_parametros_get_put_roundtrip(client, auth_token):
     finally:
         client.delete(f"/api/queries/{query['id']}", headers={"Authorization": f"Bearer {auth_token}"})
         client.delete(f"/api/queries/{sub['id']}", headers={"Authorization": f"Bearer {auth_token}"})
+
+
+def test_atualizar_query_subquery_id_e_delete_da_subquery_limpa_referencia(client, auth_token):
+    sub = client.post(
+        "/api/queries/",
+        json={
+            "slug": "teste_subquery_para_deletar",
+            "nome": "Subconsulta a Deletar",
+            "sql_texto": "SELECT 1 AS valor",
+            "tipo": "kpi",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ).json()
+
+    query = _criar_query_table_dynamic(client, auth_token, "teste_patch_subquery_id")
+    try:
+        res = client.patch(
+            f"/api/queries/{query['id']}",
+            json={"subquery_id": sub["id"]},
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert res.status_code == 200
+        assert res.json()["subquery_id"] == sub["id"]
+
+        client.delete(f"/api/queries/{sub['id']}", headers={"Authorization": f"Bearer {auth_token}"})
+
+        atualizada = client.get(
+            f"/api/queries/{query['id']}", headers={"Authorization": f"Bearer {auth_token}"}
+        ).json()
+        assert atualizada["subquery_id"] is None
+    finally:
+        client.delete(f"/api/queries/{query['id']}", headers={"Authorization": f"Bearer {auth_token}"})
