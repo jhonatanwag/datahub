@@ -378,11 +378,11 @@ async def renderizar_painel(
         filtros["codigo_usuario_externo"] = user["codigo_usuario_externo"]
 
     indicadores = await query_meta("""
-        SELECT pi.*, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada,
+        SELECT pi.*, q.id AS query_id, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada,
                q.chart_fonte_tamanho, q.chart_truncar_label, q.chart_truncar_tamanho, q.chart_mostrar_valor,
                q.chart_valor_label, q.impressao_habilitada, q.impressao_caminho, q.impressao_coluna,
                q.meta_habilitada, q.meta_coluna_valor, q.meta_coluna_inicio, q.meta_coluna_fim,
-               q.meta_cor_dentro, q.meta_cor_fora
+               q.meta_cor_dentro, q.meta_cor_fora, q.subquery_id
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
         WHERE pi.painel_id = $1
@@ -402,6 +402,36 @@ async def renderizar_painel(
             ind_dict["dados"] = dados.get("data")
             ind_dict["query_tipo"] = dados.get("tipo")
             ind_dict["erro"] = None
+
+            if ind_dict["query_tipo"] == "table_dynamic":
+                agrup_rows = await query_meta(
+                    "SELECT coluna FROM query_agrupamentos WHERE query_id = $1 ORDER BY ordem",
+                    ind_dict["query_id"]
+                )
+                ind_dict["agrupamentos"] = [r["coluna"] for r in agrup_rows]
+
+                agreg_rows = await query_meta(
+                    "SELECT coluna, funcao, label FROM query_agregacoes WHERE query_id = $1 ORDER BY ordem",
+                    ind_dict["query_id"]
+                )
+                ind_dict["agregacoes"] = [dict(r) for r in agreg_rows]
+
+                if ind_dict.get("subquery_id"):
+                    sub_rows = await query_meta(
+                        "SELECT slug, tipo FROM queries WHERE id = $1", ind_dict["subquery_id"]
+                    )
+                    param_rows = await query_meta("""
+                        SELECT coluna_origem, parametro_destino
+                        FROM query_subquery_parametros
+                        WHERE query_id = $1 ORDER BY ordem
+                    """, ind_dict["query_id"])
+                    ind_dict["subquery"] = {
+                        "slug": sub_rows[0]["slug"],
+                        "tipo": sub_rows[0]["tipo"],
+                        "parametros": [dict(r) for r in param_rows]
+                    } if sub_rows else None
+                else:
+                    ind_dict["subquery"] = None
         except Exception as e:
             ind_dict["dados"] = None
             ind_dict["query_tipo"] = None
