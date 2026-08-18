@@ -5,6 +5,7 @@
   import KPICard        from '$lib/components/KPICard.svelte';
   import ChartPanel     from '$lib/components/ChartPanel.svelte';
   import DataTable      from '$lib/components/DataTable.svelte';
+  import DynamicTable   from '$lib/components/DynamicTable.svelte';
   import MapPanel       from '$lib/components/MapPanel.svelte';
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
 
@@ -257,6 +258,15 @@
                 metaColunaFim={ind.meta_coluna_fim}
                 metaCorDentro={ind.meta_cor_dentro}
                 metaCorFora={ind.meta_cor_fora}
+              />
+
+            {:else if ind.query_tipo === 'table_dynamic'}
+              <DynamicTable
+                dados={ind.dados}
+                titulo={ind.titulo || ind.query_slug}
+                agrupamentos={ind.agrupamentos ?? []}
+                agregacoes={ind.agregacoes ?? []}
+                subquery={ind.subquery}
               />
 
             {:else if ind.query_tipo === 'map'}
