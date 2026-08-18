@@ -88,6 +88,7 @@ CREATE TABLE queries (
     meta_coluna_fim    TEXT,
     meta_cor_dentro    TEXT DEFAULT '#3fb950',
     meta_cor_fora      TEXT DEFAULT '#f85149',
+    subquery_id        INTEGER REFERENCES queries(id),
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);
@@ -105,6 +106,33 @@ CREATE TABLE query_parametros (
     param_slot    VARCHAR(10)
 );
 CREATE INDEX idx_qp_query_id ON query_parametros(query_id);
+
+CREATE TABLE query_agrupamentos (
+    id        SERIAL PRIMARY KEY,
+    query_id  INTEGER REFERENCES queries(id) ON DELETE CASCADE,
+    coluna    TEXT NOT NULL,
+    ordem     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_qagrup_query_id ON query_agrupamentos(query_id);
+
+CREATE TABLE query_agregacoes (
+    id        SERIAL PRIMARY KEY,
+    query_id  INTEGER REFERENCES queries(id) ON DELETE CASCADE,
+    coluna    TEXT NOT NULL,
+    funcao    VARCHAR(10) NOT NULL,
+    label     TEXT,
+    ordem     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_qagreg_query_id ON query_agregacoes(query_id);
+
+CREATE TABLE query_subquery_parametros (
+    id                SERIAL PRIMARY KEY,
+    query_id          INTEGER REFERENCES queries(id) ON DELETE CASCADE,
+    coluna_origem     TEXT NOT NULL,
+    parametro_destino TEXT NOT NULL,
+    ordem             INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_qsqp_query_id ON query_subquery_parametros(query_id);
 
 CREATE TABLE paineis (
     id             SERIAL PRIMARY KEY,

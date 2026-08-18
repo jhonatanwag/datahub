@@ -119,7 +119,7 @@ Verificar antes de aplicar:
 ```sql
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'queries'
-  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor', 'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna', 'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim', 'meta_cor_dentro', 'meta_cor_fora');
+  AND column_name IN ('mapa_camada', 'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor', 'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna', 'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim', 'meta_cor_dentro', 'meta_cor_fora', 'subquery_id');
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'empresas'
@@ -132,6 +132,9 @@ WHERE table_name = 'usuario_empresas'
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'paineis'
   AND column_name IN ('imagem', 'imagem_mime');
+
+SELECT table_name FROM information_schema.tables
+WHERE table_name IN ('query_agrupamentos', 'query_agregacoes', 'query_subquery_parametros');
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -178,6 +181,36 @@ ALTER TABLE usuario_empresas ADD COLUMN codigo_usuario_externo TEXT;
 -- 2026-07-31 — imagem de capa do painel guardada no banco (BYTEA), não em arquivo
 ALTER TABLE paineis ADD COLUMN imagem BYTEA;
 ALTER TABLE paineis ADD COLUMN imagem_mime TEXT;
+
+-- 2026-08-18 — query tipo table_dynamic (agrupamento, agregação, subconsulta drill-down)
+ALTER TABLE queries ADD COLUMN subquery_id INTEGER REFERENCES queries(id);
+
+CREATE TABLE query_agrupamentos (
+    id        SERIAL PRIMARY KEY,
+    query_id  INTEGER REFERENCES queries(id) ON DELETE CASCADE,
+    coluna    TEXT NOT NULL,
+    ordem     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_qagrup_query_id ON query_agrupamentos(query_id);
+
+CREATE TABLE query_agregacoes (
+    id        SERIAL PRIMARY KEY,
+    query_id  INTEGER REFERENCES queries(id) ON DELETE CASCADE,
+    coluna    TEXT NOT NULL,
+    funcao    VARCHAR(10) NOT NULL,
+    label     TEXT,
+    ordem     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_qagreg_query_id ON query_agregacoes(query_id);
+
+CREATE TABLE query_subquery_parametros (
+    id                SERIAL PRIMARY KEY,
+    query_id          INTEGER REFERENCES queries(id) ON DELETE CASCADE,
+    coluna_origem     TEXT NOT NULL,
+    parametro_destino TEXT NOT NULL,
+    ordem             INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_qsqp_query_id ON query_subquery_parametros(query_id);
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,
