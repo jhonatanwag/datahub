@@ -15,7 +15,8 @@
     chart_valor_label: '',
     impressao_habilitada: false, impressao_caminho: '', impressao_coluna: '',
     meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
-    meta_coluna_fim: '', meta_cor_dentro: '#3fb950', meta_cor_fora: '#f85149'
+    meta_coluna_fim: '', meta_cor_dentro: '#3fb950', meta_cor_fora: '#f85149',
+    subquery_id: null,
   };
 
   // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
@@ -26,21 +27,28 @@
   let resultadoTeste  = null;
   let salvando        = false;
   let erro            = null;
+  let agrupamentos       = []; // [{coluna, ordem}]
+  let agregacoes         = []; // [{coluna, funcao, label, ordem}]
+  let queriesDisponiveis = [];
+  let subqueryParams     = []; // parâmetros da query_parametros da subconsulta escolhida
+  let mapeamentoSubquery = []; // [{coluna_origem, parametro_destino}] — mesmo tamanho de subqueryParams
 
   const tipos = [
     'kpi', 'chart_line', 'chart_bar',
     'chart_bar_horizontal', 'chart_doughnut',
-    'table', 'rag_context', 'map'
+    'table', 'rag_context', 'map', 'table_dynamic'
   ];
 
   onMount(async () => {
     try {
-      const [emps, vars] = await Promise.all([
+      const [emps, vars, qs] = await Promise.all([
         api.listarEmpresas(),
         api.listarVariaveis(),
+        api.listarQueries(),
       ]);
       empresas  = emps;
       variaveis = vars.filter(v => v.ativo);
+      queriesDisponiveis = qs;
       if (emps.length > 0) testarEmpresaId = emps[0].id;
     } catch (e) {
       console.error('Erro ao carregar dados:', e);
@@ -86,6 +94,37 @@
     resultadoTeste = null;
   }
 
+  function adicionarAgrupamento() {
+    agrupamentos = [...agrupamentos, { coluna: '', ordem: agrupamentos.length }];
+  }
+  function removerAgrupamento(i) {
+    agrupamentos = agrupamentos.filter((_, idx) => idx !== i).map((a, idx) => ({ ...a, ordem: idx }));
+  }
+  function moverAgrupamento(i, direcao) {
+    const j = i + direcao;
+    if (j < 0 || j >= agrupamentos.length) return;
+    const copia = [...agrupamentos];
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+    agrupamentos = copia.map((a, idx) => ({ ...a, ordem: idx }));
+  }
+
+  function adicionarAgregacao() {
+    agregacoes = [...agregacoes, { coluna: '', funcao: 'soma', label: '', ordem: agregacoes.length }];
+  }
+  function removerAgregacao(i) {
+    agregacoes = agregacoes.filter((_, idx) => idx !== i).map((a, idx) => ({ ...a, ordem: idx }));
+  }
+
+  async function onSubqueryChange() {
+    mapeamentoSubquery = [];
+    if (!form.subquery_id) {
+      subqueryParams = [];
+      return;
+    }
+    subqueryParams = await api.parametrosQuery(form.subquery_id);
+    mapeamentoSubquery = subqueryParams.map((p, idx) => ({ coluna_origem: '', parametro_destino: p.nome, ordem: idx }));
+  }
+
   async function testar(sql) {
     const testar_parametros = params.map(p => ({
       nome:  p.nome,
@@ -121,6 +160,16 @@
       const q = await api.criarQuery(form);
       if (params.length > 0) {
         await api.salvarParametrosQuery(q.id, params.map(({ _testar_valor, ...p }) => p));
+      }
+      if (form.tipo === 'table_dynamic') {
+        await api.salvarAgrupamentosQuery(q.id, agrupamentos.filter(a => a.coluna));
+        await api.salvarAgregacoesQuery(q.id, agregacoes.filter(a => a.coluna));
+        if (form.subquery_id) {
+          await api.salvarSubqueryParametrosQuery(
+            q.id,
+            mapeamentoSubquery.filter(m => m.coluna_origem)
+          );
+        }
       }
       goto('/configuracoes/queries');
     } catch (e) {
@@ -293,6 +342,87 @@
       </div>
     {/if}
 
+    {#if form.tipo === 'table_dynamic'}
+      <div class="section-block">
+        <div class="section-header">
+          <span class="section-title">Agrupamento</span>
+          <button class="btn-ghost btn-sm" on:click={adicionarAgrupamento}>+ Nível</button>
+        </div>
+        {#if agrupamentos.length === 0}
+          <p class="hint-block">Sem agrupamento — teste a query e adicione ao menos 1 nível.</p>
+        {/if}
+        {#each agrupamentos as ag, i}
+          <div class="agrup-row">
+            <span class="pos-badge">Nível {i + 1}</span>
+            <select bind:value={ag.coluna}>
+              <option value="">— selecione —</option>
+              {#each resultadoTeste?.colunas ?? (ag.coluna ? [ag.coluna] : []) as c}
+                <option value={c}>{c}</option>
+              {/each}
+            </select>
+            <button class="btn-ghost btn-sm" on:click={() => moverAgrupamento(i, -1)} disabled={i === 0}>↑</button>
+            <button class="btn-ghost btn-sm" on:click={() => moverAgrupamento(i, 1)} disabled={i === agrupamentos.length - 1}>↓</button>
+            <button class="btn-ghost btn-sm danger" on:click={() => removerAgrupamento(i)}>✕</button>
+          </div>
+        {/each}
+      </div>
+
+      <div class="section-block">
+        <div class="section-header">
+          <span class="section-title">Agregações</span>
+          <button class="btn-ghost btn-sm" on:click={adicionarAgregacao}>+ Agregação</button>
+        </div>
+        {#each agregacoes as ag, i}
+          <div class="agreg-row">
+            <select bind:value={ag.coluna}>
+              <option value="">— coluna —</option>
+              {#each resultadoTeste?.colunas ?? (ag.coluna ? [ag.coluna] : []) as c}
+                <option value={c}>{c}</option>
+              {/each}
+            </select>
+            <select bind:value={ag.funcao}>
+              <option value="soma">Soma</option>
+              <option value="contagem">Contagem</option>
+              <option value="media">Média</option>
+              <option value="minimo">Mínimo</option>
+              <option value="maximo">Máximo</option>
+            </select>
+            <input bind:value={ag.label} placeholder="Rótulo (opcional)" />
+            <button class="btn-ghost btn-sm danger" on:click={() => removerAgregacao(i)}>✕</button>
+          </div>
+        {/each}
+      </div>
+
+      <div class="section-block">
+        <span class="section-title">Subconsulta (drill-down)</span>
+        <label class="lbl">
+          Query chamada ao clicar em "Ações"
+          <select bind:value={form.subquery_id} on:change={onSubqueryChange}>
+            <option value={null}>— nenhuma —</option>
+            {#each queriesDisponiveis.filter(q => q.slug !== form.slug) as q}
+              <option value={q.id}>{q.nome} ({q.tipo})</option>
+            {/each}
+          </select>
+        </label>
+        {#if subqueryParams.length > 0}
+          <p class="hint-block">Para cada parâmetro da subconsulta, escolha de qual coluna desta query o valor vem:</p>
+          {#each subqueryParams as p, i}
+            <div class="agrup-row">
+              <span class="pos-badge">{p.nome}</span>
+              <select bind:value={mapeamentoSubquery[i].coluna_origem}>
+                <option value="">— coluna —</option>
+                {#each resultadoTeste?.colunas ?? [] as c}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+            </div>
+          {/each}
+        {:else if form.subquery_id}
+          <p class="hint-block">Essa subconsulta não tem parâmetros cadastrados.</p>
+        {/if}
+      </div>
+    {/if}
+
     {#if ['chart_bar', 'chart_bar_horizontal', 'chart_line', 'chart_doughnut'].includes(form.tipo)}
       <div class="section-block">
         <span class="section-title">Configurações do Gráfico</span>
@@ -461,4 +591,6 @@
 .error  { color:var(--danger, #f85149); font-size:13px; }
 .danger { color:var(--danger, #f85149); }
 .btn-sm { font-size:12px; padding:4px 8px; }
+.agrup-row { display: grid; grid-template-columns: 90px 1fr 32px 32px 32px; gap: 6px; align-items: center; }
+.agreg-row { display: grid; grid-template-columns: 1fr 1fr 1fr 32px; gap: 6px; align-items: center; }
 </style>
