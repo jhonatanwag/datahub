@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam
+from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam, Request
 from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
@@ -130,12 +130,13 @@ async def layout_dashboard(user=Depends(get_current_user)):
 
 
 @router.get("/executar/{slug}")
-async def executar_query(slug: str, user=Depends(get_current_user)):
+async def executar_query(slug: str, request: Request, user=Depends(get_current_user)):
     try:
         return await resolver_query(
             slug=slug,
             company_slug=user["company_slug"],
-            empresa_id=user["empresa_id"]
+            empresa_id=user["empresa_id"],
+            parametros=dict(request.query_params)
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
