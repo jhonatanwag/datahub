@@ -36,6 +36,7 @@ class QueryInput(BaseModel):
     meta_cor_fora: Optional[str] = '#f85149'
     testar_empresa_id: Optional[int] = None
     testar_parametros: List[dict] = []  # [{nome, valor}] em ordem — só usado no /testar
+    subquery_id: Optional[int] = None
 
 
 class QueryUpdate(BaseModel):
@@ -62,6 +63,7 @@ class QueryUpdate(BaseModel):
     meta_coluna_fim: Optional[str] = None
     meta_cor_dentro: Optional[str] = None
     meta_cor_fora: Optional[str] = None
+    subquery_id: Optional[int] = None
 
 
 class ParamInput(BaseModel):
@@ -74,11 +76,31 @@ class ParamInput(BaseModel):
     param_slot: Optional[str] = None  # 'inicio' | 'fim' — apenas para date_range
 
 
+class AgrupamentoInput(BaseModel):
+    coluna: str
+    ordem: int = 0
+
+
+class AgregacaoInput(BaseModel):
+    coluna: str
+    funcao: str
+    label: Optional[str] = None
+    ordem: int = 0
+
+
+class SubqueryParametroInput(BaseModel):
+    coluna_origem: str
+    parametro_destino: str
+    ordem: int = 0
+
+
 TIPOS_VALIDOS = {
     'kpi', 'chart_line', 'chart_bar',
     'chart_bar_horizontal', 'chart_doughnut',
-    'table', 'rag_context', 'map'
+    'table', 'rag_context', 'map', 'table_dynamic'
 }
+
+FUNCOES_AGREGACAO_VALIDAS = {'soma', 'contagem', 'media', 'minimo', 'maximo'}
 
 CAMADAS_MAPA_VALIDAS = {'padrao', 'satelite'}
 
@@ -212,6 +234,104 @@ async def salvar_parametros(
         raise HTTPException(status_code=500, detail=f"Erro ao salvar parâmetros: {e}")
 
 
+@router.get("/{query_id}/agrupamentos")
+async def listar_agrupamentos(query_id: int, user=Depends(get_current_user)):
+    try:
+        rows = await query_meta(
+            "SELECT * FROM query_agrupamentos WHERE query_id = $1 ORDER BY ordem", query_id
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao listar agrupamentos: {e}")
+
+
+@router.put("/{query_id}/agrupamentos")
+async def salvar_agrupamentos(
+    query_id: int, agrupamentos: List[AgrupamentoInput], user=Depends(require_admin)
+):
+    try:
+        await query_meta("DELETE FROM query_agrupamentos WHERE query_id = $1", query_id)
+        for a in agrupamentos:
+            await query_meta(
+                "INSERT INTO query_agrupamentos (query_id, coluna, ordem) VALUES ($1, $2, $3)",
+                query_id, a.coluna, a.ordem
+            )
+        rows = await query_meta(
+            "SELECT * FROM query_agrupamentos WHERE query_id = $1 ORDER BY ordem", query_id
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar agrupamentos: {e}")
+
+
+@router.get("/{query_id}/agregacoes")
+async def listar_agregacoes(query_id: int, user=Depends(get_current_user)):
+    try:
+        rows = await query_meta(
+            "SELECT * FROM query_agregacoes WHERE query_id = $1 ORDER BY ordem", query_id
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao listar agregações: {e}")
+
+
+@router.put("/{query_id}/agregacoes")
+async def salvar_agregacoes(
+    query_id: int, agregacoes: List[AgregacaoInput], user=Depends(require_admin)
+):
+    try:
+        for a in agregacoes:
+            if a.funcao not in FUNCOES_AGREGACAO_VALIDAS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Função de agregação inválida: {a.funcao}. Use: {FUNCOES_AGREGACAO_VALIDAS}"
+                )
+        await query_meta("DELETE FROM query_agregacoes WHERE query_id = $1", query_id)
+        for a in agregacoes:
+            await query_meta(
+                "INSERT INTO query_agregacoes (query_id, coluna, funcao, label, ordem) VALUES ($1, $2, $3, $4, $5)",
+                query_id, a.coluna, a.funcao, a.label, a.ordem
+            )
+        rows = await query_meta(
+            "SELECT * FROM query_agregacoes WHERE query_id = $1 ORDER BY ordem", query_id
+        )
+        return [dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar agregações: {e}")
+
+
+@router.get("/{query_id}/subquery-parametros")
+async def listar_subquery_parametros(query_id: int, user=Depends(get_current_user)):
+    try:
+        rows = await query_meta(
+            "SELECT * FROM query_subquery_parametros WHERE query_id = $1 ORDER BY ordem", query_id
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao listar parâmetros da subconsulta: {e}")
+
+
+@router.put("/{query_id}/subquery-parametros")
+async def salvar_subquery_parametros(
+    query_id: int, parametros: List[SubqueryParametroInput], user=Depends(require_admin)
+):
+    try:
+        await query_meta("DELETE FROM query_subquery_parametros WHERE query_id = $1", query_id)
+        for p in parametros:
+            await query_meta("""
+                INSERT INTO query_subquery_parametros (query_id, coluna_origem, parametro_destino, ordem)
+                VALUES ($1, $2, $3, $4)
+            """, query_id, p.coluna_origem, p.parametro_destino, p.ordem)
+        rows = await query_meta(
+            "SELECT * FROM query_subquery_parametros WHERE query_id = $1 ORDER BY ordem", query_id
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar parâmetros da subconsulta: {e}")
+
+
 @router.get("/{query_id}")
 async def buscar_query(query_id: int, user=Depends(get_current_user)):
     try:
@@ -245,9 +365,9 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 chart_fonte_tamanho, chart_truncar_label, chart_truncar_tamanho, chart_mostrar_valor,
                 chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna,
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
-                meta_cor_dentro, meta_cor_fora
+                meta_cor_dentro, meta_cor_fora, subquery_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -258,7 +378,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.impressao_caminho, body.impressao_coluna,
             body.meta_habilitada, body.meta_coluna_valor,
             body.meta_coluna_inicio, body.meta_coluna_fim,
-            body.meta_cor_dentro, body.meta_cor_fora)
+            body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id)
         return dict(rows[0])
     except HTTPException:
         raise
@@ -287,7 +407,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor',
             'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna',
             'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim',
-            'meta_cor_dentro', 'meta_cor_fora'
+            'meta_cor_dentro', 'meta_cor_fora', 'subquery_id'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
