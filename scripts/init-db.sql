@@ -114,7 +114,6 @@ CREATE TABLE query_parametros (
     valor_padrao TEXT,
     descricao    TEXT
 );
-CREATE INDEX idx_qp_query_id ON query_parametros(query_id);
 
 CREATE TABLE query_agrupamentos (
     id        SERIAL PRIMARY KEY,
