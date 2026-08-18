@@ -22,16 +22,16 @@
     maximo:   vals => vals.length ? Math.max(...vals) : 0,
   };
 
-  function calcularAgregacoes(linhas) {
-    return agregacoes.map(ag => {
+  function calcularAgregacoes(linhas, agregacoesAtual) {
+    return agregacoesAtual.map(ag => {
       const valores = linhas.map(r => Number(r[ag.coluna])).filter(v => !Number.isNaN(v));
       return { coluna: ag.coluna, label: ag.label, valor: (FUNCOES[ag.funcao] ?? FUNCOES.soma)(valores) };
     });
   }
 
-  function construirArvore(linhas, nivel) {
-    if (nivel >= agrupamentos.length) return { folha: true, linhas };
-    const coluna = agrupamentos[nivel];
+  function construirArvore(linhas, nivel, agrupamentosAtual, agregacoesAtual) {
+    if (nivel >= agrupamentosAtual.length) return { folha: true, linhas };
+    const coluna = agrupamentosAtual[nivel];
     const grupos = new Map();
     for (const linha of linhas) {
       const chave = linha[coluna];
@@ -42,8 +42,8 @@
       folha: false,
       grupos: [...grupos.entries()].map(([valor, linhasGrupo]) => ({
         valor,
-        agregados: calcularAgregacoes(linhasGrupo),
-        filho: construirArvore(linhasGrupo, nivel + 1),
+        agregados: calcularAgregacoes(linhasGrupo, agregacoesAtual),
+        filho: construirArvore(linhasGrupo, nivel + 1, agrupamentosAtual, agregacoesAtual),
       })),
     };
   }
@@ -53,7 +53,7 @@
     : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : [])
   ).filter(c => !agrupamentos.includes(c.key));
 
-  $: arvore = construirArvore(dados, 0);
+  $: arvore = construirArvore(dados, 0, agrupamentos, agregacoes);
   $: mostrarAcoes = !!subquery;
 
   let modalAberto     = false;
@@ -86,11 +86,12 @@
     <thead>
       <tr>
         {#each colunasDetalhe as col}<th>{col.label ?? col.key}</th>{/each}
+        {#each agregacoes as ag}<th class="agregado-header">{ag.label ?? ag.coluna}</th>{/each}
         {#if mostrarAcoes}<th>Ações</th>{/if}
       </tr>
     </thead>
     <tbody>
-      <GrupoLinha no={arvore} {colunasDetalhe} {mostrarAcoes} onAcionar={acionar} nivel={0} />
+      <GrupoLinha no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar} nivel={0} />
     </tbody>
   </table>
 </div>

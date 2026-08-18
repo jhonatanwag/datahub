@@ -1,6 +1,7 @@
 <script>
   export let no;              // { folha: true, linhas } | { folha: false, grupos: [{valor, agregados, filho}] }
   export let colunasDetalhe;  // [{key, label}]
+  export let agregacoes = []; // [{coluna, funcao, label}] — used only to pad leaf-row cell count
   export let mostrarAcoes;
   export let onAcionar;
   export let nivel = 0;
@@ -12,6 +13,7 @@
       {#each colunasDetalhe as col, i}
         <td style={i === 0 ? `padding-left:${16 + nivel * 16}px` : ''}>{row[col.key] ?? '—'}</td>
       {/each}
+      {#each agregacoes as ag}<td></td>{/each}
       {#if mostrarAcoes}
         <td><button class="btn-ghost btn-sm" on:click={() => onAcionar(row)}>Ações</button></td>
       {/if}
@@ -20,7 +22,7 @@
 {:else}
   {#each no.grupos as grupo}
     <tr class="linha-grupo">
-      <td style="padding-left:{nivel * 16}px" colspan={Math.max(1, colunasDetalhe.length - grupo.agregados.length)}>
+      <td style="padding-left:{nivel * 16}px" colspan={Math.max(1, colunasDetalhe.length)}>
         {grupo.valor}
       </td>
       {#each grupo.agregados as ag}
@@ -31,6 +33,7 @@
     <svelte:self
       no={grupo.filho}
       {colunasDetalhe}
+      {agregacoes}
       {mostrarAcoes}
       {onAcionar}
       nivel={nivel + 1}
