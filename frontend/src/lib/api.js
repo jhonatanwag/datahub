@@ -69,6 +69,12 @@ export const api = {
     // Queries (admin)
     parametrosQuery:       (id)     => request(`/api/queries/${id}/parametros`),
     salvarParametrosQuery: (id, d)  => request(`/api/queries/${id}/parametros`, { method: 'PUT', body: JSON.stringify(d) }),
+    agrupamentosQuery:             (id)    => request(`/api/queries/${id}/agrupamentos`),
+    salvarAgrupamentosQuery:       (id, d) => request(`/api/queries/${id}/agrupamentos`, { method: 'PUT', body: JSON.stringify(d) }),
+    agregacoesQuery:               (id)    => request(`/api/queries/${id}/agregacoes`),
+    salvarAgregacoesQuery:         (id, d) => request(`/api/queries/${id}/agregacoes`, { method: 'PUT', body: JSON.stringify(d) }),
+    subqueryParametrosQuery:       (id)    => request(`/api/queries/${id}/subquery-parametros`),
+    salvarSubqueryParametrosQuery: (id, d) => request(`/api/queries/${id}/subquery-parametros`, { method: 'PUT', body: JSON.stringify(d) }),
 
     listarQueries: (tipo, empresa_id) => {
         const p = new URLSearchParams();
