@@ -404,38 +404,47 @@ async def renderizar_painel(
             ind_dict["erro"] = None
 
             if ind_dict["query_tipo"] == "table_dynamic":
-                agrup_rows = await query_meta(
-                    "SELECT coluna FROM query_agrupamentos WHERE query_id = $1 ORDER BY ordem",
-                    ind_dict["query_id"]
-                )
-                ind_dict["agrupamentos"] = [r["coluna"] for r in agrup_rows]
-
-                agreg_rows = await query_meta(
-                    "SELECT coluna, funcao, label FROM query_agregacoes WHERE query_id = $1 ORDER BY ordem",
-                    ind_dict["query_id"]
-                )
-                ind_dict["agregacoes"] = [dict(r) for r in agreg_rows]
-
-                if ind_dict.get("subquery_id"):
-                    sub_rows = await query_meta(
-                        "SELECT slug, tipo FROM queries WHERE id = $1", ind_dict["subquery_id"]
+                try:
+                    agrup_rows = await query_meta(
+                        "SELECT coluna FROM query_agrupamentos WHERE query_id = $1 ORDER BY ordem",
+                        ind_dict["query_id"]
                     )
-                    param_rows = await query_meta("""
-                        SELECT coluna_origem, parametro_destino
-                        FROM query_subquery_parametros
-                        WHERE query_id = $1 ORDER BY ordem
-                    """, ind_dict["query_id"])
-                    ind_dict["subquery"] = {
-                        "slug": sub_rows[0]["slug"],
-                        "tipo": sub_rows[0]["tipo"],
-                        "parametros": [dict(r) for r in param_rows]
-                    } if sub_rows else None
-                else:
+                    ind_dict["agrupamentos"] = [r["coluna"] for r in agrup_rows]
+
+                    agreg_rows = await query_meta(
+                        "SELECT coluna, funcao, label FROM query_agregacoes WHERE query_id = $1 ORDER BY ordem",
+                        ind_dict["query_id"]
+                    )
+                    ind_dict["agregacoes"] = [dict(r) for r in agreg_rows]
+
+                    if ind_dict.get("subquery_id"):
+                        sub_rows = await query_meta(
+                            "SELECT slug, tipo FROM queries WHERE id = $1", ind_dict["subquery_id"]
+                        )
+                        param_rows = await query_meta("""
+                            SELECT coluna_origem, parametro_destino
+                            FROM query_subquery_parametros
+                            WHERE query_id = $1 ORDER BY ordem
+                        """, ind_dict["query_id"])
+                        ind_dict["subquery"] = {
+                            "slug": sub_rows[0]["slug"],
+                            "tipo": sub_rows[0]["tipo"],
+                            "parametros": [dict(r) for r in param_rows]
+                        } if sub_rows else None
+                    else:
+                        ind_dict["subquery"] = None
+                except Exception:
+                    ind_dict["agrupamentos"] = []
+                    ind_dict["agregacoes"] = []
                     ind_dict["subquery"] = None
         except Exception as e:
             ind_dict["dados"] = None
             ind_dict["query_tipo"] = None
             ind_dict["erro"] = str(e)
+
+        if ind_dict.get("query_tipo") != "table_dynamic":
+            ind_dict.pop("query_id", None)
+            ind_dict.pop("subquery_id", None)
         resultado.append(ind_dict)
 
     return {
