@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
 
   let empresa     = null;
   let logoFile    = null;
@@ -171,7 +171,7 @@
           {:else if empresa.logo_url}
             <img
               class="logo-preview"
-              src={empresa.logo_url}
+              src={assetUrl(empresa.logo_url)}
               alt={empresa.nome}
               on:error={(e) => { e.target.style.display = 'none'; }}
             />

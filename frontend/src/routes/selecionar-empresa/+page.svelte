@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { token, usuario, empresaAtiva } from '$lib/stores/auth.js';
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
 
   let nomeUsuario = '';
   let empresas    = [];
@@ -35,7 +35,7 @@
       // Fetch full user profile (includes role from JWT-validated session)
       const me = await api.me();
       usuario.set(me);
-      empresaAtiva.set({ id: empresa.id, slug: empresa.slug, nome: empresa.nome, logo_url: empresa.logo_url, url_impressao_base: me.url_impressao_base ?? null });
+      empresaAtiva.set({ id: empresa.id, slug: empresa.slug, nome: empresa.nome, logo_url: assetUrl(empresa.logo_url), url_impressao_base: me.url_impressao_base ?? null });
       sessionStorage.removeItem('temp_user');
       goto('/');
     } catch {
@@ -77,7 +77,7 @@
       >
         <div class="logo-wrap">
           <img
-            src={empresa.logo_url}
+            src={assetUrl(empresa.logo_url)}
             alt={empresa.nome}
             on:error={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }}
           />

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
 
   let empresas   = [];
   let carregando = true;
@@ -61,7 +61,7 @@
         <div class="card empresa-card" class:inativo={!empresa.ativo}>
           <div class="card-logo">
             <img
-              src={empresa.logo_url || `/api/empresas/${empresa.id}/logo`}
+              src={assetUrl(empresa.logo_url || `/api/empresas/${empresa.id}/logo`)}
               alt={empresa.nome}
               on:error={(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='flex'; }}
             />
