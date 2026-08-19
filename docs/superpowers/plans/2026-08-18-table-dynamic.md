@@ -813,15 +813,26 @@ No loop (linha 392-409), depois de popular `ind_dict["erro"] = None` (dentro do 
                     ind_dict["subquery"] = None
 ```
 
+**Correção (achada em revisão):** `q.id AS query_id` e `q.subquery_id` são colunas do `SELECT` compartilhado, então acabam em `ind_dict` pra **todo** indicador, não só `table_dynamic` — isso viola a constraint global de não vazar campo novo pros outros tipos. Antes do `resultado.append(ind_dict)`, remover as duas chaves quando o indicador não for `table_dynamic`:
+
+```python
+        if ind_dict.get("query_tipo") != "table_dynamic":
+            ind_dict.pop("query_id", None)
+            ind_dict.pop("subquery_id", None)
+        resultado.append(ind_dict)
+```
+
+Também isolar o bloco novo (agrupamentos/agregações/subquery) do `try/except` externo que já cuida de `resolver_query` — uma falha nessas 3 queries extras não pode apagar um `dados`/`query_tipo` que já resolveu com sucesso. Envolver o bloco `if ind_dict["query_tipo"] == "table_dynamic":` acima num `try/except Exception` próprio, com fallback `agrupamentos=[]`, `agregacoes=[]`, `subquery=None` em caso de erro.
+
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `docker exec datahub_backend python -m pytest tests/test_paineis_table_dynamic.py -v`
-Expected: PASS
+Run: `./run-backend-tests.sh tests/test_paineis_table_dynamic.py -v`
+Expected: PASS (incluindo um 3º teste novo que confirma que um indicador tipo `table` comum não ganha `query_id`/`subquery_id`/`agrupamentos`/`agregacoes`/`subquery` na resposta).
 
 - [ ] **Step 5: Run full backend suite to check for regressions**
 
-Run: `docker exec datahub_backend python -m pytest tests/ -v`
-Expected: todos os testes passam — `q.id AS query_id` é uma coluna nova, não deve colidir com `pi.id` (que continua vindo de `pi.*`) nem afetar indicadores de outros tipos (o bloco novo só roda quando `query_tipo == "table_dynamic"`).
+Run: `./run-backend-tests.sh`
+Expected: todos os testes passam — `q.id AS query_id` é uma coluna nova, não deve colidir com `pi.id` (que continua vindo de `pi.*`); depois da correção acima, indicadores de outros tipos voltam a ter exatamente o mesmo formato de resposta de antes desta task.
 
 - [ ] **Step 6: Commit**
 
@@ -991,10 +1002,13 @@ git commit -m "feat: add reusable Modal component"
 
 Create `frontend/src/lib/components/GrupoLinha.svelte`:
 
+**Correção (achada em revisão):** calcular o colspan da célula de valor como `colunasDetalhe.length - grupo.agregados.length` transborda a tabela quando há mais agregações do que colunas de detalhe (configuração plausível, sem limite no backend). Em vez de colspan por subtração, usa layout de colunas fixo: uma coluna dedicada por agregação, sempre presente (cabeçalho e linhas de folha ganham células vazias nela), e a célula de valor da linha de grupo usa `colspan={Math.max(1, colunasDetalhe.length)}` (span exatamente as colunas de detalhe, nunca compete por espaço com as agregações):
+
 ```svelte
 <script>
   export let no;              // { folha: true, linhas } | { folha: false, grupos: [{valor, agregados, filho}] }
   export let colunasDetalhe;  // [{key, label}]
+  export let agregacoes;      // [{coluna, funcao, label}] — só pra saber quantas células vazias render nas folhas
   export let mostrarAcoes;
   export let onAcionar;
   export let nivel = 0;
@@ -1006,6 +1020,7 @@ Create `frontend/src/lib/components/GrupoLinha.svelte`:
       {#each colunasDetalhe as col, i}
         <td style={i === 0 ? `padding-left:${16 + nivel * 16}px` : ''}>{row[col.key] ?? '—'}</td>
       {/each}
+      {#each agregacoes as ag}<td></td>{/each}
       {#if mostrarAcoes}
         <td><button class="btn-ghost btn-sm" on:click={() => onAcionar(row)}>Ações</button></td>
       {/if}
@@ -1014,7 +1029,7 @@ Create `frontend/src/lib/components/GrupoLinha.svelte`:
 {:else}
   {#each no.grupos as grupo}
     <tr class="linha-grupo">
-      <td style="padding-left:{nivel * 16}px" colspan={Math.max(1, colunasDetalhe.length - grupo.agregados.length)}>
+      <td style="padding-left:{nivel * 16}px" colspan={Math.max(1, colunasDetalhe.length)}>
         {grupo.valor}
       </td>
       {#each grupo.agregados as ag}
@@ -1025,6 +1040,7 @@ Create `frontend/src/lib/components/GrupoLinha.svelte`:
     <svelte:self
       no={grupo.filho}
       {colunasDetalhe}
+      {agregacoes}
       {mostrarAcoes}
       {onAcionar}
       nivel={nivel + 1}
@@ -1068,16 +1084,16 @@ Create `frontend/src/lib/components/DynamicTable.svelte`:
     maximo:   vals => vals.length ? Math.max(...vals) : 0,
   };
 
-  function calcularAgregacoes(linhas) {
-    return agregacoes.map(ag => {
+  function calcularAgregacoes(linhas, agregacoesAtual) {
+    return agregacoesAtual.map(ag => {
       const valores = linhas.map(r => Number(r[ag.coluna])).filter(v => !Number.isNaN(v));
       return { coluna: ag.coluna, label: ag.label, valor: (FUNCOES[ag.funcao] ?? FUNCOES.soma)(valores) };
     });
   }
 
-  function construirArvore(linhas, nivel) {
-    if (nivel >= agrupamentos.length) return { folha: true, linhas };
-    const coluna = agrupamentos[nivel];
+  function construirArvore(linhas, nivel, agrupamentosAtual, agregacoesAtual) {
+    if (nivel >= agrupamentosAtual.length) return { folha: true, linhas };
+    const coluna = agrupamentosAtual[nivel];
     const grupos = new Map();
     for (const linha of linhas) {
       const chave = linha[coluna];
@@ -1088,8 +1104,8 @@ Create `frontend/src/lib/components/DynamicTable.svelte`:
       folha: false,
       grupos: [...grupos.entries()].map(([valor, linhasGrupo]) => ({
         valor,
-        agregados: calcularAgregacoes(linhasGrupo),
-        filho: construirArvore(linhasGrupo, nivel + 1),
+        agregados: calcularAgregacoes(linhasGrupo, agregacoesAtual),
+        filho: construirArvore(linhasGrupo, nivel + 1, agrupamentosAtual, agregacoesAtual),
       })),
     };
   }
@@ -1099,7 +1115,7 @@ Create `frontend/src/lib/components/DynamicTable.svelte`:
     : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : [])
   ).filter(c => !agrupamentos.includes(c.key));
 
-  $: arvore = construirArvore(dados, 0);
+  $: arvore = construirArvore(dados, 0, agrupamentos, agregacoes);
   $: mostrarAcoes = !!subquery;
 
   let modalAberto     = false;
@@ -1132,11 +1148,12 @@ Create `frontend/src/lib/components/DynamicTable.svelte`:
     <thead>
       <tr>
         {#each colunasDetalhe as col}<th>{col.label ?? col.key}</th>{/each}
+        {#each agregacoes as ag}<th class="agregado-header">{ag.label ?? ag.coluna}</th>{/each}
         {#if mostrarAcoes}<th>Ações</th>{/if}
       </tr>
     </thead>
     <tbody>
-      <GrupoLinha no={arvore} {colunasDetalhe} {mostrarAcoes} onAcionar={acionar} nivel={0} />
+      <GrupoLinha no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar} nivel={0} />
     </tbody>
   </table>
 </div>

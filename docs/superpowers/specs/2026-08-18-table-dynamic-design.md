@@ -231,6 +231,16 @@ Novo bloco `{#if form.tipo === 'table_dynamic'}`, populado por
   realmente existem no resultado — mesmo nível de confiança que
   `impressao_coluna` já aceita hoje (falha silenciosa, não bloqueia salvar).
 - Aplicar as migrações em produção (fica documentado como pendência manual).
+- **Filtros ativos do painel não são repassados pra subconsulta do drill-down**
+  (achado na revisão final) — o botão "Ações" só envia os valores das colunas
+  mapeadas da própria linha; um painel filtrado (ex: "mês atual") pode abrir
+  um drill-down cuja subconsulta cai no `valor_padrao` dela mesma pra
+  qualquer parâmetro que não veio do mapeamento, mostrando dado de outro
+  período sem aviso. Mesmo nível de confiança que os demais parâmetros
+  manuais desse sistema (comportamento de fallback explícito, não é falha
+  silenciosa nova). Repassar `filtrosAtivos` do painel pro `DynamicTable`
+  fica pra uma iteração futura, se o usuário pedir — não é um bug, é uma
+  limitação de escopo desta primeira versão.
 
 ## Verificação
 
