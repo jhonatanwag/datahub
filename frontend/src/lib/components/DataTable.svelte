@@ -1,5 +1,5 @@
 <script>
-  import * as XLSX from 'xlsx';
+  import { baixarCSV, baixarXLSX, baixarPDF } from '$lib/exportTable.js';
 
   export let colunas = [];
   export let dados   = [];
@@ -75,49 +75,15 @@
     return cor ? `color:${cor}` : '';
   }
 
-  function escaparCSV(valor) {
-    // Quebras de linha dentro de um campo (dado real vindo da fonte, ex:
-    // texto com \r\n embutido) quebram leitores de CSV que não respeitam
-    // aspas — normaliza pra espaço, garantindo que cada linha do arquivo
-    // corresponda a exatamente uma linha da tabela.
-    const texto = valor === null || valor === undefined
-      ? ''
-      : String(valor).replace(/[\r\n]+/g, ' ').trim();
-    if (/[;"]/.test(texto)) {
-      return `"${texto.replace(/"/g, '""')}"`;
+  let gerandoPDF = false;
+
+  async function exportarPDF() {
+    gerandoPDF = true;
+    try {
+      await baixarPDF(colunasEfetivas, dados, titulo);
+    } finally {
+      gerandoPDF = false;
     }
-    return texto;
-  }
-
-  function baixarCSV() {
-    const cabecalho = colunasEfetivas.map(c => escaparCSV(c.label ?? c.key)).join(';');
-    const linhas = dados.map(row =>
-      colunasEfetivas.map(c => escaparCSV(row[c.key])).join(';')
-    );
-    const conteudo = '﻿' + [cabecalho, ...linhas].join('\r\n');
-    const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const nomeArquivo = `${titulo.replace(/[^a-zA-Z0-9]+/g, '_')}.csv`;
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = nomeArquivo;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function baixarXLSX() {
-    const cabecalho = colunasEfetivas.map(c => c.label ?? c.key);
-    const linhas = dados.map(row =>
-      colunasEfetivas.map(c => row[c.key] ?? '')
-    );
-    const ws = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
-    const nomeArquivo = `${titulo.replace(/[^a-zA-Z0-9]+/g, '_')}.xlsx`;
-    XLSX.writeFile(wb, nomeArquivo);
   }
 </script>
 
@@ -187,11 +153,14 @@
   </div>
 
   <div class="pagination">
-    <button class="btn-export btn-export-csv btn-sm" on:click={baixarCSV} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSV(colunasEfetivas, dados, titulo)} disabled={dados.length === 0}>
       ⬇ CSV
     </button>
-    <button class="btn-export btn-export-xlsx btn-sm" on:click={baixarXLSX} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSX(colunasEfetivas, dados, titulo)} disabled={dados.length === 0}>
       ⬇ Excel
+    </button>
+    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || gerandoPDF}>
+      {gerandoPDF ? 'Gerando…' : '⬇ PDF'}
     </button>
     <span>{dados.length} registros</span>
     <label class="tamanho-pagina">
@@ -232,6 +201,7 @@ tr:hover td { background: var(--surface2); }
 .btn-export { color: #0d1117; font-weight: 600; border: none; }
 .btn-export-csv { background: var(--accent); }
 .btn-export-xlsx { background: var(--accent-blue); color: #fff; }
+.btn-export-pdf { background: var(--danger, #f85149); color: #fff; }
 .tamanho-pagina { display: flex; align-items: center; gap: 6px; }
 .tamanho-pagina select { width: auto; padding: 4px 8px; }
 
