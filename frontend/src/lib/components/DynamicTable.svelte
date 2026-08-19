@@ -6,6 +6,7 @@
   import ChartPanel from './ChartPanel.svelte';
   import MapPanel from './MapPanel.svelte';
   import { api } from '$lib/api.js';
+  import { baixarCSV, baixarXLSX, baixarPDF } from '$lib/exportTable.js';
 
   export let colunas = [];
   export let dados = [];
@@ -48,13 +49,35 @@
     };
   }
 
-  $: colunasDetalhe = (colunas.length > 0
+  $: colunasTodas = colunas.length > 0
     ? colunas
-    : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : [])
-  ).filter(c => !agrupamentos.includes(c.key));
+    : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : []);
+
+  $: colunasDetalhe = colunasTodas.filter(c => !agrupamentos.includes(c.key));
 
   $: arvore = construirArvore(dados, 0, agrupamentos, agregacoes);
   $: mostrarAcoes = !!subquery;
+
+  // Grupos começam todos recolhidos — só as linhas de agrupamento aparecem
+  // até o usuário clicar pra expandir. Chave = caminho dos valores dos
+  // grupos ancestrais, então o estado sobrevive a um recálculo da árvore
+  // (novo filtro/dado) desde que os valores dos grupos não mudem.
+  let expandidos = new Set();
+  function alternar(chave) {
+    if (expandidos.has(chave)) expandidos.delete(chave);
+    else expandidos.add(chave);
+    expandidos = expandidos;
+  }
+
+  let gerandoPDF = false;
+  async function exportarPDF() {
+    gerandoPDF = true;
+    try {
+      await baixarPDF(colunasTodas, dados, titulo);
+    } finally {
+      gerandoPDF = false;
+    }
+  }
 
   let modalAberto     = false;
   let modalCarregando = false;
@@ -91,9 +114,31 @@
       </tr>
     </thead>
     <tbody>
-      <GrupoLinha no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar} nivel={0} />
+      <GrupoLinha
+        no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar}
+        nivel={0} modo="tabela" {expandidos} onAlternar={alternar} caminho=""
+      />
     </tbody>
   </table>
+
+  <div class="cards-mobile">
+    <GrupoLinha
+      no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar}
+      nivel={0} modo="cards" {expandidos} onAlternar={alternar} caminho=""
+    />
+  </div>
+
+  <div class="export-bar">
+    <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSV(colunasTodas, dados, titulo)} disabled={dados.length === 0}>
+      ⬇ CSV
+    </button>
+    <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSX(colunasTodas, dados, titulo)} disabled={dados.length === 0}>
+      ⬇ Excel
+    </button>
+    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || gerandoPDF}>
+      {gerandoPDF ? 'Gerando…' : '⬇ PDF'}
+    </button>
+  </div>
 </div>
 
 <Modal aberto={modalAberto} onClose={() => modalAberto = false}>
@@ -117,5 +162,20 @@
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
 th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.agregado-header { text-align: right; }
 .error { color: var(--danger, #f85149); }
+
+.export-bar { display: flex; gap: 8px; padding: 12px 0 0; flex-wrap: wrap; }
+.btn-sm { font-size: 12px; padding: 4px 10px; }
+.btn-export { color: #0d1117; font-weight: 600; border: none; }
+.btn-export-csv { background: var(--accent); }
+.btn-export-xlsx { background: var(--accent-blue); color: #fff; }
+.btn-export-pdf { background: var(--danger, #f85149); color: #fff; }
+
+.cards-mobile { display: none; }
+
+@media (max-width: 768px) {
+  table { display: none; }
+  .cards-mobile { display: flex; flex-direction: column; gap: 4px; }
+}
 </style>
