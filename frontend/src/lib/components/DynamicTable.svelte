@@ -6,7 +6,7 @@
   import ChartPanel from './ChartPanel.svelte';
   import MapPanel from './MapPanel.svelte';
   import { api } from '$lib/api.js';
-  import { baixarCSV, baixarXLSX, baixarPDF } from '$lib/exportTable.js';
+  import { baixarCSVAgrupado, baixarXLSXAgrupado, baixarPDFAgrupado } from '$lib/exportTable.js';
 
   export let colunas = [];
   export let dados = [];
@@ -14,6 +14,7 @@
   export let agregacoes = [];
   export let subquery = null;
   export let titulo = 'dados';
+  export let pdfOrientacao = 'retrato';
 
   const FUNCOES = {
     soma:     vals => vals.reduce((a, b) => a + b, 0),
@@ -73,7 +74,7 @@
   async function exportarPDF() {
     gerandoPDF = true;
     try {
-      await baixarPDF(colunasTodas, dados, titulo);
+      await baixarPDFAgrupado(colunasDetalhe, agregacoes, arvore, titulo, pdfOrientacao);
     } finally {
       gerandoPDF = false;
     }
@@ -129,10 +130,10 @@
   </div>
 
   <div class="export-bar">
-    <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSV(colunasTodas, dados, titulo)} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSVAgrupado(colunasDetalhe, agregacoes, arvore, titulo)} disabled={dados.length === 0}>
       ⬇ CSV
     </button>
-    <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSX(colunasTodas, dados, titulo)} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSXAgrupado(colunasDetalhe, agregacoes, arvore, titulo)} disabled={dados.length === 0}>
       ⬇ Excel
     </button>
     <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || gerandoPDF}>

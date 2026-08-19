@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam, Request
+from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam, Request, UploadFile, File, Response
 from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
@@ -37,6 +37,9 @@ class QueryInput(BaseModel):
     testar_empresa_id: Optional[int] = None
     testar_parametros: List[dict] = []  # [{nome, valor}] em ordem — só usado no /testar
     subquery_id: Optional[int] = None
+    pdf_orientacao: Optional[str] = 'retrato'
+    kpi_imagem_habilitada: bool = False
+    kpi_imagem_posicao: Optional[str] = 'direita'
 
 
 class QueryUpdate(BaseModel):
@@ -64,6 +67,9 @@ class QueryUpdate(BaseModel):
     meta_cor_dentro: Optional[str] = None
     meta_cor_fora: Optional[str] = None
     subquery_id: Optional[int] = None
+    pdf_orientacao: Optional[str] = None
+    kpi_imagem_habilitada: Optional[bool] = None
+    kpi_imagem_posicao: Optional[str] = None
 
 
 class ParamInput(BaseModel):
@@ -103,6 +109,20 @@ TIPOS_VALIDOS = {
 FUNCOES_AGREGACAO_VALIDAS = {'soma', 'contagem', 'media', 'minimo', 'maximo'}
 
 CAMADAS_MAPA_VALIDAS = {'padrao', 'satelite'}
+
+ORIENTACOES_PDF_VALIDAS = {'retrato', 'paisagem'}
+
+POSICOES_KPI_IMAGEM_VALIDAS = {'esquerda', 'direita'}
+
+
+def _com_kpi_imagem_url(row: dict) -> dict:
+    """Substitui a coluna bytea `kpi_imagem` (nunca deve ir pro JSON — quebra a
+    serialização e infla o payload) por uma URL, só quando a query de fato tem
+    imagem salva. Mesmo padrão de `_com_imagem_url` em routes/paineis.py."""
+    tem_imagem = row.pop("kpi_imagem", None) is not None
+    row.pop("kpi_imagem_mime", None)
+    row["kpi_imagem_url"] = f"/api/queries/{row['id']}/kpi-imagem" if tem_imagem else None
+    return row
 
 
 @router.get("/layout/dashboard")
@@ -205,7 +225,7 @@ async def listar_queries(
             f"SELECT * FROM queries WHERE {where} ORDER BY tipo, nome",
             *params
         )
-        return [dict(r) for r in rows]
+        return [_com_kpi_imagem_url(dict(r)) for r in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao listar queries: {e}")
 
@@ -345,7 +365,7 @@ async def buscar_query(query_id: int, user=Depends(get_current_user)):
         rows = await query_meta("SELECT * FROM queries WHERE id = $1", query_id)
         if not rows:
             raise HTTPException(status_code=404, detail="Query não encontrada")
-        return dict(rows[0])
+        return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
     except Exception as e:
@@ -363,6 +383,10 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             raise HTTPException(status_code=400, detail=f"Tipo inválido. Use: {TIPOS_VALIDOS}")
         if body.mapa_camada not in CAMADAS_MAPA_VALIDAS:
             raise HTTPException(status_code=400, detail=f"Camada de mapa inválida. Use: {CAMADAS_MAPA_VALIDAS}")
+        if body.pdf_orientacao not in ORIENTACOES_PDF_VALIDAS:
+            raise HTTPException(status_code=400, detail=f"Orientação de PDF inválida. Use: {ORIENTACOES_PDF_VALIDAS}")
+        if body.kpi_imagem_posicao not in POSICOES_KPI_IMAGEM_VALIDAS:
+            raise HTTPException(status_code=400, detail=f"Posição de imagem do KPI inválida. Use: {POSICOES_KPI_IMAGEM_VALIDAS}")
         validar_sql(body.sql_texto)
 
         rows = await query_meta("""
@@ -372,9 +396,10 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 chart_fonte_tamanho, chart_truncar_label, chart_truncar_tamanho, chart_mostrar_valor,
                 chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna,
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
-                meta_cor_dentro, meta_cor_fora, subquery_id
+                meta_cor_dentro, meta_cor_fora, subquery_id,
+                pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -385,8 +410,9 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.impressao_caminho, body.impressao_coluna,
             body.meta_habilitada, body.meta_coluna_valor,
             body.meta_coluna_inicio, body.meta_coluna_fim,
-            body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id)
-        return dict(rows[0])
+            body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id,
+            body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao)
+        return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
     except ValueError as e:
@@ -406,7 +432,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         updates = body.dict(exclude_none=True)
 
         if not updates:
-            return atual
+            return _com_kpi_imagem_url(atual)
 
         ALLOWED_COLS = {
             'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo',
@@ -414,7 +440,8 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor',
             'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna',
             'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim',
-            'meta_cor_dentro', 'meta_cor_fora', 'subquery_id'
+            'meta_cor_dentro', 'meta_cor_fora', 'subquery_id',
+            'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
@@ -425,6 +452,12 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
 
         if "mapa_camada" in updates and updates["mapa_camada"] not in CAMADAS_MAPA_VALIDAS:
             raise HTTPException(status_code=400, detail=f"Camada de mapa inválida. Use: {CAMADAS_MAPA_VALIDAS}")
+
+        if "pdf_orientacao" in updates and updates["pdf_orientacao"] not in ORIENTACOES_PDF_VALIDAS:
+            raise HTTPException(status_code=400, detail=f"Orientação de PDF inválida. Use: {ORIENTACOES_PDF_VALIDAS}")
+
+        if "kpi_imagem_posicao" in updates and updates["kpi_imagem_posicao"] not in POSICOES_KPI_IMAGEM_VALIDAS:
+            raise HTTPException(status_code=400, detail=f"Posição de imagem do KPI inválida. Use: {POSICOES_KPI_IMAGEM_VALIDAS}")
 
         if "sql_texto" in updates:
             validar_sql(updates["sql_texto"])
@@ -442,7 +475,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if "sql_texto" in updates:
             await invalidar_cache_query(atual["slug"])
 
-        return dict(rows[0])
+        return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
     except ValueError as e:
@@ -465,3 +498,24 @@ async def deletar_query(query_id: int, user=Depends(require_admin)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao deletar query: {e}")
+
+
+@router.post("/{query_id}/kpi-imagem")
+async def upload_kpi_imagem(query_id: int, file: UploadFile = File(...), user=Depends(require_admin)):
+    rows = await query_meta("SELECT id FROM queries WHERE id = $1", query_id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="Query não encontrada")
+    content = await file.read()
+    await query_meta(
+        "UPDATE queries SET kpi_imagem = $1, kpi_imagem_mime = $2 WHERE id = $3",
+        content, file.content_type or "image/png", query_id
+    )
+    return {"ok": True, "kpi_imagem_url": f"/api/queries/{query_id}/kpi-imagem"}
+
+
+@router.get("/{query_id}/kpi-imagem")
+async def get_kpi_imagem(query_id: int):
+    rows = await query_meta("SELECT kpi_imagem, kpi_imagem_mime FROM queries WHERE id = $1", query_id)
+    if not rows or rows[0]["kpi_imagem"] is None:
+        raise HTTPException(status_code=404, detail="Imagem não encontrada")
+    return Response(content=rows[0]["kpi_imagem"], media_type=rows[0]["kpi_imagem_mime"] or "image/png")

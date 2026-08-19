@@ -17,7 +17,19 @@
     meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
     meta_coluna_fim: '', meta_cor_dentro: '#3fb950', meta_cor_fora: '#f85149',
     subquery_id: null,
+    pdf_orientacao: 'retrato',
+    kpi_imagem_habilitada: false, kpi_imagem_posicao: 'direita',
   };
+
+  let kpiImagemFile    = null;
+  let kpiImagemPreview = null;
+
+  function onKpiImagemChange(e) {
+    kpiImagemFile = e.target.files[0];
+    if (kpiImagemFile) {
+      kpiImagemPreview = URL.createObjectURL(kpiImagemFile);
+    }
+  }
 
   // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
   let params          = [];
@@ -161,6 +173,11 @@
       if (params.length > 0) {
         await api.salvarParametrosQuery(q.id, params.map(({ _testar_valor, ...p }) => p));
       }
+      if (form.tipo === 'kpi' && kpiImagemFile) {
+        const fd = new FormData();
+        fd.append('file', kpiImagemFile);
+        await api.uploadKpiImagem(q.id, fd);
+      }
       if (form.tipo === 'table_dynamic') {
         await api.salvarAgrupamentosQuery(q.id, agrupamentos.filter(a => a.coluna));
         await api.salvarAgregacoesQuery(q.id, agregacoes.filter(a => a.coluna));
@@ -236,6 +253,45 @@
             <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
           </div>
         </div>
+      </div>
+
+      <div class="section-block">
+        <span class="section-title">Imagem do KPI</span>
+        <label class="check-inline">
+          <input type="checkbox" bind:checked={form.kpi_imagem_habilitada} />
+          Mostrar uma imagem dentro do card
+        </label>
+        {#if form.kpi_imagem_habilitada}
+          <div class="cores-row">
+            <label class="lbl">
+              Arquivo da imagem
+              <input type="file" accept="image/*" on:change={onKpiImagemChange} />
+            </label>
+            <label class="lbl">
+              Posição da imagem
+              <select bind:value={form.kpi_imagem_posicao}>
+                <option value="esquerda">Esquerda (valor fica à direita)</option>
+                <option value="direita">Direita (valor fica à esquerda)</option>
+              </select>
+            </label>
+            {#if kpiImagemPreview}
+              <img class="kpi-imagem-preview" src={kpiImagemPreview} alt="preview da imagem do KPI" />
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    {#if form.tipo === 'table' || form.tipo === 'table_dynamic'}
+      <div class="section-block">
+        <span class="section-title">Orientação do PDF</span>
+        <label class="lbl">
+          Ao exportar esta tabela em PDF
+          <select bind:value={form.pdf_orientacao}>
+            <option value="retrato">Retrato</option>
+            <option value="paisagem">Paisagem (tabelas largas)</option>
+          </select>
+        </label>
       </div>
     {/if}
 
@@ -585,6 +641,7 @@
 .kpi-preview { border-radius:6px; padding:12px 16px; display:flex; flex-direction:column; gap:4px; min-width:120px; border:1px solid transparent; }
 .kpi-preview-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
 .kpi-preview-valor { font-size:24px; font-weight:500; font-family:var(--font-display); }
+.kpi-imagem-preview { width:56px; height:56px; object-fit:contain; border-radius:6px; border:1px solid var(--border); }
 .slot-badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; white-space:nowrap; }
 .slot-inicio { background:color-mix(in srgb,#3fb950 15%,var(--surface2)); color:#3fb950; }
 .slot-fim    { background:color-mix(in srgb,#f85149 15%,var(--surface2)); color:#f85149; }

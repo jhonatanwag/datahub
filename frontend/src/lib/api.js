@@ -85,6 +85,14 @@ export const api = {
     buscarQuery:    (id)       => request(`/api/queries/${id}`),
     criarQuery:     (data)     => request('/api/queries/', { method: 'POST', body: JSON.stringify(data) }),
     atualizarQuery: (id, data) => request(`/api/queries/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    uploadKpiImagem: (id, formData) => {
+        const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+        return fetch(`${BASE}/api/queries/${id}/kpi-imagem`, {
+            method: 'POST',
+            headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+            body: formData,
+        }).then(r => r.json());
+    },
     deletarQuery:   (id)       => request(`/api/queries/${id}`, { method: 'DELETE' }),
     testarQuery:    (data)     => request('/api/queries/testar', { method: 'POST', body: JSON.stringify(data) }),
     executarQuery:  (slug, params = {}) => {

@@ -89,6 +89,11 @@ CREATE TABLE queries (
     meta_cor_dentro    TEXT DEFAULT '#3fb950',
     meta_cor_fora      TEXT DEFAULT '#f85149',
     subquery_id        INTEGER REFERENCES queries(id) ON DELETE SET NULL,
+    pdf_orientacao        VARCHAR(10) DEFAULT 'retrato',
+    kpi_imagem_habilitada BOOLEAN DEFAULT false,
+    kpi_imagem_posicao    VARCHAR(10) DEFAULT 'direita',
+    kpi_imagem            BYTEA,
+    kpi_imagem_mime       TEXT,
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);

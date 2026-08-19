@@ -13,6 +13,7 @@
   export let metaColunaFim     = null;
   export let metaCorDentro     = '#3fb950';
   export let metaCorFora       = '#f85149';
+  export let pdfOrientacao     = 'retrato';
 
   const TAMANHOS_PAGINA = [5, 10, 50, 100, 500];
   let paginaAtual   = 1;
@@ -80,7 +81,7 @@
   async function exportarPDF() {
     gerandoPDF = true;
     try {
-      await baixarPDF(colunasEfetivas, dados, titulo);
+      await baixarPDF(colunasEfetivas, dados, titulo, pdfOrientacao);
     } finally {
       gerandoPDF = false;
     }

@@ -1,7 +1,7 @@
 <script>
   import { page } from '$app/stores';
   import { afterNavigate } from '$app/navigation';
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
   import KPICard        from '$lib/components/KPICard.svelte';
   import ChartPanel     from '$lib/components/ChartPanel.svelte';
   import DataTable      from '$lib/components/DataTable.svelte';
@@ -72,6 +72,20 @@
     return tokens[val] ?? val;
   }
 
+  // Valores padrão dos filtros (mesmos que a tela usa na primeira abertura)
+  function valoresIniciais() {
+    const v = {};
+    variaveis.forEach(variavel => {
+      if (variavel.tipo === 'date_range') {
+        v[variavel.slug + '_inicio'] = resolverToken(variavel.valor_padrao_inicio || '');
+        v[variavel.slug + '_fim']    = resolverToken(variavel.valor_padrao_fim    || '');
+      } else {
+        v[variavel.slug] = resolverToken(variavel.valor_padrao || '');
+      }
+    });
+    return v;
+  }
+
   async function carregarPainel() {
     slug = $page.params.slug;
     painel = null;
@@ -87,14 +101,7 @@
       painel    = await api.buscarPainelPorSlug(slug);
       variaveis = await api.variaveisPainel(painel.id);
 
-      variaveis.forEach(v => {
-        if (v.tipo === 'date_range') {
-          filtrosAtivos[v.slug + '_inicio'] = resolverToken(v.valor_padrao_inicio || '');
-          filtrosAtivos[v.slug + '_fim']    = resolverToken(v.valor_padrao_fim    || '');
-        } else {
-          filtrosAtivos[v.slug] = resolverToken(v.valor_padrao || '');
-        }
-      });
+      filtrosAtivos = valoresIniciais();
 
       // Carrega as opções (valor/label) das variáveis select/multiselect
       // pra poder mostrar o label (não o id cru) no chip de resumo.
@@ -134,6 +141,12 @@
   }
 
   async function aplicar() {
+    filtrosAbertos = false;
+    await carregarDados();
+  }
+
+  async function limparFiltros() {
+    filtrosAtivos = valoresIniciais();
     filtrosAbertos = false;
     await carregarDados();
   }
@@ -200,7 +213,10 @@
               on:mudou={onFiltroMudou}
             />
           {/each}
-          <button class="btn-primary btn-aplicar" on:click={aplicar}>Aplicar</button>
+          <div class="filtros-acoes">
+            <button class="btn-ghost btn-limpar" on:click={limparFiltros}>Limpar filtros</button>
+            <button class="btn-primary btn-aplicar" on:click={aplicar}>Aplicar</button>
+          </div>
         </div>
       {/if}
     {/if}
@@ -228,7 +244,13 @@
               <p class="error" style="font-size:12px; padding:8px">{ind.erro}</p>
 
             {:else if ind.query_tipo === 'kpi'}
-              <KPICard dados={ind.dados?.[0]} corFonte={ind.kpi_cor_fonte} corFundo={ind.kpi_cor_fundo} />
+              <KPICard
+                dados={ind.dados?.[0]}
+                corFonte={ind.kpi_cor_fonte}
+                corFundo={ind.kpi_cor_fundo}
+                imagemUrl={ind.kpi_imagem_habilitada ? assetUrl(`/api/queries/${ind.query_id}/kpi-imagem`) : null}
+                imagemPosicao={ind.kpi_imagem_posicao}
+              />
 
             {:else if ind.query_tipo?.startsWith('chart_')}
               <ChartPanel
@@ -258,6 +280,7 @@
                 metaColunaFim={ind.meta_coluna_fim}
                 metaCorDentro={ind.meta_cor_dentro}
                 metaCorFora={ind.meta_cor_fora}
+                pdfOrientacao={ind.pdf_orientacao}
               />
 
             {:else if ind.query_tipo === 'table_dynamic'}
@@ -267,6 +290,7 @@
                 agrupamentos={ind.agrupamentos ?? []}
                 agregacoes={ind.agregacoes ?? []}
                 subquery={ind.subquery}
+                pdfOrientacao={ind.pdf_orientacao}
               />
 
             {:else if ind.query_tipo === 'map'}
@@ -353,7 +377,7 @@
   margin-bottom: 20px;
 }
 
-.btn-aplicar { margin-left: auto; }
+.filtros-acoes { display: flex; gap: 8px; margin-left: auto; }
 
 /* ── Grid ───────────────────────────────────────────────── */
 .painel-grid { display: grid; gap: 16px; }
@@ -397,7 +421,9 @@
     gap: 10px;
     padding: 12px;
   }
-  .btn-aplicar  { margin-left: 0; width: 100%; justify-content: center; }
+  .filtros-acoes { margin-left: 0; width: 100%; }
+  .btn-limpar,
+  .btn-aplicar  { flex: 1; justify-content: center; }
 
   .painel-grid  { grid-template-columns: 1fr !important; gap: 10px; }
   .grid-item    { grid-column: 1 / -1 !important; grid-row: auto !important; }

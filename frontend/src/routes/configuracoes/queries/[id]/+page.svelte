@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { api } from '$lib/api.js';
+  import { api, assetUrl } from '$lib/api.js';
   import QueryEditor from '$lib/components/QueryEditor.svelte';
 
   const id = $page.params.id;
@@ -20,7 +20,20 @@
     meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
     meta_coluna_fim: '', meta_cor_dentro: '#3fb950', meta_cor_fora: '#f85149',
     subquery_id: null,
+    pdf_orientacao: 'retrato',
+    kpi_imagem_habilitada: false, kpi_imagem_posicao: 'direita',
   };
+
+  let kpiImagemFile    = null;
+  let kpiImagemPreview = null;
+  let kpiImagemUrlAtual = null;
+
+  function onKpiImagemChange(e) {
+    kpiImagemFile = e.target.files[0];
+    if (kpiImagemFile) {
+      kpiImagemPreview = URL.createObjectURL(kpiImagemFile);
+    }
+  }
 
   // cada item: { nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, _testar_valor }
   let params          = [];
@@ -83,7 +96,11 @@
         meta_cor_dentro:    q.meta_cor_dentro || '#3fb950',
         meta_cor_fora:      q.meta_cor_fora || '#f85149',
         subquery_id:        q.subquery_id ?? null,
+        pdf_orientacao:        q.pdf_orientacao || 'retrato',
+        kpi_imagem_habilitada: q.kpi_imagem_habilitada ?? false,
+        kpi_imagem_posicao:    q.kpi_imagem_posicao || 'direita',
       };
+      kpiImagemUrlAtual = q.kpi_imagem_url ? assetUrl(q.kpi_imagem_url) : null;
       params = prms.map(p => ({ ...p, _testar_valor: '' }));
 
       if (q.tipo === 'table_dynamic') {
@@ -222,7 +239,15 @@
         meta_cor_dentro:    form.meta_cor_dentro,
         meta_cor_fora:      form.meta_cor_fora,
         subquery_id:        form.subquery_id,
+        pdf_orientacao:        form.pdf_orientacao,
+        kpi_imagem_habilitada: form.kpi_imagem_habilitada,
+        kpi_imagem_posicao:    form.kpi_imagem_posicao,
       });
+      if (form.tipo === 'kpi' && kpiImagemFile) {
+        const fd = new FormData();
+        fd.append('file', kpiImagemFile);
+        await api.uploadKpiImagem(id, fd);
+      }
       await api.salvarParametrosQuery(id, params.map(({ _testar_valor, ...p }) => p));
       if (form.tipo === 'table_dynamic') {
         await api.salvarAgrupamentosQuery(id, agrupamentos.filter(a => a.coluna));
@@ -314,6 +339,47 @@
               <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
             </div>
           </div>
+        </div>
+
+        <div class="section-block">
+          <span class="section-title">Imagem do KPI</span>
+          <label class="check-inline">
+            <input type="checkbox" bind:checked={form.kpi_imagem_habilitada} />
+            Mostrar uma imagem dentro do card
+          </label>
+          {#if form.kpi_imagem_habilitada}
+            <div class="cores-row">
+              <label class="lbl">
+                Arquivo da imagem
+                <input type="file" accept="image/*" on:change={onKpiImagemChange} />
+              </label>
+              <label class="lbl">
+                Posição da imagem
+                <select bind:value={form.kpi_imagem_posicao}>
+                  <option value="esquerda">Esquerda (valor fica à direita)</option>
+                  <option value="direita">Direita (valor fica à esquerda)</option>
+                </select>
+              </label>
+              {#if kpiImagemPreview}
+                <img class="kpi-imagem-preview" src={kpiImagemPreview} alt="nova imagem do KPI" />
+              {:else if kpiImagemUrlAtual}
+                <img class="kpi-imagem-preview" src={kpiImagemUrlAtual} alt="imagem atual do KPI" />
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if form.tipo === 'table' || form.tipo === 'table_dynamic'}
+        <div class="section-block">
+          <span class="section-title">Orientação do PDF</span>
+          <label class="lbl">
+            Ao exportar esta tabela em PDF
+            <select bind:value={form.pdf_orientacao}>
+              <option value="retrato">Retrato</option>
+              <option value="paisagem">Paisagem (tabelas largas)</option>
+            </select>
+          </label>
         </div>
       {/if}
 
@@ -662,6 +728,7 @@
 .kpi-preview { border-radius:6px; padding:12px 16px; display:flex; flex-direction:column; gap:4px; min-width:120px; border:1px solid transparent; }
 .kpi-preview-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
 .kpi-preview-valor { font-size:24px; font-weight:500; font-family:var(--font-display); }
+.kpi-imagem-preview { width:56px; height:56px; object-fit:contain; border-radius:6px; border:1px solid var(--border); }
 .slot-badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; white-space:nowrap; }
 .slot-inicio { background:color-mix(in srgb,#3fb950 15%,var(--surface2)); color:#3fb950; }
 .slot-fim    { background:color-mix(in srgb,#f85149 15%,var(--surface2)); color:#f85149; }

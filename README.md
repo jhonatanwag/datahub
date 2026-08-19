@@ -135,6 +135,10 @@ WHERE table_name = 'paineis'
 
 SELECT table_name FROM information_schema.tables
 WHERE table_name IN ('query_agrupamentos', 'query_agregacoes', 'query_subquery_parametros');
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'queries'
+  AND column_name IN ('pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao', 'kpi_imagem', 'kpi_imagem_mime');
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -202,6 +206,16 @@ CREATE TABLE query_agregacoes (
     ordem     INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_qagreg_query_id ON query_agregacoes(query_id);
+
+-- 2026-08-19 — orientação do PDF (retrato/paisagem) pra queries tipo table/table_dynamic
+ALTER TABLE queries ADD COLUMN pdf_orientacao VARCHAR(10) DEFAULT 'retrato';
+
+-- 2026-08-19 — imagem opcional dentro do card de KPI (esquerda/direita), mesmo padrão
+-- BYTEA da imagem de capa do painel (armazena o mime real, não força .png)
+ALTER TABLE queries ADD COLUMN kpi_imagem_habilitada BOOLEAN DEFAULT false;
+ALTER TABLE queries ADD COLUMN kpi_imagem_posicao VARCHAR(10) DEFAULT 'direita';
+ALTER TABLE queries ADD COLUMN kpi_imagem BYTEA;
+ALTER TABLE queries ADD COLUMN kpi_imagem_mime TEXT;
 
 CREATE TABLE query_subquery_parametros (
     id                SERIAL PRIMARY KEY,
