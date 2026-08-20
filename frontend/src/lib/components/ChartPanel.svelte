@@ -62,7 +62,7 @@
     const corTexto = corVar('--text');
     const corMuted = corVar('--muted');
     const corBorda = corVar('--border');
-    const cursor = filtroColuna ? 'pointer' : 'default';
+    const cursor = filtroColuna ? 'pointer' : undefined;
 
     if (tipo === 'chart_doughnut') {
       const [colValor] = colunasSerie(dados, false);
