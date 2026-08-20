@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import * as echarts from 'echarts';
   import { usuario } from '$lib/stores/auth.js';
 
@@ -10,6 +10,10 @@
   export let truncarTamanho = 15;
   export let mostrarValor = false;
   export let valorLabel = null;
+  export let filtroColuna = null;
+  export let valoresSelecionados = [];
+
+  const dispatch = createEventDispatcher();
 
   let container;
   let chart;
@@ -32,11 +36,20 @@
     return col === 'valor' && valorLabel ? valorLabel : col;
   }
 
-  // Colunas de série: todas as chaves de dados[0] exceto 'label', que tenham valor numérico
-  // em pelo menos uma linha. 'valor' sempre entra primeiro (compatibilidade com queries existentes).
+  // Opacidade de um item clicável: com alguma seleção ativa, o item
+  // selecionado fica cheio e os demais apagam; sem seleção, todos cheios.
+  function opacidadeClique(d) {
+    if (!filtroColuna || !valoresSelecionados.length) return 1;
+    return valoresSelecionados.includes(String(d[filtroColuna])) ? 1 : 0.35;
+  }
+
+  // Colunas de série: todas as chaves de dados[0] exceto 'label' e a coluna
+  // reservada pro filtro por clique (não é série, é o id bruto do clique),
+  // que tenham valor numérico em pelo menos uma linha. 'valor' sempre entra
+  // primeiro (compatibilidade com queries existentes).
   function colunasSerie(dados, multiSerie) {
     if (!dados.length) return ['valor'];
-    const chaves = Object.keys(dados[0]).filter(k => k !== 'label');
+    const chaves = Object.keys(dados[0]).filter(k => k !== 'label' && k !== filtroColuna);
     const numericas = chaves.filter(k => dados.some(d => d[k] !== null && d[k] !== '' && !isNaN(Number(d[k]))));
     if (!multiSerie) return numericas.includes('valor') ? ['valor'] : numericas.slice(0, 1);
     // 'valor' primeiro, resto na ordem em que aparecem
@@ -49,6 +62,7 @@
     const corTexto = corVar('--text');
     const corMuted = corVar('--muted');
     const corBorda = corVar('--border');
+    const cursor = filtroColuna ? 'pointer' : 'default';
 
     if (tipo === 'chart_doughnut') {
       const [colValor] = colunasSerie(dados, false);
@@ -60,8 +74,11 @@
           formatter: (nome) => truncar(nome),
         },
         series: [{
-          type: 'pie', radius: ['45%', '70%'],
-          data: dados.map((d, i) => ({ value: Number(d[colValor]), name: d.label, itemStyle: { color: COLORS[i % COLORS.length] } })),
+          type: 'pie', radius: ['45%', '70%'], cursor,
+          data: dados.map((d, i) => ({
+            value: Number(d[colValor]), name: d.label,
+            itemStyle: { color: COLORS[i % COLORS.length], opacity: opacidadeClique(d) },
+          })),
           label: {
             color: corTexto, fontSize: fonteTamanho,
             formatter: (params) => mostrarValor ? `${truncar(params.name)}: ${params.value}` : truncar(params.name),
@@ -86,7 +103,10 @@
     const series = cols.map((col, i) => ({
       type: tipo === 'chart_line' ? 'line' : 'bar',
       name: nomeSerie(col),
-      data: dados.map(d => Number(d[col])),
+      cursor,
+      data: dados.map(d => filtroColuna
+        ? { value: Number(d[col]), itemStyle: { opacity: opacidadeClique(d) } }
+        : Number(d[col])),
       smooth: tipo === 'chart_line',
       itemStyle: { color: COLORS[i % COLORS.length] },
       areaStyle: tipo === 'chart_line' ? { color: COLORS[i % COLORS.length] + '1a' } : undefined,
@@ -108,8 +128,16 @@
     };
   }
 
+  function onClickGrafico(params) {
+    if (!filtroColuna) return;
+    const row = dados[params.dataIndex];
+    if (!row) return;
+    dispatch('filtroClique', { valor: row[filtroColuna] });
+  }
+
   onMount(() => {
     chart = echarts.init(container, null, { renderer: 'svg' });
+    chart.on('click', onClickGrafico);
     if (dados.length) chart.setOption(buildOption(tipo, dados));
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(container);
@@ -117,7 +145,9 @@
   });
 
   $: if (chart && dados.length) {
-    $usuario?.tema; // dependência reativa: recria a option quando o tema muda
+    $usuario?.tema;        // dependência reativa: recria a option quando o tema muda
+    filtroColuna;           // dependência reativa: recria quando a coluna de filtro muda
+    valoresSelecionados;    // dependência reativa: recria quando a seleção de clique muda
     chart.setOption(buildOption(tipo, dados), true);
   }
 
