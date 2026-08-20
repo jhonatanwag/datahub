@@ -30,6 +30,10 @@
   let salvando   = false;
   let erro       = null;
 
+  $: variaveisDoPainel = varSelecionadas
+    .map(s => variaveis.find(v => v.id === s.variavel_id))
+    .filter(v => v && (v.tipo === 'select' || v.tipo === 'multiselect'));
+
   onMount(async () => {
     try {
       const [painel, inds, vars, usrs, qs, vs, us, emps] = await Promise.all([
@@ -65,6 +69,7 @@
         col_span:   i.col_span,
         row_span:   i.row_span,
         posicao:    i.posicao,
+        filtro_clique_variavel_id: i.filtro_clique_variavel_id ?? null,
       }));
 
       varSelecionadas = vars.map(v => ({
@@ -93,7 +98,8 @@
     indicadores = [...indicadores, {
       query_slug: queries[0]?.slug || '', titulo: '',
       linha: indicadores.length + 1, coluna: 1,
-      col_span: 1, row_span: 1, posicao: indicadores.length
+      col_span: 1, row_span: 1, posicao: indicadores.length,
+      filtro_clique_variavel_id: null,
     }];
   }
 
@@ -116,6 +122,7 @@
     [a.query_slug, b.query_slug] = [b.query_slug, a.query_slug];
     [a.titulo, b.titulo]         = [b.titulo, a.titulo];
     [a.posicao, b.posicao]       = [b.posicao, a.posicao];
+    [a.filtro_clique_variavel_id, b.filtro_clique_variavel_id] = [b.filtro_clique_variavel_id, a.filtro_clique_variavel_id];
     indicadores = [...indicadores];
   }
 
@@ -321,6 +328,18 @@
                       <input type="number" bind:value={ind.row_span} min="1" />
                     </div>
                   </div>
+                  {#if queries.find(q => q.slug === ind.query_slug)?.chart_filtro_coluna}
+                    <div class="field">
+                      <label>Filtro por clique no gráfico</label>
+                      <select bind:value={ind.filtro_clique_variavel_id}>
+                        <option value={null}>— sem filtro por clique —</option>
+                        {#each variaveisDoPainel as v}
+                          <option value={v.id}>{v.nome}</option>
+                        {/each}
+                      </select>
+                      <span class="hint">Ao clicar num item do gráfico, aplica o filtro nessa variável (precisa estar marcada na aba "Filtros e Acesso").</span>
+                    </div>
+                  {/if}
                 </div>
               {/each}
             {/if}
