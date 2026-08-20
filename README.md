@@ -138,7 +138,11 @@ WHERE table_name IN ('query_agrupamentos', 'query_agregacoes', 'query_subquery_p
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'queries'
-  AND column_name IN ('pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao', 'kpi_imagem', 'kpi_imagem_mime');
+  AND column_name IN ('pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao', 'kpi_imagem', 'kpi_imagem_mime', 'chart_filtro_coluna');
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'painel_indicadores'
+  AND column_name = 'filtro_clique_variavel_id';
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -216,6 +220,11 @@ ALTER TABLE queries ADD COLUMN kpi_imagem_habilitada BOOLEAN DEFAULT false;
 ALTER TABLE queries ADD COLUMN kpi_imagem_posicao VARCHAR(10) DEFAULT 'direita';
 ALTER TABLE queries ADD COLUMN kpi_imagem BYTEA;
 ALTER TABLE queries ADD COLUMN kpi_imagem_mime TEXT;
+
+-- 2026-08-19 — filtro por clique em gráficos: coluna do resultado com o id bruto pro filtro,
+-- e qual variável do painel esse indicador aciona ao clicar
+ALTER TABLE queries ADD COLUMN chart_filtro_coluna TEXT;
+ALTER TABLE painel_indicadores ADD COLUMN filtro_clique_variavel_id INTEGER REFERENCES variaveis(id) ON DELETE SET NULL;
 
 CREATE TABLE query_subquery_parametros (
     id                SERIAL PRIMARY KEY,

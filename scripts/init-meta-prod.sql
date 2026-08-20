@@ -94,6 +94,7 @@ CREATE TABLE queries (
     kpi_imagem_posicao    VARCHAR(10) DEFAULT 'direita',
     kpi_imagem            BYTEA,
     kpi_imagem_mime       TEXT,
+    chart_filtro_coluna   TEXT,
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);
@@ -172,6 +173,7 @@ CREATE TABLE painel_indicadores (
     col_span    INTEGER DEFAULT 1,
     row_span    INTEGER DEFAULT 1,
     posicao     INTEGER DEFAULT 0,
+    filtro_clique_variavel_id INTEGER REFERENCES variaveis(id) ON DELETE SET NULL,
     UNIQUE (painel_id, linha, coluna)
 );
 CREATE INDEX idx_painel_ind_painel ON painel_indicadores(painel_id);
