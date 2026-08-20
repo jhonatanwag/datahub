@@ -391,7 +391,8 @@ async def renderizar_painel(
                fv.slug AS filtro_clique_variavel_slug, fv.tipo AS filtro_clique_variavel_tipo
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
-        LEFT JOIN variaveis fv ON fv.id = pi.filtro_clique_variavel_id
+        LEFT JOIN painel_variaveis fpv ON fpv.painel_id = pi.painel_id AND fpv.variavel_id = pi.filtro_clique_variavel_id
+        LEFT JOIN variaveis fv ON fv.id = fpv.variavel_id
         WHERE pi.painel_id = $1
         ORDER BY pi.linha, pi.coluna
     """, painel_id)

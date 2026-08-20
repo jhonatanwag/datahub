@@ -108,6 +108,80 @@ def test_renderizar_painel_sem_filtro_clique_configurado_retorna_none(client, au
         client.delete(f"/api/queries/{query['id']}", headers={"Authorization": f"Bearer {auth_token}"})
 
 
+def test_renderizar_painel_filtro_clique_variavel_removida_do_painel_retorna_none(client, auth_token):
+    var_slug = f"var_filtro_clique_stale_{uuid.uuid4().hex[:8]}"
+    variavel = client.post(
+        "/api/variaveis/",
+        json={
+            "slug": var_slug,
+            "nome": "Categoria Stale",
+            "tipo": "multiselect",
+            "query_fonte": "SELECT 1 AS valor, 'Um' AS label",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ).json()
+
+    query_slug = f"query_filtro_clique_stale_{uuid.uuid4().hex[:8]}"
+    query = client.post(
+        "/api/queries/",
+        json={
+            "slug": query_slug,
+            "nome": "Query Filtro Clique Stale",
+            "sql_texto": "SELECT 'A' AS label, 10 AS valor, 1 AS categoria_id",
+            "tipo": "chart_bar",
+            "cache_ttl": 0,
+            "chart_filtro_coluna": "categoria_id",
+        },
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ).json()
+
+    painel_slug = f"painel_filtro_clique_stale_{uuid.uuid4().hex[:8]}"
+    painel_id = client.post(
+        "/api/paineis/",
+        json={"slug": painel_slug, "nome": "Painel Filtro Clique Stale"},
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ).json()["id"]
+
+    # 1. Anexa a variável ao painel como filtro genuíno.
+    client.put(
+        f"/api/paineis/{painel_id}/variaveis",
+        json=[{"variavel_id": variavel["id"]}],
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    # 2. Configura o clique do indicador para essa variável.
+    client.put(
+        f"/api/paineis/{painel_id}/indicadores",
+        json=[{
+            "query_slug": query_slug, "linha": 1, "coluna": 1,
+            "filtro_clique_variavel_id": variavel["id"],
+        }],
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    # 3. Admin desmarca a variável em "Filtros e Acesso" (remove de painel_variaveis),
+    #    mas NÃO reconfigura o indicador — filtro_clique_variavel_id fica "stale".
+    client.put(
+        f"/api/paineis/{painel_id}/variaveis",
+        json=[],
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+
+    try:
+        res = client.get(
+            f"/api/paineis/{painel_id}/renderizar",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert res.status_code == 200
+        ind = res.json()["indicadores"][0]
+        # A variável ainda está referenciada pelo indicador, mas não é mais um
+        # filtro real do painel — o render não deve resolvê-la.
+        assert ind["filtro_clique_variavel_slug"] is None
+        assert ind["filtro_clique_variavel_tipo"] is None
+    finally:
+        hard_delete_painel(painel_id)
+        client.delete(f"/api/queries/{query['id']}", headers={"Authorization": f"Bearer {auth_token}"})
+        hard_delete_variavel(variavel["id"])
+
+
 def test_adicionar_indicador_com_filtro_clique_variavel_id(client, auth_token):
     var_slug = f"var_ind_filtro_{uuid.uuid4().hex[:8]}"
     variavel = client.post(
