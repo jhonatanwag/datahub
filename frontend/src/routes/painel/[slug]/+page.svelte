@@ -154,6 +154,29 @@
   function onFiltroMudou(event) {
     filtrosAtivos = { ...filtrosAtivos, ...event.detail };
   }
+
+  function valoresClicados(ind) {
+    const slug = ind.filtro_clique_variavel_slug;
+    if (!slug) return [];
+    const val = filtrosAtivos[slug];
+    if (!val) return [];
+    return ind.filtro_clique_variavel_tipo === 'multiselect' ? String(val).split(',') : [String(val)];
+  }
+
+  function onFiltroClique(ind, valorBruto) {
+    const slug = ind.filtro_clique_variavel_slug;
+    if (!slug) return;
+    const valor = String(valorBruto);
+    if (ind.filtro_clique_variavel_tipo === 'multiselect') {
+      const atuais = filtrosAtivos[slug] ? filtrosAtivos[slug].split(',').filter(Boolean) : [];
+      const idx = atuais.indexOf(valor);
+      const novos = idx >= 0 ? atuais.filter((_, i) => i !== idx) : [...atuais, valor];
+      filtrosAtivos = { ...filtrosAtivos, [slug]: novos.join(',') };
+    } else {
+      filtrosAtivos = { ...filtrosAtivos, [slug]: filtrosAtivos[slug] === valor ? '' : valor };
+    }
+    carregarDados();
+  }
 </script>
 
 <svelte:head><title>{painel?.nome ?? 'Painel'} — GPA Analytics</title></svelte:head>
@@ -261,6 +284,9 @@
                 truncarTamanho={ind.chart_truncar_tamanho}
                 mostrarValor={ind.chart_mostrar_valor}
                 valorLabel={ind.chart_valor_label}
+                filtroColuna={ind.chart_filtro_coluna}
+                valoresSelecionados={valoresClicados(ind)}
+                on:filtroClique={(e) => onFiltroClique(ind, e.detail.valor)}
               />
 
             {:else if ind.query_tipo === 'table'}
