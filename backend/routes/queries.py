@@ -40,6 +40,7 @@ class QueryInput(BaseModel):
     pdf_orientacao: Optional[str] = 'retrato'
     kpi_imagem_habilitada: bool = False
     kpi_imagem_posicao: Optional[str] = 'direita'
+    chart_filtro_coluna: Optional[str] = None
 
 
 class QueryUpdate(BaseModel):
@@ -70,6 +71,7 @@ class QueryUpdate(BaseModel):
     pdf_orientacao: Optional[str] = None
     kpi_imagem_habilitada: Optional[bool] = None
     kpi_imagem_posicao: Optional[str] = None
+    chart_filtro_coluna: Optional[str] = None
 
 
 class ParamInput(BaseModel):
@@ -397,9 +399,10 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna,
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
-                pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao
+                pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
+                chart_filtro_coluna
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -411,7 +414,8 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.meta_habilitada, body.meta_coluna_valor,
             body.meta_coluna_inicio, body.meta_coluna_fim,
             body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id,
-            body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao)
+            body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao,
+            body.chart_filtro_coluna)
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
@@ -441,7 +445,8 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna',
             'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim',
             'meta_cor_dentro', 'meta_cor_fora', 'subquery_id',
-            'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao'
+            'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao',
+            'chart_filtro_coluna'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
