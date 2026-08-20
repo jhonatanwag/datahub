@@ -41,6 +41,7 @@ class IndicadorInput(BaseModel):
     col_span: int = 1
     row_span: int = 1
     posicao: int = 0
+    filtro_clique_variavel_id: Optional[int] = None
 
 
 class VariavelPainelInput(BaseModel):
@@ -252,11 +253,12 @@ async def adicionar_indicador(painel_id: int, body: IndicadorInput, user=Depends
         raise HTTPException(404, f"Query '{body.query_slug}' não encontrada")
     rows = await query_meta("""
         INSERT INTO painel_indicadores
-            (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         RETURNING *
     """, painel_id, body.query_slug, body.titulo,
-        body.linha, body.coluna, body.col_span, body.row_span, body.posicao)
+        body.linha, body.coluna, body.col_span, body.row_span, body.posicao,
+        body.filtro_clique_variavel_id)
     return dict(rows[0])
 
 
@@ -269,11 +271,12 @@ async def salvar_indicadores(
     for ind in indicadores:
         rows = await query_meta("""
             INSERT INTO painel_indicadores
-                (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
             RETURNING *
         """, painel_id, ind.query_slug, ind.titulo,
-            ind.linha, ind.coluna, ind.col_span, ind.row_span, ind.posicao)
+            ind.linha, ind.coluna, ind.col_span, ind.row_span, ind.posicao,
+            ind.filtro_clique_variavel_id)
         resultado.append(dict(rows[0]))
     return resultado
 
@@ -383,9 +386,12 @@ async def renderizar_painel(
                q.chart_valor_label, q.impressao_habilitada, q.impressao_caminho, q.impressao_coluna,
                q.meta_habilitada, q.meta_coluna_valor, q.meta_coluna_inicio, q.meta_coluna_fim,
                q.meta_cor_dentro, q.meta_cor_fora, q.subquery_id,
-               q.pdf_orientacao, q.kpi_imagem_habilitada, q.kpi_imagem_posicao
+               q.pdf_orientacao, q.kpi_imagem_habilitada, q.kpi_imagem_posicao,
+               q.chart_filtro_coluna,
+               fv.slug AS filtro_clique_variavel_slug, fv.tipo AS filtro_clique_variavel_tipo
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
+        LEFT JOIN variaveis fv ON fv.id = pi.filtro_clique_variavel_id
         WHERE pi.painel_id = $1
         ORDER BY pi.linha, pi.coluna
     """, painel_id)
@@ -443,7 +449,7 @@ async def renderizar_painel(
             ind_dict["query_tipo"] = None
             ind_dict["erro"] = str(e)
 
-        if ind_dict.get("query_tipo") != "table_dynamic":
+        if ind_dict.get("query_tipo") not in ("table_dynamic", "kpi"):
             ind_dict.pop("query_id", None)
             ind_dict.pop("subquery_id", None)
         resultado.append(ind_dict)

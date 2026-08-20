@@ -44,6 +44,18 @@ def hard_delete_usuario(usuario_id: int):
     asyncio.run(_exec())
 
 
+def hard_delete_variavel(variavel_id: int):
+    """Mesma lógica de hard_delete_painel, pra variáveis criadas em teste --
+    DELETE /api/variaveis/{id} só desativa (ativo=false)."""
+    async def _exec():
+        conn = await _connect_meta()
+        try:
+            await conn.execute("DELETE FROM variaveis WHERE id = $1", variavel_id)
+        finally:
+            await conn.close()
+    asyncio.run(_exec())
+
+
 @pytest.fixture
 def client():
     with TestClient(app) as c:
