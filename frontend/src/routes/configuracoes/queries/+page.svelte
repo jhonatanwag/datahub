@@ -1,10 +1,12 @@
 <script>
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { api } from '$lib/api.js';
   import { ordenarLista, proximaDirecao } from '$lib/sort.js';
 
   let queries     = [];
   let filtroTipo  = '';
+  let filtroGrupo = '';
   let loading     = true;
   let erro        = null;
   let ordenarCampo   = null;
@@ -26,6 +28,7 @@
   const colunas = [
     { label: 'Slug',      campo: 'slug' },
     { label: 'Nome',      campo: 'nome' },
+    { label: 'Grupo',     campo: 'grupo_nome' },
     { label: 'Tipo',      campo: 'tipo' },
     { label: 'Cache TTL', campo: 'cache_ttl' },
     { label: 'Escopo',    campo: 'empresa_id' },
@@ -49,7 +52,10 @@
     }
   });
 
-  $: filtradas = filtroTipo ? queries.filter(q => q.tipo === filtroTipo) : queries;
+  $: gruposExistentes = [...new Set(queries.map(q => q.grupo_nome).filter(Boolean))].sort();
+  $: filtradas = queries
+    .filter(q => !filtroTipo  || q.tipo === filtroTipo)
+    .filter(q => !filtroGrupo || q.grupo_nome === filtroGrupo);
   $: ordenadas = ordenarLista(filtradas, ordenarCampo, ordenarDirecao);
 
   async function toggleAtivo(q) {
@@ -74,6 +80,19 @@
       alert('Erro ao deletar: ' + e.message);
     }
   }
+
+  let duplicando = null;
+
+  async function duplicar(q) {
+    duplicando = q.id;
+    try {
+      const nova = await api.duplicarQuery(q.id);
+      goto(`/configuracoes/queries/${nova.id}`);
+    } catch (e) {
+      alert('Erro ao duplicar: ' + e.message);
+      duplicando = null;
+    }
+  }
 </script>
 
 <svelte:head><title>Queries — GPA Analytics</title></svelte:head>
@@ -84,9 +103,13 @@
     <a href="/configuracoes/queries/nova" class="btn-primary" style="display:inline-block; padding:8px 16px; border-radius:6px; color:#0d1117; background:var(--accent); font-weight:600; text-decoration:none">Nova Query</a>
   </div>
 
-  <div style="margin-bottom:16px;">
+  <div style="margin-bottom:16px; display:flex; gap:10px;">
     <select bind:value={filtroTipo} style="width:200px;">
       {#each tipos as t}<option value={t.value}>{t.label}</option>{/each}
+    </select>
+    <select bind:value={filtroGrupo} style="width:200px;">
+      <option value="">Todos os grupos</option>
+      {#each gruposExistentes as g}<option value={g}>{g}</option>{/each}
     </select>
   </div>
 
@@ -114,6 +137,7 @@
             <tr>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border); font-family:var(--font-display); font-size:12px;">{q.slug}</td>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border);">{q.nome}</td>
+              <td style="padding:10px 14px; border-bottom:1px solid var(--border); color:var(--muted);">{q.grupo_nome || '—'}</td>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border); color:var(--accent-blue); font-size:12px;">{q.tipo}</td>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border); color:var(--muted);">{q.cache_ttl}s</td>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border); color:var(--muted);">{q.empresa_id ? `Empresa #${q.empresa_id}` : 'Global'}</td>
@@ -124,6 +148,9 @@
               </td>
               <td style="padding:10px 14px; border-bottom:1px solid var(--border); display:flex; gap:6px;">
                 <a href="/configuracoes/queries/{q.id}" class="btn-ghost" style="padding:4px 10px; font-size:12px;">Editar</a>
+                <button class="btn-ghost" style="padding:4px 10px; font-size:12px;" disabled={duplicando === q.id} on:click={() => duplicar(q)}>
+                  {duplicando === q.id ? 'Duplicando...' : 'Duplicar'}
+                </button>
                 <button class="btn-ghost" style="padding:4px 10px; font-size:12px; color:var(--accent);" on:click={() => deletar(q)}>Deletar</button>
               </td>
             </tr>

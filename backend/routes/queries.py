@@ -41,9 +41,11 @@ class QueryInput(BaseModel):
     kpi_imagem_habilitada: bool = False
     kpi_imagem_posicao: Optional[str] = 'direita'
     chart_filtro_coluna: Optional[str] = None
+    grupo_nome: Optional[str] = None
 
 
 class QueryUpdate(BaseModel):
+    slug: Optional[str] = None
     nome: Optional[str] = None
     descricao: Optional[str] = None
     sql_texto: Optional[str] = None
@@ -72,6 +74,7 @@ class QueryUpdate(BaseModel):
     kpi_imagem_habilitada: Optional[bool] = None
     kpi_imagem_posicao: Optional[str] = None
     chart_filtro_coluna: Optional[str] = None
+    grupo_nome: Optional[str] = None
 
 
 class ParamInput(BaseModel):
@@ -115,6 +118,19 @@ CAMADAS_MAPA_VALIDAS = {'padrao', 'satelite'}
 ORIENTACOES_PDF_VALIDAS = {'retrato', 'paisagem'}
 
 POSICOES_KPI_IMAGEM_VALIDAS = {'esquerda', 'direita'}
+
+
+async def _resolver_grupo_id(nome):
+    """Acha o grupo pelo nome (case-insensitive) ou cria um novo — a tela de
+    query só manda um texto livre, sem tela de gestão de grupos separada."""
+    nome = (nome or "").strip()
+    if not nome:
+        return None
+    existente = await query_meta("SELECT id FROM query_grupos WHERE LOWER(nome) = LOWER($1)", nome)
+    if existente:
+        return existente[0]["id"]
+    novo = await query_meta("INSERT INTO query_grupos (nome) VALUES ($1) RETURNING id", nome)
+    return novo[0]["id"]
 
 
 def _com_kpi_imagem_url(row: dict) -> dict:
@@ -216,15 +232,20 @@ async def listar_queries(
 
         if tipo:
             params.append(tipo)
-            filtros.append(f"tipo = ${len(params)}")
+            filtros.append(f"q.tipo = ${len(params)}")
 
         if empresa_id is not None:
             params.append(empresa_id)
-            filtros.append(f"(empresa_id = ${len(params)} OR empresa_id IS NULL)")
+            filtros.append(f"(q.empresa_id = ${len(params)} OR q.empresa_id IS NULL)")
 
         where = " AND ".join(filtros)
         rows = await query_meta(
-            f"SELECT * FROM queries WHERE {where} ORDER BY tipo, nome",
+            f"""
+            SELECT q.*, g.nome AS grupo_nome
+            FROM queries q
+            LEFT JOIN query_grupos g ON g.id = q.grupo_id
+            WHERE {where} ORDER BY q.tipo, q.nome
+            """,
             *params
         )
         return [_com_kpi_imagem_url(dict(r)) for r in rows]
@@ -364,7 +385,12 @@ async def salvar_subquery_parametros(
 @router.get("/{query_id}")
 async def buscar_query(query_id: int, user=Depends(get_current_user)):
     try:
-        rows = await query_meta("SELECT * FROM queries WHERE id = $1", query_id)
+        rows = await query_meta("""
+            SELECT q.*, g.nome AS grupo_nome
+            FROM queries q
+            LEFT JOIN query_grupos g ON g.id = q.grupo_id
+            WHERE q.id = $1
+        """, query_id)
         if not rows:
             raise HTTPException(status_code=404, detail="Query não encontrada")
         return _com_kpi_imagem_url(dict(rows[0]))
@@ -390,6 +416,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
         if body.kpi_imagem_posicao not in POSICOES_KPI_IMAGEM_VALIDAS:
             raise HTTPException(status_code=400, detail=f"Posição de imagem do KPI inválida. Use: {POSICOES_KPI_IMAGEM_VALIDAS}")
         validar_sql(body.sql_texto)
+        grupo_id = await _resolver_grupo_id(body.grupo_nome)
 
         rows = await query_meta("""
             INSERT INTO queries (
@@ -400,9 +427,9 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna
+                chart_filtro_coluna, grupo_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -415,7 +442,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.meta_coluna_inicio, body.meta_coluna_fim,
             body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id,
             body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao,
-            body.chart_filtro_coluna)
+            body.chart_filtro_coluna, grupo_id)
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
@@ -438,8 +465,11 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if not updates:
             return _com_kpi_imagem_url(atual)
 
+        grupo_nome_informado = "grupo_nome" in updates
+        grupo_nome = updates.pop("grupo_nome", None)
+
         ALLOWED_COLS = {
-            'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo',
+            'slug', 'nome', 'descricao', 'sql_texto', 'tipo', 'cache_ttl', 'ativo',
             'kpi_cor_fonte', 'kpi_cor_fundo', 'mapa_camada',
             'chart_fonte_tamanho', 'chart_truncar_label', 'chart_truncar_tamanho', 'chart_mostrar_valor',
             'chart_valor_label', 'impressao_habilitada', 'impressao_caminho', 'impressao_coluna',
@@ -455,6 +485,16 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if "nome" in updates and not updates["nome"].strip():
             raise HTTPException(status_code=400, detail="Nome é obrigatório.")
 
+        if "slug" in updates:
+            if not updates["slug"].strip():
+                raise HTTPException(status_code=400, detail="Slug é obrigatório.")
+            colisao = await query_meta(
+                "SELECT id FROM queries WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2 AND id != $3",
+                updates["slug"], atual["empresa_id"], query_id
+            )
+            if colisao:
+                raise HTTPException(status_code=400, detail=f"Já existe uma query com o slug '{updates['slug']}' nesse escopo.")
+
         if "mapa_camada" in updates and updates["mapa_camada"] not in CAMADAS_MAPA_VALIDAS:
             raise HTTPException(status_code=400, detail=f"Camada de mapa inválida. Use: {CAMADAS_MAPA_VALIDAS}")
 
@@ -467,6 +507,9 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if "sql_texto" in updates:
             validar_sql(updates["sql_texto"])
 
+        if grupo_nome_informado:
+            updates["grupo_id"] = await _resolver_grupo_id(grupo_nome)
+
         campos = []
         valores = []
         for i, (k, v) in enumerate(updates.items(), start=1):
@@ -477,7 +520,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         sql = f"UPDATE queries SET {', '.join(campos)} WHERE id = ${len(valores)} RETURNING *"
         rows = await query_meta(sql, *valores)
 
-        if "sql_texto" in updates:
+        if "sql_texto" in updates or "slug" in updates:
             await invalidar_cache_query(atual["slug"])
 
         return _com_kpi_imagem_url(dict(rows[0]))
@@ -487,6 +530,71 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar query: {e}")
+
+
+@router.post("/{query_id}/duplicar")
+async def duplicar_query(query_id: int, user=Depends(require_admin)):
+    try:
+        origem = await query_meta("SELECT * FROM queries WHERE id = $1", query_id)
+        if not origem:
+            raise HTTPException(status_code=404, detail="Query não encontrada")
+        origem = dict(origem[0])
+
+        novo_slug = f"{origem['slug']}_copia"
+        sufixo = 2
+        while await query_meta(
+            "SELECT id FROM queries WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+            novo_slug, origem["empresa_id"]
+        ):
+            novo_slug = f"{origem['slug']}_copia{sufixo}"
+            sufixo += 1
+
+        novo_nome = f"{origem['nome']} (cópia)"
+
+        rows = await query_meta("""
+            INSERT INTO queries (
+                slug, nome, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
+                kpi_cor_fonte, kpi_cor_fundo, mapa_camada,
+                chart_fonte_tamanho, chart_truncar_label, chart_truncar_tamanho, chart_mostrar_valor,
+                chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna,
+                meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
+                meta_cor_dentro, meta_cor_fora, subquery_id,
+                pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
+                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id
+            )
+            SELECT
+                $1, $2, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
+                kpi_cor_fonte, kpi_cor_fundo, mapa_camada,
+                chart_fonte_tamanho, chart_truncar_label, chart_truncar_tamanho, chart_mostrar_valor,
+                chart_valor_label, impressao_habilitada, impressao_caminho, impressao_coluna,
+                meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
+                meta_cor_dentro, meta_cor_fora, subquery_id,
+                pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
+                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id
+            FROM queries WHERE id = $3
+            RETURNING *
+        """, novo_slug, novo_nome, query_id)
+        nova = dict(rows[0])
+
+        # Copia as tabelas filhas (parâmetros, agrupamento/agregação de
+        # table_dynamic, mapeamento de subconsulta) — tabela/colunas vêm de
+        # uma lista fixa no código, nunca de entrada do usuário.
+        for tabela, colunas in [
+            ("query_parametros", "nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, param_slot"),
+            ("query_agrupamentos", "coluna, ordem"),
+            ("query_agregacoes", "coluna, funcao, label, ordem"),
+            ("query_subquery_parametros", "coluna_origem, parametro_destino, ordem"),
+        ]:
+            await query_meta(
+                f"INSERT INTO {tabela} (query_id, {colunas}) SELECT $1, {colunas} FROM {tabela} WHERE query_id = $2",
+                nova["id"], query_id
+            )
+
+        return _com_kpi_imagem_url(nova)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao duplicar query: {e}")
 
 
 @router.delete("/{query_id}")

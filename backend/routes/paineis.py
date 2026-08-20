@@ -381,7 +381,7 @@ async def renderizar_painel(
         filtros["codigo_usuario_externo"] = user["codigo_usuario_externo"]
 
     indicadores = await query_meta("""
-        SELECT pi.*, q.id AS query_id, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada,
+        SELECT pi.*, q.id AS query_id, q.descricao, q.kpi_cor_fonte, q.kpi_cor_fundo, q.mapa_camada,
                q.chart_fonte_tamanho, q.chart_truncar_label, q.chart_truncar_tamanho, q.chart_mostrar_valor,
                q.chart_valor_label, q.impressao_habilitada, q.impressao_caminho, q.impressao_coluna,
                q.meta_habilitada, q.meta_coluna_valor, q.meta_coluna_inicio, q.meta_coluna_fim,

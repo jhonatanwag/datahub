@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
   import QueryEditor from '$lib/components/QueryEditor.svelte';
+  import ColorPalette from '$lib/components/ColorPalette.svelte';
 
   let form = {
     slug: '', nome: '', descricao: '',
@@ -20,6 +21,7 @@
     subquery_id: null,
     pdf_orientacao: 'retrato',
     kpi_imagem_habilitada: false, kpi_imagem_posicao: 'direita',
+    grupo_nome: '',
   };
 
   let kpiImagemFile    = null;
@@ -51,6 +53,8 @@
     'chart_bar_horizontal', 'chart_doughnut',
     'table', 'rag_context', 'map', 'table_dynamic'
   ];
+
+  $: gruposExistentes = [...new Set(queriesDisponiveis.map(q => q.grupo_nome).filter(Boolean))].sort();
 
   onMount(async () => {
     try {
@@ -220,6 +224,14 @@
     </div>
 
     <label class="lbl">
+      Grupo (opcional)
+      <input bind:value={form.grupo_nome} list="grupos-lista" placeholder="ex: Perdas, Checklist" />
+      <datalist id="grupos-lista">
+        {#each gruposExistentes as g}<option value={g}></option>{/each}
+      </datalist>
+    </label>
+
+    <label class="lbl">
       Tipo
       <select bind:value={form.tipo}>
         {#each tipos as t}<option value={t}>{t}</option>{/each}
@@ -241,6 +253,7 @@
               <input type="color" bind:value={form.kpi_cor_fonte} />
               <input type="text"  bind:value={form.kpi_cor_fonte} placeholder="#e6edf3" style="width:90px" />
             </div>
+            <ColorPalette bind:value={form.kpi_cor_fonte} />
           </label>
           <label class="lbl">
             Cor de fundo
@@ -248,6 +261,7 @@
               <input type="color" bind:value={form.kpi_cor_fundo} />
               <input type="text"  bind:value={form.kpi_cor_fundo} placeholder="#161b22" style="width:90px" />
             </div>
+            <ColorPalette bind:value={form.kpi_cor_fundo} />
           </label>
           <div class="kpi-preview" style="background:{form.kpi_cor_fundo}; color:{form.kpi_cor_fonte}">
             <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>

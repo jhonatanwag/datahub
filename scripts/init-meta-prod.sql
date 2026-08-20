@@ -59,6 +59,12 @@ CREATE TABLE variaveis (
     criado_em    TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE query_grupos (
+    id        SERIAL PRIMARY KEY,
+    nome      TEXT NOT NULL UNIQUE,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE queries (
     id             SERIAL PRIMARY KEY,
     slug           VARCHAR(100) NOT NULL,
@@ -95,6 +101,7 @@ CREATE TABLE queries (
     kpi_imagem            BYTEA,
     kpi_imagem_mime       TEXT,
     chart_filtro_coluna   TEXT,
+    grupo_id              INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL,
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);

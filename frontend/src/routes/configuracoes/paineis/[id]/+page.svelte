@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { api, assetUrl } from '$lib/api.js';
+  import { agruparQueriesPorGrupoTipo } from '$lib/agruparQueries.js';
 
   const id = $page.params.id;
 
@@ -33,6 +34,8 @@
   $: variaveisDoPainel = varSelecionadas
     .map(s => variaveis.find(v => v.id === s.variavel_id))
     .filter(v => v && (v.tipo === 'select' || v.tipo === 'multiselect'));
+
+  $: gruposIndicador = agruparQueriesPorGrupoTipo(queries);
 
   onMount(async () => {
     try {
@@ -297,8 +300,12 @@
                     <div class="field flex-1">
                       <label>Query</label>
                       <select bind:value={ind.query_slug}>
-                        {#each queries as q}
-                          <option value={q.slug}>{q.nome} ({q.tipo})</option>
+                        {#each gruposIndicador as g}
+                          <optgroup label={g.chave}>
+                            {#each g.itens as q}
+                              <option value={q.slug}>{q.nome}</option>
+                            {/each}
+                          </optgroup>
                         {/each}
                       </select>
                     </div>

@@ -143,6 +143,11 @@ WHERE table_name = 'queries'
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'painel_indicadores'
   AND column_name = 'filtro_clique_variavel_id';
+
+SELECT table_name FROM information_schema.tables WHERE table_name = 'query_grupos';
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'queries' AND column_name = 'grupo_id';
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -234,6 +239,14 @@ CREATE TABLE query_subquery_parametros (
     ordem             INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_qsqp_query_id ON query_subquery_parametros(query_id);
+
+-- 2026-08-20 — grupo (categoria livre, ex: "Perdas", "Checklist") pra organizar queries
+CREATE TABLE query_grupos (
+    id        SERIAL PRIMARY KEY,
+    nome      TEXT NOT NULL UNIQUE,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+ALTER TABLE queries ADD COLUMN grupo_id INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

@@ -94,6 +94,7 @@ export const api = {
         }).then(r => r.json());
     },
     deletarQuery:   (id)       => request(`/api/queries/${id}`, { method: 'DELETE' }),
+    duplicarQuery:  (id)       => request(`/api/queries/${id}/duplicar`, { method: 'POST' }),
     testarQuery:    (data)     => request('/api/queries/testar', { method: 'POST', body: JSON.stringify(data) }),
     executarQuery:  (slug, params = {}) => {
         const p = new URLSearchParams(params);

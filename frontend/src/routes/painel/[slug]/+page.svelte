@@ -273,6 +273,7 @@
                 corFundo={ind.kpi_cor_fundo}
                 imagemUrl={ind.kpi_imagem_habilitada ? assetUrl(`/api/queries/${ind.query_id}/kpi-imagem`) : null}
                 imagemPosicao={ind.kpi_imagem_posicao}
+                descricao={ind.descricao}
               />
 
             {:else if ind.query_tipo?.startsWith('chart_')}

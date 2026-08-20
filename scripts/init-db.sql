@@ -74,6 +74,12 @@ CREATE TABLE tarefas (
     concluido_em TIMESTAMP
 );
 
+CREATE TABLE query_grupos (
+    id        SERIAL PRIMARY KEY,
+    nome      TEXT NOT NULL UNIQUE,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE queries (
     id            SERIAL PRIMARY KEY,
     slug          VARCHAR(100) NOT NULL,
@@ -103,6 +109,7 @@ CREATE TABLE queries (
     meta_cor_fora      TEXT DEFAULT '#f85149',
     subquery_id        INTEGER REFERENCES queries(id) ON DELETE SET NULL,
     chart_filtro_coluna TEXT,
+    grupo_id            INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL,
     UNIQUE (slug, empresa_id)
 );
 

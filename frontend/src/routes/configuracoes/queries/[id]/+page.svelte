@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { api, assetUrl } from '$lib/api.js';
   import QueryEditor from '$lib/components/QueryEditor.svelte';
+  import ColorPalette from '$lib/components/ColorPalette.svelte';
 
   const id = $page.params.id;
 
@@ -23,6 +24,7 @@
     subquery_id: null,
     pdf_orientacao: 'retrato',
     kpi_imagem_habilitada: false, kpi_imagem_posicao: 'direita',
+    grupo_nome: '',
   };
 
   let kpiImagemFile    = null;
@@ -56,6 +58,8 @@
     'chart_bar_horizontal', 'chart_doughnut',
     'table', 'rag_context', 'map', 'table_dynamic'
   ];
+
+  $: gruposExistentes = [...new Set(queriesDisponiveis.map(q => q.grupo_nome).filter(Boolean))].sort();
 
   onMount(async () => {
     try {
@@ -101,6 +105,7 @@
         pdf_orientacao:        q.pdf_orientacao || 'retrato',
         kpi_imagem_habilitada: q.kpi_imagem_habilitada ?? false,
         kpi_imagem_posicao:    q.kpi_imagem_posicao || 'direita',
+        grupo_nome:            q.grupo_nome || '',
       };
       kpiImagemUrlAtual = q.kpi_imagem_url ? assetUrl(q.kpi_imagem_url) : null;
       params = prms.map(p => ({ ...p, _testar_valor: '' }));
@@ -213,10 +218,15 @@
       erro = 'Nome legível é obrigatório.';
       return;
     }
+    if (!form.slug.trim()) {
+      erro = 'Slug é obrigatório.';
+      return;
+    }
     erro = null;
     salvando = true;
     try {
       await api.atualizarQuery(id, {
+        slug:          form.slug,
         nome:          form.nome,
         descricao:     form.descricao,
         sql_texto:     form.sql_texto,
@@ -245,6 +255,7 @@
         pdf_orientacao:        form.pdf_orientacao,
         kpi_imagem_habilitada: form.kpi_imagem_habilitada,
         kpi_imagem_posicao:    form.kpi_imagem_posicao,
+        grupo_nome:            form.grupo_nome,
       });
       if (form.tipo === 'kpi' && kpiImagemFile) {
         const fd = new FormData();
@@ -288,18 +299,29 @@
       <!-- Identificação -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
         <label class="lbl">
-          Slug (somente leitura)
-          <input value={form.slug} readonly style="opacity:.5; cursor:default;" />
+          Slug (identificador único)
+          <input bind:value={form.slug} placeholder="ex: kpi_receita" />
         </label>
         <label class="lbl">
           Nome legível
           <input bind:value={form.nome} />
         </label>
       </div>
+      <p class="hint-block">
+        Cuidado ao mudar o slug: indicadores de painel e o mapeamento de subconsulta referenciam a query por esse slug como texto puro — mudar aqui não atualiza essas referências automaticamente.
+      </p>
 
       <label class="lbl">
         Descrição
         <input bind:value={form.descricao} placeholder="Opcional" />
+      </label>
+
+      <label class="lbl">
+        Grupo (opcional)
+        <input bind:value={form.grupo_nome} list="grupos-lista" placeholder="ex: Perdas, Checklist" />
+        <datalist id="grupos-lista">
+          {#each gruposExistentes as g}<option value={g}></option>{/each}
+        </datalist>
       </label>
 
       <label class="lbl">
@@ -329,6 +351,7 @@
                 <input type="color" bind:value={form.kpi_cor_fonte} />
                 <input type="text"  bind:value={form.kpi_cor_fonte} placeholder="#e6edf3" style="width:90px" />
               </div>
+              <ColorPalette bind:value={form.kpi_cor_fonte} />
             </label>
             <label class="lbl">
               Cor de fundo
@@ -336,6 +359,7 @@
                 <input type="color" bind:value={form.kpi_cor_fundo} />
                 <input type="text"  bind:value={form.kpi_cor_fundo} placeholder="#161b22" style="width:90px" />
               </div>
+              <ColorPalette bind:value={form.kpi_cor_fundo} />
             </label>
             <div class="kpi-preview" style="background:{form.kpi_cor_fundo}; color:{form.kpi_cor_fonte}">
               <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>

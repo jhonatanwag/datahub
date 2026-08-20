@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { api } from '$lib/api.js';
+  import { agruparQueriesPorGrupoTipo } from '$lib/agruparQueries.js';
 
   let abaAtiva = 'geral';
 
@@ -25,6 +26,8 @@
   let carregando = true;
   let salvando   = false;
   let erro       = null;
+
+  $: gruposIndicador = agruparQueriesPorGrupoTipo(queries);
 
   onMount(async () => {
     try {
@@ -221,8 +224,12 @@
                     <div class="field flex-1">
                       <label>Query</label>
                       <select bind:value={ind.query_slug}>
-                        {#each queries as q}
-                          <option value={q.slug}>{q.nome} ({q.tipo})</option>
+                        {#each gruposIndicador as g}
+                          <optgroup label={g.chave}>
+                            {#each g.itens as q}
+                              <option value={q.slug}>{q.nome}</option>
+                            {/each}
+                          </optgroup>
                         {/each}
                       </select>
                     </div>
