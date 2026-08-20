@@ -18,7 +18,9 @@
     { value: 'chart_bar_horizontal', label: 'Barra Horizontal' },
     { value: 'chart_doughnut',       label: 'Rosca' },
     { value: 'table',                label: 'Tabela' },
+    { value: 'table_dynamic',        label: 'Tabela Dinâmica' },
     { value: 'rag_context',          label: 'Contexto IA' },
+    { value: 'map',                  label: 'Mapa' },
   ];
 
   const colunas = [
