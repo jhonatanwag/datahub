@@ -12,7 +12,7 @@
   let form = {
     slug: '', nome: '', descricao: '', icone: 'chart-bar',
     colunas: 3, linhas_fixas: false, total_linhas: null,
-    empresa_id: null, ativo: true, ordem_menu: 0
+    empresa_id: null, ativo: true, ordem_menu: 0, grupo_nome: ''
   };
 
   let indicadores          = [];
@@ -27,6 +27,7 @@
   let variaveis  = [];
   let usuarios   = [];
   let empresas   = [];
+  let paineis    = [];
   let carregando = true;
   let salvando   = false;
   let erro       = null;
@@ -36,10 +37,11 @@
     .filter(v => v && (v.tipo === 'select' || v.tipo === 'multiselect'));
 
   $: gruposIndicador = agruparQueriesPorGrupoTipo(queries);
+  $: gruposExistentes = [...new Set(paineis.map(p => p.grupo_nome).filter(Boolean))].sort();
 
   onMount(async () => {
     try {
-      const [painel, inds, vars, usrs, qs, vs, us, emps] = await Promise.all([
+      const [painel, inds, vars, usrs, qs, vs, us, emps, ps] = await Promise.all([
         api.buscarPainel(id),
         api.indicadoresPainel(id),
         api.variaveisPainel(id),
@@ -48,6 +50,7 @@
         api.listarVariaveis(),
         api.listarUsuarios(),
         api.listarEmpresas(),
+        api.listarPaineis(),
       ]);
 
       form = {
@@ -61,6 +64,7 @@
         empresa_id:  painel.empresa_id,
         ativo:       painel.ativo,
         ordem_menu:  painel.ordem_menu,
+        grupo_nome:  painel.grupo_nome || '',
       };
       imagemUrl = painel.imagem_url;
 
@@ -90,6 +94,7 @@
       variaveis = vs;
       usuarios  = us;
       empresas  = emps;
+      paineis   = ps;
     } catch (e) {
       erro = e.message;
     } finally {
@@ -169,6 +174,7 @@
         empresa_id:  form.empresa_id,
         ativo:       form.ativo,
         ordem_menu:  form.ordem_menu,
+        grupo_nome:  form.grupo_nome,
       });
       if (imagemFile) {
         const fd = new FormData();
@@ -253,6 +259,14 @@
               <option value={e.id}>{e.nome} ({e.slug})</option>
             {/each}
           </select>
+        </div>
+        <div class="field">
+          <label>Grupo (opcional)</label>
+          <input bind:value={form.grupo_nome} list="grupos-lista" placeholder="ex: Exportação, Perdas" />
+          <datalist id="grupos-lista">
+            {#each gruposExistentes as g}<option value={g}></option>{/each}
+          </datalist>
+          <span class="hint">Quebra os painéis em seções no menu lateral e no dashboard</span>
         </div>
         <div class="field-row">
           <div class="field">

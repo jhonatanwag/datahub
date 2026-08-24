@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { token, usuario, empresaAtiva } from '$lib/stores/auth.js';
+  import { token, usuario, empresaAtiva, menuPaineis } from '$lib/stores/auth.js';
   import { api, assetUrl } from '$lib/api.js';
 
   let nomeUsuario = '';
@@ -36,6 +36,7 @@
       const me = await api.me();
       usuario.set(me);
       empresaAtiva.set({ id: empresa.id, slug: empresa.slug, nome: empresa.nome, logo_url: assetUrl(empresa.logo_url), url_impressao_base: me.url_impressao_base ?? null });
+      menuPaineis.set(await api.meuMenu());
       sessionStorage.removeItem('temp_user');
       goto('/');
     } catch {

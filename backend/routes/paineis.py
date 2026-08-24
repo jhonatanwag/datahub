@@ -31,6 +31,7 @@ class PainelInput(BaseModel):
     empresa_id: Optional[int] = None
     ativo: bool = True
     ordem_menu: int = 0
+    grupo_nome: Optional[str] = None
 
 
 class IndicadorInput(BaseModel):
@@ -53,26 +54,42 @@ class VariavelPainelInput(BaseModel):
     posicao: int = 0
 
 
+async def _resolver_grupo_id(nome):
+    """Acha o grupo pelo nome (case-insensitive) ou cria um novo — a tela de
+    painel só manda um texto livre, sem tela de gestão de grupos separada.
+    Mesmo padrão de `_resolver_grupo_id` em routes/queries.py."""
+    nome = (nome or "").strip()
+    if not nome:
+        return None
+    existente = await query_meta("SELECT id FROM painel_grupos WHERE LOWER(nome) = LOWER($1)", nome)
+    if existente:
+        return existente[0]["id"]
+    novo = await query_meta("INSERT INTO painel_grupos (nome) VALUES ($1) RETURNING id", nome)
+    return novo[0]["id"]
+
+
 # ── Rotas estáticas ANTES das dinâmicas ──────────────────────
 
 @router.get("/meu-menu")
 async def meu_menu(user=Depends(get_current_user)):
     if user["role"] == "externo":
         rows = await query_meta("""
-            SELECT id, slug, nome, icone, ordem_menu, empresa_id
-            FROM paineis
-            WHERE slug = ANY($1::text[])
-              AND ativo = true
-              AND (empresa_id = $2 OR empresa_id IS NULL)
-            ORDER BY ordem_menu
+            SELECT p.id, p.slug, p.nome, p.icone, p.ordem_menu, p.empresa_id, g.nome AS grupo_nome
+            FROM paineis p
+            LEFT JOIN painel_grupos g ON g.id = p.grupo_id
+            WHERE p.slug = ANY($1::text[])
+              AND p.ativo = true
+              AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
+            ORDER BY p.ordem_menu
         """, user["paineis_liberados"], user["empresa_id"])
         return sorted([dict(r) for r in rows], key=lambda x: x["ordem_menu"])
 
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug)
-            p.id, p.slug, p.nome, p.icone, p.ordem_menu, p.empresa_id
+            p.id, p.slug, p.nome, p.icone, p.ordem_menu, p.empresa_id, g.nome AS grupo_nome
         FROM paineis p
         JOIN painel_usuarios pu ON pu.painel_id = p.id
+        LEFT JOIN painel_grupos g ON g.id = p.grupo_id
         WHERE pu.usuario_id = $1
           AND p.ativo = true
           AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
@@ -85,10 +102,11 @@ async def meu_menu(user=Depends(get_current_user)):
 async def meu_dashboard(user=Depends(get_current_user)):
     if user["role"] == "externo":
         rows = await query_meta("""
-            SELECT p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu,
+            SELECT p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu, g.nome AS grupo_nome,
                 (p.imagem IS NOT NULL) AS tem_imagem,
                 (SELECT COUNT(*)::int FROM painel_indicadores pi WHERE pi.painel_id = p.id) AS total_indicadores
             FROM paineis p
+            LEFT JOIN painel_grupos g ON g.id = p.grupo_id
             WHERE p.slug = ANY($1::text[])
               AND p.ativo = true
               AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
@@ -98,11 +116,12 @@ async def meu_dashboard(user=Depends(get_current_user)):
 
     rows = await query_meta("""
         SELECT DISTINCT ON (p.slug)
-            p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu,
+            p.id, p.slug, p.nome, p.descricao, p.icone, p.ordem_menu, g.nome AS grupo_nome,
             (p.imagem IS NOT NULL) AS tem_imagem,
             (SELECT COUNT(*)::int FROM painel_indicadores pi WHERE pi.painel_id = p.id) AS total_indicadores
         FROM paineis p
         JOIN painel_usuarios pu ON pu.painel_id = p.id
+        LEFT JOIN painel_grupos g ON g.id = p.grupo_id
         WHERE pu.usuario_id = $1
           AND p.ativo = true
           AND (p.empresa_id = $2 OR p.empresa_id IS NULL)
@@ -117,17 +136,20 @@ async def buscar_painel_por_slug(slug: str, user=Depends(get_current_user)):
         if slug not in user["paineis_liberados"]:
             raise HTTPException(403, "Sem acesso a este painel")
         rows = await query_meta("""
-            SELECT * FROM paineis
-            WHERE slug = $1 AND (empresa_id = $2 OR empresa_id IS NULL) AND ativo = true
+            SELECT p.*, g.nome AS grupo_nome
+            FROM paineis p
+            LEFT JOIN painel_grupos g ON g.id = p.grupo_id
+            WHERE p.slug = $1 AND (p.empresa_id = $2 OR p.empresa_id IS NULL) AND p.ativo = true
         """, slug, user["empresa_id"])
         if not rows:
             raise HTTPException(404, "Painel não encontrado")
         return _com_imagem_url(dict(rows[0]))
 
     rows = await query_meta("""
-        SELECT DISTINCT ON (p.slug) p.*
+        SELECT DISTINCT ON (p.slug) p.*, g.nome AS grupo_nome
         FROM paineis p
         JOIN painel_usuarios pu ON pu.painel_id = p.id
+        LEFT JOIN painel_grupos g ON g.id = p.grupo_id
         WHERE p.slug = $1
           AND pu.usuario_id = $2
           AND p.ativo = true
@@ -144,11 +166,18 @@ async def buscar_painel_por_slug(slug: str, user=Depends(get_current_user)):
 @router.get("/")
 async def listar_paineis(user=Depends(get_current_user)):
     if user["role"] == "admin":
-        rows = await query_meta("SELECT * FROM paineis ORDER BY ordem_menu, nome")
+        rows = await query_meta("""
+            SELECT p.*, g.nome AS grupo_nome
+            FROM paineis p
+            LEFT JOIN painel_grupos g ON g.id = p.grupo_id
+            ORDER BY p.ordem_menu, p.nome
+        """)
     else:
         rows = await query_meta("""
-            SELECT p.* FROM paineis p
+            SELECT p.*, g.nome AS grupo_nome
+            FROM paineis p
             JOIN painel_usuarios pu ON pu.painel_id = p.id
+            LEFT JOIN painel_grupos g ON g.id = p.grupo_id
             WHERE pu.usuario_id = $1 AND p.ativo = true
             ORDER BY p.ordem_menu, p.nome
         """, user["id"])
@@ -157,7 +186,12 @@ async def listar_paineis(user=Depends(get_current_user)):
 
 @router.get("/{painel_id}")
 async def buscar_painel(painel_id: int, user=Depends(get_current_user)):
-    rows = await query_meta("SELECT * FROM paineis WHERE id = $1", painel_id)
+    rows = await query_meta("""
+        SELECT p.*, g.nome AS grupo_nome
+        FROM paineis p
+        LEFT JOIN painel_grupos g ON g.id = p.grupo_id
+        WHERE p.id = $1
+    """, painel_id)
     if not rows:
         raise HTTPException(404, "Painel não encontrado")
     return _com_imagem_url(dict(rows[0]))
@@ -165,15 +199,16 @@ async def buscar_painel(painel_id: int, user=Depends(get_current_user)):
 
 @router.post("/")
 async def criar_painel(body: PainelInput, user=Depends(require_admin)):
+    grupo_id = await _resolver_grupo_id(body.grupo_nome)
     rows = await query_meta("""
         INSERT INTO paineis
             (slug, nome, descricao, icone, colunas, linhas_fixas,
-             total_linhas, empresa_id, ativo, ordem_menu)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+             total_linhas, empresa_id, ativo, ordem_menu, grupo_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         RETURNING *
     """, body.slug, body.nome, body.descricao, body.icone,
         body.colunas, body.linhas_fixas, body.total_linhas,
-        body.empresa_id, body.ativo, body.ordem_menu)
+        body.empresa_id, body.ativo, body.ordem_menu, grupo_id)
     return _com_imagem_url(dict(rows[0]))
 
 
@@ -182,6 +217,9 @@ async def atualizar_painel(painel_id: int, body: dict, user=Depends(require_admi
     atual = await query_meta("SELECT * FROM paineis WHERE id = $1", painel_id)
     if not atual:
         raise HTTPException(404, "Painel não encontrado")
+
+    if "grupo_nome" in body:
+        body["grupo_id"] = await _resolver_grupo_id(body.pop("grupo_nome"))
 
     campos = []
     valores = []

@@ -9,7 +9,7 @@
   let form = {
     slug: '', nome: '', descricao: '', icone: 'chart-bar',
     colunas: 3, linhas_fixas: false, total_linhas: null,
-    empresa_id: null, ativo: true, ordem_menu: 0
+    empresa_id: null, ativo: true, ordem_menu: 0, grupo_nome: ''
   };
 
   let indicadores        = [];
@@ -23,19 +23,22 @@
   let variaveis  = [];
   let usuarios   = [];
   let empresas   = [];
+  let paineis    = [];
   let carregando = true;
   let salvando   = false;
   let erro       = null;
 
   $: gruposIndicador = agruparQueriesPorGrupoTipo(queries);
+  $: gruposExistentes = [...new Set(paineis.map(p => p.grupo_nome).filter(Boolean))].sort();
 
   onMount(async () => {
     try {
-      [queries, variaveis, usuarios, empresas] = await Promise.all([
+      [queries, variaveis, usuarios, empresas, paineis] = await Promise.all([
         api.listarQueries(),
         api.listarVariaveis(),
         api.listarUsuarios(),
         api.listarEmpresas(),
+        api.listarPaineis(),
       ]);
     } catch (e) {
       erro = e.message;
@@ -182,6 +185,14 @@
               <option value={e.id}>{e.nome} ({e.slug})</option>
             {/each}
           </select>
+        </div>
+        <div class="field">
+          <label>Grupo (opcional)</label>
+          <input bind:value={form.grupo_nome} list="grupos-lista" placeholder="ex: Exportação, Perdas" />
+          <datalist id="grupos-lista">
+            {#each gruposExistentes as g}<option value={g}></option>{/each}
+          </datalist>
+          <span class="hint">Quebra os painéis em seções no menu lateral e no dashboard</span>
         </div>
         <div class="field-row">
           <div class="field">

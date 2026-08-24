@@ -147,6 +147,12 @@ CREATE TABLE query_subquery_parametros (
 );
 CREATE INDEX idx_qsqp_query_id ON query_subquery_parametros(query_id);
 
+CREATE TABLE painel_grupos (
+    id        SERIAL PRIMARY KEY,
+    nome      TEXT NOT NULL UNIQUE,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE paineis (
     id             SERIAL PRIMARY KEY,
     slug           VARCHAR(100) UNIQUE NOT NULL,
@@ -162,7 +168,8 @@ CREATE TABLE paineis (
     imagem         BYTEA,
     imagem_mime    TEXT,
     criado_em      TIMESTAMP DEFAULT NOW(),
-    atualizado_em  TIMESTAMP DEFAULT NOW()
+    atualizado_em  TIMESTAMP DEFAULT NOW(),
+    grupo_id       INTEGER REFERENCES painel_grupos(id) ON DELETE SET NULL
 );
 CREATE INDEX idx_paineis_empresa ON paineis(empresa_id);
 CREATE INDEX idx_paineis_ativo ON paineis(ativo);

@@ -4,12 +4,26 @@
   import { page } from '$app/stores';
   import { token, usuario, empresaAtiva, menuPaineis, isAdmin, logout } from '$lib/stores/auth.js';
   import { api, assetUrl } from '$lib/api.js';
+  import { agruparPaineisPorGrupo } from '$lib/agruparPaineis.js';
   import '../app.css';
 
   const PUBLIC_ROUTES = ['/login', '/selecionar-empresa', '/sso'];
 
   let sidebarOpen = true;
   let isMobile    = false;
+
+  // ── Seções de grupo de painéis no menu (recolhível, estado por nome) ──
+  let gruposAbertos = {};
+  if (typeof window !== 'undefined') {
+    try { gruposAbertos = JSON.parse(localStorage.getItem('menuGruposAbertos') || '{}'); }
+    catch { gruposAbertos = {}; }
+  }
+  function toggleGrupo(nomeGrupo) {
+    gruposAbertos = { ...gruposAbertos, [nomeGrupo]: gruposAbertos[nomeGrupo] === false };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('menuGruposAbertos', JSON.stringify(gruposAbertos));
+    }
+  }
 
   // ── Ícones SVG (Lucide stroke, viewBox 0 0 24 24) ──────────────
   const I = {
@@ -130,6 +144,9 @@
   $: nomeExibido = $usuario?.nome ?? (isExterno ? `Usuário ${$usuario?.codigo_usuario ?? ''}` : '');
   $: collapsed = !isMobile && !sidebarOpen;
   $: tooltipAtivo = collapsed; // mostra title nos itens só quando colapsado
+
+  $: gruposMenu = agruparPaineisPorGrupo($menuPaineis);
+  $: menuTemGrupos = gruposMenu.some(g => g.grupo !== 'Sem grupo');
   $: if (typeof document !== 'undefined') {
     if ($usuario?.tema) {
       document.documentElement.setAttribute('data-theme', $usuario.tema);
@@ -185,14 +202,36 @@
 
         {#if $menuPaineis.length > 0}
           <li class="nav-section"><span class="nav-label">Meus Painéis</span></li>
-          {#each $menuPaineis as painel}
-            <li class:active={isActive(`/painel/${painel.slug}`)}>
-              <a href="/painel/{painel.slug}" title={tooltipAtivo ? painel.nome : null}>
-                <span class="nav-icon">{@html svg(I.chart)}</span>
-                <span class="nav-label">{painel.nome}</span>
-              </a>
-            </li>
-          {/each}
+
+          {#if !menuTemGrupos}
+            {#each $menuPaineis as painel}
+              <li class:active={isActive(`/painel/${painel.slug}`)}>
+                <a href="/painel/{painel.slug}" title={tooltipAtivo ? painel.nome : null}>
+                  <span class="nav-icon">{@html svg(I.chart)}</span>
+                  <span class="nav-label">{painel.nome}</span>
+                </a>
+              </li>
+            {/each}
+          {:else}
+            {#each gruposMenu as g}
+              <li>
+                <button class="group-toggle" on:click={() => toggleGrupo(g.grupo)} title={tooltipAtivo ? g.grupo : null}>
+                  <span class="nav-icon chev" class:aberto={gruposAbertos[g.grupo] !== false}>{@html svg(I.chevR)}</span>
+                  <span class="nav-label">{g.grupo}</span>
+                </button>
+              </li>
+              {#if gruposAbertos[g.grupo] !== false}
+                {#each g.itens as painel}
+                  <li class:active={isActive(`/painel/${painel.slug}`)}>
+                    <a class="sub-item" href="/painel/{painel.slug}" title={tooltipAtivo ? painel.nome : null}>
+                      <span class="nav-icon">{@html svg(I.chart)}</span>
+                      <span class="nav-label">{painel.nome}</span>
+                    </a>
+                  </li>
+                {/each}
+              {/if}
+            {/each}
+          {/if}
         {/if}
 
         {#if $isAdmin}
@@ -327,6 +366,34 @@
   background: var(--surface2);
   box-shadow: inset 2px 0 0 var(--accent-blue);
 }
+
+/* Grupo de painéis recolhível */
+.nav-links li button.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  margin: 1px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background .15s, color .15s;
+}
+.nav-links li button.group-toggle:hover { color: var(--text); background: var(--surface2); }
+.nav-icon.chev { transition: transform .15s; }
+.nav-icon.chev.aberto { transform: rotate(90deg); }
+.nav-links li a.sub-item { padding-left: 26px; }
 
 /* Icon */
 .nav-icon {

@@ -148,6 +148,11 @@ SELECT table_name FROM information_schema.tables WHERE table_name = 'query_grupo
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'queries' AND column_name = 'grupo_id';
+
+SELECT table_name FROM information_schema.tables WHERE table_name = 'painel_grupos';
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'paineis' AND column_name = 'grupo_id';
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -247,6 +252,14 @@ CREATE TABLE query_grupos (
     criado_em TIMESTAMP DEFAULT NOW()
 );
 ALTER TABLE queries ADD COLUMN grupo_id INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL;
+
+-- 2026-08-24 — grupo (categoria livre, ex: "Exportação", "Perdas") pra organizar painéis
+CREATE TABLE painel_grupos (
+    id        SERIAL PRIMARY KEY,
+    nome      TEXT NOT NULL UNIQUE,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+ALTER TABLE paineis ADD COLUMN grupo_id INTEGER REFERENCES painel_grupos(id) ON DELETE SET NULL;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

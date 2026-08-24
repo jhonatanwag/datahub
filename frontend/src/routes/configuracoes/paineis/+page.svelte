@@ -2,9 +2,10 @@
   import { onMount } from 'svelte';
   import { api, assetUrl } from '$lib/api.js';
 
-  let paineis    = [];
-  let carregando = true;
-  let erro       = null;
+  let paineis     = [];
+  let filtroGrupo = '';
+  let carregando  = true;
+  let erro        = null;
 
   onMount(async () => {
     try {
@@ -15,6 +16,9 @@
       carregando = false;
     }
   });
+
+  $: gruposExistentes = [...new Set(paineis.map(p => p.grupo_nome).filter(Boolean))].sort();
+  $: paineisFiltrados = paineis.filter(p => !filtroGrupo || p.grupo_nome === filtroGrupo);
 
   async function desativar(p) {
     if (!confirm(`Desativar painel "${p.nome}"?`)) return;
@@ -42,8 +46,16 @@
   {:else if paineis.length === 0}
     <p class="muted">Nenhum painel cadastrado.</p>
   {:else}
+    {#if gruposExistentes.length > 0}
+      <div class="filtros">
+        <select bind:value={filtroGrupo}>
+          <option value="">Todos os grupos</option>
+          {#each gruposExistentes as g}<option value={g}>{g}</option>{/each}
+        </select>
+      </div>
+    {/if}
     <div class="cards-grid">
-      {#each paineis as p}
+      {#each paineisFiltrados as p}
         <div class="card" class:inativo={!p.ativo}>
           <div class="card-main">
             <div class="card-info">
@@ -55,6 +67,7 @@
                 <span class="meta-item">slug: <code>{p.slug}</code></span>
                 <span class="meta-item">{p.colunas} colunas</span>
                 <span class="meta-item">{p.empresa_id ? `Empresa #${p.empresa_id}` : 'Global'}</span>
+                {#if p.grupo_nome}<span class="meta-item">grupo: {p.grupo_nome}</span>{/if}
                 {#if p.descricao}<span class="meta-descricao">{p.descricao}</span>{/if}
               </div>
             </div>
@@ -84,6 +97,8 @@
 .page { padding: 24px; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
+.filtros { margin-bottom: 16px; }
+.filtros select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; width: 220px; }
 .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .card.inativo { opacity: .5; }

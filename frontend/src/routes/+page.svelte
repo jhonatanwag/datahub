@@ -1,5 +1,6 @@
 <script>
   import { api, assetUrl } from '$lib/api.js';
+  import { agruparPaineisPorGrupo } from '$lib/agruparPaineis.js';
 
   const carregarPaineis = api.meuDashboard();
 </script>
@@ -28,34 +29,40 @@
         <p>Nenhum painel disponível para esta empresa.</p>
       </div>
     {:else}
-      <div class="grid">
-        {#each paineis as p}
-          <div class="card painel-card">
-            <div class="card-body">
-              <div class="card-text">
-                <h3 class="painel-nome">{p.nome}</h3>
-                {#if p.descricao}
-                  <p class="painel-desc">{p.descricao}</p>
+      {@const grupos = agruparPaineisPorGrupo(paineis)}
+      {#each grupos as g}
+        {#if grupos.length > 1 || g.grupo !== 'Sem grupo'}
+          <h3 class="group-title">{g.grupo}</h3>
+        {/if}
+        <div class="grid">
+          {#each g.itens as p}
+            <div class="card painel-card">
+              <div class="card-body">
+                <div class="card-text">
+                  <h3 class="painel-nome">{p.nome}</h3>
+                  {#if p.descricao}
+                    <p class="painel-desc">{p.descricao}</p>
+                  {/if}
+                  <span class="badge-ind">
+                    {p.total_indicadores} {p.total_indicadores === 1 ? 'indicador' : 'indicadores'}
+                  </span>
+                </div>
+                {#if p.imagem_url}
+                  <img
+                    class="painel-imagem"
+                    src={assetUrl(p.imagem_url)}
+                    alt={p.nome}
+                    on:error={(e) => { e.target.style.display = 'none'; }}
+                  />
                 {/if}
-                <span class="badge-ind">
-                  {p.total_indicadores} {p.total_indicadores === 1 ? 'indicador' : 'indicadores'}
-                </span>
               </div>
-              {#if p.imagem_url}
-                <img
-                  class="painel-imagem"
-                  src={assetUrl(p.imagem_url)}
-                  alt={p.nome}
-                  on:error={(e) => { e.target.style.display = 'none'; }}
-                />
-              {/if}
+              <div class="card-footer">
+                <a href="/painel/{p.slug}" class="btn-primary btn-sm">Ver painel →</a>
+              </div>
             </div>
-            <div class="card-footer">
-              <a href="/painel/{p.slug}" class="btn-primary btn-sm">Ver painel →</a>
-            </div>
-          </div>
-        {/each}
-      </div>
+          {/each}
+        </div>
+      {/each}
     {/if}
 
   {:catch erro}
@@ -72,6 +79,16 @@ h2           { font-size: 20px; color: var(--text); font-family: var(--font-disp
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
+  margin-bottom: 28px;
+}
+
+.group-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin: 0 0 12px;
 }
 
 .painel-card {
