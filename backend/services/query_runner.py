@@ -65,8 +65,8 @@ PALAVRAS_PROIBIDAS = [
 
 def validar_sql(sql: str) -> bool:
     sql_lower = sql.lower().strip()
-    if not sql_lower.startswith('select'):
-        raise ValueError("Apenas queries SELECT são permitidas")
+    if not (sql_lower.startswith('select') or sql_lower.startswith('with')):
+        raise ValueError("Apenas queries SELECT (ou CTEs WITH ... SELECT) são permitidas")
     for palavra in PALAVRAS_PROIBIDAS:
         if palavra in sql_lower:
             raise ValueError(f"Palavra não permitida: '{palavra}'")
