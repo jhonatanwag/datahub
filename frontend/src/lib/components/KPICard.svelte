@@ -5,6 +5,7 @@
   export let imagemUrl      = null;
   export let imagemPosicao  = 'direita'; // 'esquerda' | 'direita' — o valor do KPI fica sempre no lado oposto
   export let descricao      = null;
+  export let valorPrimeiro  = false; // true = valor em cima, label embaixo
 
   $: valor    = dados?.valor     ?? 0;
   $: label    = dados?.label     ?? '—';
@@ -32,8 +33,13 @@
     {/if}
 
     <div class="kpi-texto">
-      <span class="label" style={estiloLabel}>{label}</span>
-      <span class="valor" style={estiloValor}>{fmt(valor)}</span>
+      {#if valorPrimeiro}
+        <span class="valor" style={estiloValor}>{fmt(valor)}</span>
+        <span class="label" style={estiloLabel}>{label}</span>
+      {:else}
+        <span class="label" style={estiloLabel}>{label}</span>
+        <span class="valor" style={estiloValor}>{fmt(valor)}</span>
+      {/if}
       {#if delta !== null}
         <span class="delta" class:up={deltaDir === 'up'} class:down={deltaDir === 'down'}>
           {deltaDir === 'up' ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%

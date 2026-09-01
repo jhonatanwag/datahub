@@ -138,7 +138,7 @@ WHERE table_name IN ('query_agrupamentos', 'query_agregacoes', 'query_subquery_p
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'queries'
-  AND column_name IN ('pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao', 'kpi_imagem', 'kpi_imagem_mime', 'chart_filtro_coluna');
+  AND column_name IN ('pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao', 'kpi_imagem', 'kpi_imagem_mime', 'kpi_valor_primeiro', 'chart_filtro_coluna');
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'painel_indicadores'
@@ -260,6 +260,9 @@ CREATE TABLE painel_grupos (
     criado_em TIMESTAMP DEFAULT NOW()
 );
 ALTER TABLE paineis ADD COLUMN grupo_id INTEGER REFERENCES painel_grupos(id) ON DELETE SET NULL;
+
+-- 2026-08-31 — ordem label/valor no card de KPI (false = label em cima, valor embaixo — padrão atual)
+ALTER TABLE queries ADD COLUMN kpi_valor_primeiro BOOLEAN DEFAULT false;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

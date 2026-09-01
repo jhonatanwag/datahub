@@ -24,6 +24,7 @@
     subquery_id: null,
     pdf_orientacao: 'retrato',
     kpi_imagem_habilitada: false, kpi_imagem_posicao: 'direita',
+    kpi_valor_primeiro: false,
     grupo_nome: '',
   };
 
@@ -105,6 +106,7 @@
         pdf_orientacao:        q.pdf_orientacao || 'retrato',
         kpi_imagem_habilitada: q.kpi_imagem_habilitada ?? false,
         kpi_imagem_posicao:    q.kpi_imagem_posicao || 'direita',
+        kpi_valor_primeiro:    q.kpi_valor_primeiro ?? false,
         grupo_nome:            q.grupo_nome || '',
       };
       kpiImagemUrlAtual = q.kpi_imagem_url ? assetUrl(q.kpi_imagem_url) : null;
@@ -255,6 +257,7 @@
         pdf_orientacao:        form.pdf_orientacao,
         kpi_imagem_habilitada: form.kpi_imagem_habilitada,
         kpi_imagem_posicao:    form.kpi_imagem_posicao,
+        kpi_valor_primeiro:    form.kpi_valor_primeiro,
         grupo_nome:            form.grupo_nome,
       });
       if (form.tipo === 'kpi' && kpiImagemFile) {
@@ -362,10 +365,19 @@
               <ColorPalette bind:value={form.kpi_cor_fundo} />
             </label>
             <div class="kpi-preview" style="background:{form.kpi_cor_fundo}; color:{form.kpi_cor_fonte}">
-              <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>
-              <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
+              {#if form.kpi_valor_primeiro}
+                <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
+                <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>
+              {:else}
+                <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>
+                <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
+              {/if}
             </div>
           </div>
+          <label class="check-inline">
+            <input type="checkbox" bind:checked={form.kpi_valor_primeiro} />
+            Mostrar o valor antes do label
+          </label>
         </div>
 
         <div class="section-block">

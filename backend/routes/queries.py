@@ -40,6 +40,7 @@ class QueryInput(BaseModel):
     pdf_orientacao: Optional[str] = 'retrato'
     kpi_imagem_habilitada: bool = False
     kpi_imagem_posicao: Optional[str] = 'direita'
+    kpi_valor_primeiro: Optional[bool] = False
     chart_filtro_coluna: Optional[str] = None
     grupo_nome: Optional[str] = None
 
@@ -73,6 +74,7 @@ class QueryUpdate(BaseModel):
     pdf_orientacao: Optional[str] = None
     kpi_imagem_habilitada: Optional[bool] = None
     kpi_imagem_posicao: Optional[str] = None
+    kpi_valor_primeiro: Optional[bool] = None
     chart_filtro_coluna: Optional[str] = None
     grupo_nome: Optional[str] = None
 
@@ -427,9 +429,9 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna, grupo_id
+                chart_filtro_coluna, grupo_id, kpi_valor_primeiro
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -442,7 +444,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.meta_coluna_inicio, body.meta_coluna_fim,
             body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id,
             body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao,
-            body.chart_filtro_coluna, grupo_id)
+            body.chart_filtro_coluna, grupo_id, body.kpi_valor_primeiro)
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
@@ -476,7 +478,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim',
             'meta_cor_dentro', 'meta_cor_fora', 'subquery_id',
             'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao',
-            'chart_filtro_coluna'
+            'kpi_valor_primeiro', 'chart_filtro_coluna'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
@@ -560,7 +562,7 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id
+                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro
             )
             SELECT
                 $1, $2, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
@@ -570,7 +572,7 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id
+                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro
             FROM queries WHERE id = $3
             RETURNING *
         """, novo_slug, novo_nome, query_id)

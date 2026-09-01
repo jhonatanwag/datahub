@@ -425,7 +425,7 @@ async def renderizar_painel(
                q.meta_habilitada, q.meta_coluna_valor, q.meta_coluna_inicio, q.meta_coluna_fim,
                q.meta_cor_dentro, q.meta_cor_fora, q.subquery_id,
                q.pdf_orientacao, q.kpi_imagem_habilitada, q.kpi_imagem_posicao,
-               q.chart_filtro_coluna,
+               q.kpi_valor_primeiro, q.chart_filtro_coluna,
                fv.slug AS filtro_clique_variavel_slug, fv.tipo AS filtro_clique_variavel_tipo
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
