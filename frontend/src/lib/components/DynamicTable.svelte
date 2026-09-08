@@ -15,6 +15,10 @@
   export let subquery = null;
   export let titulo = 'dados';
   export let pdfOrientacao = 'retrato';
+  export let modoRelatorio = false;
+  export let painelSlug   = null;   // usados só fora do modo relatório (Task 6)
+  export let indicadorId  = null;
+  export let filtrosQuery = '';
 
   const FUNCOES = {
     soma:     vals => vals.reduce((a, b) => a + b, 0),
@@ -70,6 +74,9 @@
     expandidos = expandidos;
   }
 
+  // No relatório a árvore sai toda expandida — um "Set" que responde sempre true.
+  $: expandidosEfetivo = modoRelatorio ? { has: () => true } : expandidos;
+
   let gerandoPDF = false;
   async function exportarPDF() {
     gerandoPDF = true;
@@ -105,7 +112,7 @@
   }
 </script>
 
-<div class="table-wrap">
+<div class="table-wrap" class:modo-relatorio={modoRelatorio}>
   <table>
     <thead>
       <tr>
@@ -117,7 +124,7 @@
     <tbody>
       <GrupoLinha
         no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar}
-        nivel={0} modo="tabela" {expandidos} onAlternar={alternar} caminho=""
+        nivel={0} modo="tabela" expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
       />
     </tbody>
   </table>
@@ -125,10 +132,11 @@
   <div class="cards-mobile">
     <GrupoLinha
       no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar}
-      nivel={0} modo="cards" {expandidos} onAlternar={alternar} caminho=""
+      nivel={0} modo="cards" expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
     />
   </div>
 
+  {#if !modoRelatorio}
   <div class="export-bar">
     <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSVAgrupado(colunasDetalhe, agregacoes, arvore, titulo)} disabled={dados.length === 0}>
       ⬇ CSV
@@ -140,6 +148,7 @@
       {gerandoPDF ? 'Gerando…' : '⬇ PDF'}
     </button>
   </div>
+  {/if}
 </div>
 
 <Modal aberto={modalAberto} onClose={() => modalAberto = false}>
@@ -174,6 +183,11 @@ th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: v
 .btn-export-pdf { background: var(--danger, #f85149); color: #fff; }
 
 .cards-mobile { display: none; }
+
+.modo-relatorio { overflow: visible; }
+.modo-relatorio table { font-size: 11px; }
+.modo-relatorio th, .modo-relatorio td { white-space: normal; overflow-wrap: anywhere; padding: 6px 8px; }
+.modo-relatorio .cards-mobile { display: none; }
 
 @media (max-width: 768px) {
   table { display: none; }

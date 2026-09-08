@@ -14,6 +14,10 @@
   export let metaCorDentro     = '#3fb950';
   export let metaCorFora       = '#f85149';
   export let pdfOrientacao     = 'retrato';
+  export let modoRelatorio = false;
+  export let painelSlug   = null;   // usados só fora do modo relatório (Task 6)
+  export let indicadorId  = null;
+  export let filtrosQuery = '';
 
   const TAMANHOS_PAGINA = [5, 10, 50, 100, 500];
   let paginaAtual   = 1;
@@ -47,6 +51,8 @@
   // Reseta para a página 1 sempre que os dados mudam (novo filtro aplicado)
   // ou o tamanho de página muda, pra nunca ficar numa página vazia/inválida.
   $: dados, tamanhoPagina, (paginaAtual = 1);
+
+  $: linhasVisiveis = modoRelatorio ? dados : dadosPaginados;
 
   const fmtValor = (v) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -88,7 +94,7 @@
   }
 </script>
 
-<div class="table-wrap">
+<div class="table-wrap" class:modo-relatorio={modoRelatorio}>
   <table>
     <thead>
       <tr>
@@ -99,7 +105,7 @@
       </tr>
     </thead>
     <tbody>
-      {#each dadosPaginados as row}
+      {#each linhasVisiveis as row}
         <tr>
           {#each colunasEfetivas as col}
             <td style={estiloMeta(row, col)}>
@@ -126,7 +132,7 @@
   </table>
 
   <div class="cards-mobile">
-    {#each dadosPaginados as row}
+    {#each linhasVisiveis as row}
       <div class="card-linha" class:com-acao={mostrarAcoes && row[impressaoColuna]}>
         {#if mostrarAcoes && row[impressaoColuna]}
           <button class="btn-ghost btn-sm card-acao" on:click={() => imprimir(row)} title="Imprimir">🖨</button>
@@ -153,6 +159,7 @@
     {/each}
   </div>
 
+  {#if !modoRelatorio}
   <div class="pagination">
     <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSV(colunasEfetivas, dados, titulo)} disabled={dados.length === 0}>
       ⬇ CSV
@@ -178,6 +185,7 @@
       <button class="btn-ghost" on:click={() => paginaAtual += 1} disabled={paginaAtual >= totalPaginas}>Próxima →</button>
     </div>
   </div>
+  {/if}
 </div>
 
 <style>
@@ -207,6 +215,11 @@ tr:hover td { background: var(--surface2); }
 .tamanho-pagina select { width: auto; padding: 4px 8px; }
 
 .cards-mobile { display: none; }
+
+.modo-relatorio { overflow: visible; }
+.modo-relatorio table { font-size: 11px; }
+.modo-relatorio th, .modo-relatorio td { white-space: normal; overflow-wrap: anywhere; padding: 6px 8px; }
+.modo-relatorio .cards-mobile { display: none; }
 
 @media (max-width: 768px) {
   table { display: none; }

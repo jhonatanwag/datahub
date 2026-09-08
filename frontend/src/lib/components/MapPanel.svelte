@@ -1,9 +1,14 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { usuario } from '$lib/stores/auth.js';
 
   export let pontos = [];
   export let camada = 'padrao';
+  export let temaForcado = null;   // 'claro' | 'escuro' | null — força a camada de tiles no relatório
+
+  const dispatch = createEventDispatcher();
+
+  $: temaEfetivo = temaForcado ?? $usuario?.tema ?? 'escuro';
 
   let container;
   let map;
@@ -27,12 +32,13 @@
     map = L.map(container, { zoomControl: true, attributionControl: false }).setView([-15.8, -47.9], 4);
 
     leafletRef = L;
-    aplicarTileLayer(L, $usuario?.tema ?? 'escuro');
+    aplicarTileLayer(L, temaEfetivo);
     renderPontos(L);
+    map.whenReady(() => setTimeout(() => dispatch('pronto'), 2500));
   });
 
-  $: if (map && leafletRef && $usuario?.tema && $usuario.tema !== temaAtual) {
-    aplicarTileLayer(leafletRef, $usuario.tema);
+  $: if (map && leafletRef && temaEfetivo && temaEfetivo !== temaAtual) {
+    aplicarTileLayer(leafletRef, temaEfetivo);
     renderPontos(leafletRef);
   }
 
@@ -42,12 +48,13 @@
     if (tileLayer) tileLayer.remove();
     const url = camadaAtiva === 'satelite' ? TILE_URLS.satelite : (TILE_URLS[tema] ?? TILE_URLS.escuro);
     tileLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(map);
+    tileLayer.once('load', () => dispatch('pronto'));
     temaAtual = tema;
   }
 
   function alternarCamada() {
     camadaAtiva = camadaAtiva === 'satelite' ? 'padrao' : 'satelite';
-    aplicarTileLayer(leafletRef, $usuario?.tema ?? 'escuro');
+    aplicarTileLayer(leafletRef, temaEfetivo);
     renderPontos(leafletRef);
   }
 

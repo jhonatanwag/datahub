@@ -84,5 +84,6 @@
   }
   .rc-chip strong { color: #8A968A; font-weight: 700; }
 
-  @media print { .rc-faixa { padding: 14px 12mm; } .rc-filtros { padding: 7px 12mm; } }
+  @media screen { .rc { top: 44px; } }
+  @media print { .rc { top: 0; } .rc-faixa { padding: 14px 12mm; } .rc-filtros { padding: 7px 12mm; } }
 </style>

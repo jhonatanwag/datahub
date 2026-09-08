@@ -139,6 +139,7 @@
     chart = echarts.init(container, null, { renderer: 'svg' });
     chart.on('click', onClickGrafico);
     if (dados.length) chart.setOption(buildOption(tipo, dados));
+    dispatch('pronto');
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(container);
     return () => ro.disconnect();
