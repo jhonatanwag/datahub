@@ -8,6 +8,7 @@
   import DynamicTable   from '$lib/components/DynamicTable.svelte';
   import MapPanel       from '$lib/components/MapPanel.svelte';
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
+  import { resumoFiltros } from '$lib/resumoFiltros.js';
 
   let slug        = $page.params.slug;
   let painel      = null;
@@ -20,35 +21,8 @@
   let opcoesPorVariavel = {}; // { [slug]: [{valor, label}, ...] } — pra exibir o label no chip de resumo
   let urlImpressaoBase = null;
 
-  // YYYY-MM-DD → DD/MM/YYYY
-  function fmtData(val) {
-    if (!val || val.length !== 10) return val ?? '';
-    const [y, m, d] = val.split('-');
-    return `${d}/${m}/${y}`;
-  }
-
   // Resumo legível dos filtros: [{nome, valor}]
-  $: resumoFiltros = variaveis.flatMap(v => {
-    if (v.tipo === 'date_range') {
-      const ini = filtrosAtivos[v.slug + '_inicio'];
-      const fim = filtrosAtivos[v.slug + '_fim'];
-      if (!ini && !fim) return [];
-      return [{ nome: v.nome, valor: `${fmtData(ini) || '—'} até ${fmtData(fim) || '—'}` }];
-    }
-    const val = filtrosAtivos[v.slug];
-    if (!val) return [];
-
-    if (v.tipo === 'select' || v.tipo === 'multiselect') {
-      const opcoes = opcoesPorVariavel[v.slug] || [];
-      const labels = String(val).split(',').map(id => {
-        const opt = opcoes.find(o => String(o.valor) === id);
-        return opt ? opt.label : id;
-      });
-      return [{ nome: v.nome, valor: labels.join(', ') }];
-    }
-
-    return [{ nome: v.nome, valor: String(val) }];
-  });
+  $: resumoFiltrosLista = resumoFiltros(variaveis, filtrosAtivos, opcoesPorVariavel);
 
   function resolverToken(val) {
     if (!val) return '';
@@ -213,8 +187,8 @@
         </button>
 
         <div class="filtros-chips">
-          {#if resumoFiltros.length > 0}
-            {#each resumoFiltros as f}
+          {#if resumoFiltrosLista.length > 0}
+            {#each resumoFiltrosLista as f}
               <span class="chip">
                 <span class="chip-nome">{f.nome}:</span>
                 <span class="chip-val">{f.valor}</span>
