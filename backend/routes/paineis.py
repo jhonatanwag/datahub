@@ -32,6 +32,7 @@ class PainelInput(BaseModel):
     ativo: bool = True
     ordem_menu: int = 0
     grupo_nome: Optional[str] = None
+    impressao_orientacao: str = 'retrato'  # 'retrato' | 'paisagem' — orientação do relatório do painel inteiro
 
 
 class IndicadorInput(BaseModel):
@@ -203,12 +204,14 @@ async def criar_painel(body: PainelInput, user=Depends(require_admin)):
     rows = await query_meta("""
         INSERT INTO paineis
             (slug, nome, descricao, icone, colunas, linhas_fixas,
-             total_linhas, empresa_id, ativo, ordem_menu, grupo_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+             total_linhas, empresa_id, ativo, ordem_menu, grupo_id,
+             impressao_orientacao)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
         RETURNING *
     """, body.slug, body.nome, body.descricao, body.icone,
         body.colunas, body.linhas_fixas, body.total_linhas,
-        body.empresa_id, body.ativo, body.ordem_menu, grupo_id)
+        body.empresa_id, body.ativo, body.ordem_menu, grupo_id,
+        body.impressao_orientacao)
     return _com_imagem_url(dict(rows[0]))
 
 

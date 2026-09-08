@@ -108,9 +108,10 @@
   function nColunas(ind) {
     return ind?.dados?.[0] ? Object.keys(ind.dados[0]).length : 0;
   }
-  $: paisagem = !!indicadorUnico
-    && (indicadorUnico.query_tipo === 'table' || indicadorUnico.query_tipo === 'table_dynamic')
-    && (nColunas(indicadorUnico) > 8 || indicadorUnico.pdf_orientacao === 'paisagem');
+  $: paisagem = indicadorUnico
+    ? ((indicadorUnico.query_tipo === 'table' || indicadorUnico.query_tipo === 'table_dynamic')
+        && (nColunas(indicadorUnico) > 8 || indicadorUnico.pdf_orientacao === 'paisagem'))
+    : (painel?.impressao_orientacao === 'paisagem');
 </script>
 
 <svelte:head>

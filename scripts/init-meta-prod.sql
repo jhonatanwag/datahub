@@ -172,7 +172,8 @@ CREATE TABLE paineis (
     imagem_mime    TEXT,
     criado_em      TIMESTAMP DEFAULT NOW(),
     atualizado_em  TIMESTAMP DEFAULT NOW(),
-    grupo_id       INTEGER REFERENCES painel_grupos(id) ON DELETE SET NULL
+    grupo_id       INTEGER REFERENCES painel_grupos(id) ON DELETE SET NULL,
+    impressao_orientacao VARCHAR(10) DEFAULT 'retrato'
 );
 CREATE INDEX idx_paineis_empresa ON paineis(empresa_id);
 CREATE INDEX idx_paineis_ativo ON paineis(ativo);

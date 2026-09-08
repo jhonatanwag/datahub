@@ -152,7 +152,7 @@ WHERE table_name = 'queries' AND column_name = 'grupo_id';
 SELECT table_name FROM information_schema.tables WHERE table_name = 'painel_grupos';
 
 SELECT column_name FROM information_schema.columns
-WHERE table_name = 'paineis' AND column_name = 'grupo_id';
+WHERE table_name = 'paineis' AND column_name IN ('grupo_id', 'impressao_orientacao');
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -267,6 +267,9 @@ ALTER TABLE queries ADD COLUMN kpi_valor_primeiro BOOLEAN DEFAULT false;
 -- 2026-09-08 — endereço e CNPJ da empresa pro cabeçalho dos relatórios impressos
 ALTER TABLE empresas ADD COLUMN endereco TEXT;
 ALTER TABLE empresas ADD COLUMN cnpj VARCHAR(20);
+
+-- 2026-09-08 — orientação (retrato/paisagem) do relatório do painel inteiro
+ALTER TABLE paineis ADD COLUMN impressao_orientacao VARCHAR(10) DEFAULT 'retrato';
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

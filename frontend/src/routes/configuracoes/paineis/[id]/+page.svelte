@@ -12,7 +12,8 @@
   let form = {
     slug: '', nome: '', descricao: '', icone: 'chart-bar',
     colunas: 3, linhas_fixas: false, total_linhas: null,
-    empresa_id: null, ativo: true, ordem_menu: 0, grupo_nome: ''
+    empresa_id: null, ativo: true, ordem_menu: 0, grupo_nome: '',
+    impressao_orientacao: 'retrato'
   };
 
   let indicadores          = [];
@@ -65,6 +66,7 @@
         ativo:       painel.ativo,
         ordem_menu:  painel.ordem_menu,
         grupo_nome:  painel.grupo_nome || '',
+        impressao_orientacao: painel.impressao_orientacao || 'retrato',
       };
       imagemUrl = painel.imagem_url;
 
@@ -175,6 +177,7 @@
         ativo:       form.ativo,
         ordem_menu:  form.ordem_menu,
         grupo_nome:  form.grupo_nome,
+        impressao_orientacao: form.impressao_orientacao,
       });
       if (imagemFile) {
         const fd = new FormData();
@@ -277,6 +280,13 @@
             <label>Ordem no Menu</label>
             <input type="number" bind:value={form.ordem_menu} min="0" />
           </div>
+        </div>
+        <div class="field">
+          <label>Orientação da impressão (relatório do painel)</label>
+          <select bind:value={form.impressao_orientacao}>
+            <option value="retrato">Retrato</option>
+            <option value="paisagem">Paisagem</option>
+          </select>
         </div>
         <div class="field">
           <label>Linhas</label>
