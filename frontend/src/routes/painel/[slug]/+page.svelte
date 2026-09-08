@@ -24,6 +24,12 @@
   // Resumo legível dos filtros: [{nome, valor}]
   $: resumoFiltrosLista = resumoFiltros(variaveis, filtrosAtivos, opcoesPorVariavel);
 
+  $: filtrosQuery = new URLSearchParams(filtrosAtivos).toString();
+
+  function imprimirPainel() {
+    window.open(`/relatorio/painel/${slug}?${filtrosQuery}`, '_blank', 'noopener');
+  }
+
   function resolverToken(val) {
     if (!val) return '';
     const h   = new Date();
@@ -161,7 +167,17 @@
 
   {:else if painel}
     <div class="painel-header">
-      <h2>{painel.nome}</h2>
+      <div class="painel-header-topo">
+        <h2>{painel.nome}</h2>
+        <button class="btn-ghost btn-imprimir" on:click={imprimirPainel}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          Imprimir
+        </button>
+      </div>
       {#if painel.descricao}
         <p class="descricao">{painel.descricao}</p>
       {/if}
@@ -269,6 +285,9 @@
               <DataTable
                 dados={ind.dados}
                 titulo={ind.titulo || ind.query_slug}
+                painelSlug={slug}
+                indicadorId={ind.id}
+                filtrosQuery={filtrosQuery}
                 impressaoHabilitada={ind.impressao_habilitada}
                 impressaoUrlBase={
                   ind.impressao_habilitada && urlImpressaoBase && ind.impressao_caminho
@@ -282,17 +301,18 @@
                 metaColunaFim={ind.meta_coluna_fim}
                 metaCorDentro={ind.meta_cor_dentro}
                 metaCorFora={ind.meta_cor_fora}
-                pdfOrientacao={ind.pdf_orientacao}
               />
 
             {:else if ind.query_tipo === 'table_dynamic'}
               <DynamicTable
                 dados={ind.dados}
                 titulo={ind.titulo || ind.query_slug}
+                painelSlug={slug}
+                indicadorId={ind.id}
+                filtrosQuery={filtrosQuery}
                 agrupamentos={ind.agrupamentos ?? []}
                 agregacoes={ind.agregacoes ?? []}
                 subquery={ind.subquery}
-                pdfOrientacao={ind.pdf_orientacao}
               />
 
             {:else if ind.query_tipo === 'map'}
@@ -313,6 +333,9 @@
 .painel-page   { padding: 24px; }
 .painel-header { margin-bottom: 16px; }
 .painel-header h2 { font-family: var(--font-display); font-size: 20px; color: var(--text); }
+.painel-header-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.btn-imprimir { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 12px; border-radius: 6px; flex-shrink: 0; }
+.btn-imprimir svg { width: 15px; height: 15px; }
 .descricao { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
 /* ── Toggle row ─────────────────────────────────────────── */

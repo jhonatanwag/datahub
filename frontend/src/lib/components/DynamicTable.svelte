@@ -6,7 +6,7 @@
   import ChartPanel from './ChartPanel.svelte';
   import MapPanel from './MapPanel.svelte';
   import { api } from '$lib/api.js';
-  import { baixarCSVAgrupado, baixarXLSXAgrupado, baixarPDFAgrupado } from '$lib/exportTable.js';
+  import { baixarCSVAgrupado, baixarXLSXAgrupado } from '$lib/exportTable.js';
 
   export let colunas = [];
   export let dados = [];
@@ -14,7 +14,6 @@
   export let agregacoes = [];
   export let subquery = null;
   export let titulo = 'dados';
-  export let pdfOrientacao = 'retrato';
   export let modoRelatorio = false;
   export let painelSlug   = null;   // usados só fora do modo relatório (Task 6)
   export let indicadorId  = null;
@@ -77,14 +76,11 @@
   // No relatório a árvore sai toda expandida — um "Set" que responde sempre true.
   $: expandidosEfetivo = modoRelatorio ? { has: () => true } : expandidos;
 
-  let gerandoPDF = false;
-  async function exportarPDF() {
-    gerandoPDF = true;
-    try {
-      await baixarPDFAgrupado(colunasDetalhe, agregacoes, arvore, titulo, pdfOrientacao);
-    } finally {
-      gerandoPDF = false;
-    }
+  function exportarPDF() {
+    if (!painelSlug || indicadorId == null) return;
+    const p = new URLSearchParams(filtrosQuery);
+    p.set('indicador', indicadorId);
+    window.open(`/relatorio/painel/${painelSlug}?${p}`, '_blank', 'noopener');
   }
 
   let modalAberto     = false;
@@ -144,8 +140,8 @@
     <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSXAgrupado(colunasDetalhe, agregacoes, arvore, titulo)} disabled={dados.length === 0}>
       ⬇ Excel
     </button>
-    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || gerandoPDF}>
-      {gerandoPDF ? 'Gerando…' : '⬇ PDF'}
+    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || !painelSlug}>
+      🖨 PDF
     </button>
   </div>
   {/if}
