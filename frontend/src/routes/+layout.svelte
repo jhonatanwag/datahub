@@ -100,6 +100,8 @@
           empresaAtiva.set({
             id: me.empresa_id, slug: me.company_slug,
             nome: me.company_name,
+            endereco: me.company_endereco ?? null,
+            cnpj: me.company_cnpj ?? null,
             logo_url: assetUrl(`/api/empresas/${me.empresa_id}/logo`),
             url_impressao_base: me.url_impressao_base ?? null
           });
@@ -157,6 +159,8 @@
 </script>
 
 {#if PUBLIC_ROUTES.includes($page.url.pathname)}
+  <slot />
+{:else if $page.url.pathname.startsWith('/relatorio/')}
   <slot />
 {:else}
   <div class="shell">

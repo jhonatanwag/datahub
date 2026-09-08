@@ -1,0 +1,64 @@
+/* Tema visual dos relatórios impressos — paleta verde-clara do padrão
+   (docs/superpowers/specs/2026-09-08-impressao-relatorio-painel-design.md),
+   independente do tema do app. Ativado pela classe `relatorio-tema` no <html>
+   (a rota /relatorio/painel/[slug] adiciona no onMount e remove no onDestroy).
+   Escopado em :root pra que o ChartPanel — que lê as CSS vars via
+   getComputedStyle(document.documentElement) — pegue a paleta clara. */
+
+:root.relatorio-tema {
+  --bg:            #F4F6F2;
+  --surface:       #FFFFFF;
+  --surface2:      #E9F3EC;
+  --border:        #E3E8E1;
+  --text:          #2B2B2B;
+  --muted:         #8A968A;
+  --accent:        #2E5E3E;
+  --accent-blue:   #2E5E3E;
+  --accent-green:  #4CAF50;
+  --accent-orange: #E8A33D;
+  --danger:        #C62828;
+
+  --rel-verde-escuro: #1F3D2B;
+  --rel-verde:        #2E5E3E;
+  --rel-verde-suave:  #BFE3C6;
+
+  background: var(--bg);
+  color: var(--text);
+}
+
+.relatorio-tema body { background: var(--bg); margin: 0; }
+
+.relatorio-pagina {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 150px 16mm 60px;   /* topo/base livres pro cabeçalho/rodapé fixos */
+  background: var(--surface);
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+@media screen {
+  .relatorio-tema body { padding: 24px 0; }
+  .relatorio-pagina { box-shadow: 0 2px 24px rgba(0,0,0,.12); border-radius: 4px; }
+}
+
+@media screen and (max-width: 820px) {
+  .relatorio-pagina { padding: 150px 12px 60px; }
+}
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+
+  .no-print { display: none !important; }
+
+  html, body, .relatorio-tema body { background: #fff !important; }
+
+  .relatorio-pagina {
+    max-width: none; margin: 0; box-shadow: none; border-radius: 0;
+    padding: 132px 0 52px;
+  }
+
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  thead { display: table-header-group; }
+}
