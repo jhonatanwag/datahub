@@ -26,7 +26,9 @@ CREATE TABLE empresas (
     criado_em    TIMESTAMP DEFAULT NOW(),
     sso_api_key_hash VARCHAR(255),
     sso_query_acesso TEXT,
-    url_impressao_base TEXT
+    url_impressao_base TEXT,
+    endereco     TEXT,
+    cnpj         VARCHAR(20)
 );
 
 CREATE TABLE usuarios (

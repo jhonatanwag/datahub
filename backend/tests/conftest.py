@@ -56,6 +56,19 @@ def hard_delete_variavel(variavel_id: int):
     asyncio.run(_exec())
 
 
+def hard_delete_empresa(empresa_id: int):
+    """Remove de verdade uma empresa criada pra teste. DELETE /api/empresas/{id}
+    é soft-delete (ativo=false) e deixaria lixo permanente no banco de dev."""
+    async def _exec():
+        conn = await _connect_meta()
+        try:
+            await conn.execute("DELETE FROM usuario_empresas WHERE empresa_id = $1", empresa_id)
+            await conn.execute("DELETE FROM empresas WHERE id = $1", empresa_id)
+        finally:
+            await conn.close()
+    asyncio.run(_exec())
+
+
 @pytest.fixture
 def client():
     with TestClient(app) as c:

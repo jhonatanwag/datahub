@@ -123,7 +123,7 @@ WHERE table_name = 'queries'
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'empresas'
-  AND column_name IN ('sso_api_key_hash', 'sso_query_acesso', 'url_impressao_base');
+  AND column_name IN ('sso_api_key_hash', 'sso_query_acesso', 'url_impressao_base', 'endereco', 'cnpj');
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'usuario_empresas'
@@ -263,6 +263,10 @@ ALTER TABLE paineis ADD COLUMN grupo_id INTEGER REFERENCES painel_grupos(id) ON 
 
 -- 2026-08-31 — ordem label/valor no card de KPI (false = label em cima, valor embaixo — padrão atual)
 ALTER TABLE queries ADD COLUMN kpi_valor_primeiro BOOLEAN DEFAULT false;
+
+-- 2026-09-08 — endereço e CNPJ da empresa pro cabeçalho dos relatórios impressos
+ALTER TABLE empresas ADD COLUMN endereco TEXT;
+ALTER TABLE empresas ADD COLUMN cnpj VARCHAR(20);
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,
