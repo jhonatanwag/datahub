@@ -34,7 +34,9 @@
     leafletRef = L;
     aplicarTileLayer(L, temaEfetivo);
     renderPontos(L);
-    map.whenReady(() => setTimeout(() => dispatch('pronto'), 2500));
+    map.whenReady(() => {
+      setTimeout(() => { map.invalidateSize(); dispatch('pronto'); }, 400);
+    });
   });
 
   $: if (map && leafletRef && temaEfetivo && temaEfetivo !== temaAtual) {
@@ -84,7 +86,7 @@
 
 <div class="map-wrap">
   <div bind:this={container} class="map-container"></div>
-  <button class="camada-toggle" on:click={alternarCamada}>
+  <button class="camada-toggle no-print" on:click={alternarCamada}>
     {camadaAtiva === 'satelite' ? 'Padrão' : 'Satélite'}
   </button>
 </div>

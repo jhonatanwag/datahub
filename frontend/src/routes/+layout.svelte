@@ -149,7 +149,7 @@
 
   $: gruposMenu = agruparPaineisPorGrupo($menuPaineis);
   $: menuTemGrupos = gruposMenu.some(g => g.grupo !== 'Sem grupo');
-  $: if (typeof document !== 'undefined') {
+  $: if (typeof document !== 'undefined' && !$page.url.pathname.startsWith('/relatorio/')) {
     if ($usuario?.tema) {
       document.documentElement.setAttribute('data-theme', $usuario.tema);
     } else {

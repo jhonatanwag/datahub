@@ -110,7 +110,7 @@
   }
   $: paisagem = !!indicadorUnico
     && (indicadorUnico.query_tipo === 'table' || indicadorUnico.query_tipo === 'table_dynamic')
-    && nColunas(indicadorUnico) > 8;
+    && (nColunas(indicadorUnico) > 8 || indicadorUnico.pdf_orientacao === 'paisagem');
 </script>
 
 <svelte:head>
@@ -144,7 +144,19 @@
     <div class="rel-unico">
       <div class="card-titulo">{indicadorUnico.titulo || indicadorUnico.query_slug}</div>
       {#if indicadorUnico.query_tipo === 'table'}
-        <DataTable dados={indicadorUnico.dados} titulo={tituloRelatorio} modoRelatorio={true} />
+        <DataTable
+          dados={indicadorUnico.dados}
+          titulo={tituloRelatorio}
+          modoRelatorio={true}
+          impressaoHabilitada={indicadorUnico.impressao_habilitada}
+          impressaoColuna={indicadorUnico.impressao_coluna}
+          metaHabilitada={indicadorUnico.meta_habilitada}
+          metaColunaValor={indicadorUnico.meta_coluna_valor}
+          metaColunaInicio={indicadorUnico.meta_coluna_inicio}
+          metaColunaFim={indicadorUnico.meta_coluna_fim}
+          metaCorDentro={indicadorUnico.meta_cor_dentro}
+          metaCorFora={indicadorUnico.meta_cor_fora}
+        />
       {:else if indicadorUnico.query_tipo === 'table_dynamic'}
         <DynamicTable
           dados={indicadorUnico.dados}
@@ -187,7 +199,19 @@
               on:pronto={() => marcarPronto(ind.id)}
             />
           {:else if ind.query_tipo === 'table'}
-            <DataTable dados={ind.dados} titulo={ind.titulo || ind.query_slug} modoRelatorio={true} />
+            <DataTable
+              dados={ind.dados}
+              titulo={ind.titulo || ind.query_slug}
+              modoRelatorio={true}
+              impressaoHabilitada={ind.impressao_habilitada}
+              impressaoColuna={ind.impressao_coluna}
+              metaHabilitada={ind.meta_habilitada}
+              metaColunaValor={ind.meta_coluna_valor}
+              metaColunaInicio={ind.meta_coluna_inicio}
+              metaColunaFim={ind.meta_coluna_fim}
+              metaCorDentro={ind.meta_cor_dentro}
+              metaCorFora={ind.meta_cor_fora}
+            />
           {:else if ind.query_tipo === 'table_dynamic'}
             <DynamicTable
               dados={ind.dados}

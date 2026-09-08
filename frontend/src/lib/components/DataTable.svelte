@@ -162,9 +162,11 @@
     <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSX(colunasEfetivas, dados, titulo)} disabled={dados.length === 0}>
       ⬇ Excel
     </button>
-    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || !painelSlug}>
+    {#if painelSlug}
+    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0}>
       🖨 PDF
     </button>
+    {/if}
     <span>{dados.length} registros</span>
     <label class="tamanho-pagina">
       Itens por página:

@@ -140,9 +140,11 @@
     <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSXAgrupado(colunasDetalhe, agregacoes, arvore, titulo)} disabled={dados.length === 0}>
       ⬇ Excel
     </button>
-    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || !painelSlug}>
+    {#if painelSlug}
+    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0}>
       🖨 PDF
     </button>
+    {/if}
   </div>
   {/if}
 </div>
