@@ -10,6 +10,8 @@
   let db_user = '';
   let db_pass = '';
   let url_impressao_base = '';
+  let endereco = '';
+  let cnpj     = '';
   let logoFile    = null;
   let logoPreview = null;
 
@@ -87,7 +89,7 @@
     erro = '';
     salvando = true;
     try {
-      const empresa = await api.criarEmpresa({ slug, nome, db_host, db_port, db_name, db_user, db_pass, url_impressao_base: url_impressao_base || null });
+      const empresa = await api.criarEmpresa({ slug, nome, db_host, db_port, db_name, db_user, db_pass, url_impressao_base: url_impressao_base || null, endereco: endereco || null, cnpj: cnpj || null });
       if (logoFile) {
         const fd = new FormData();
         fd.append('file', logoFile);
@@ -132,6 +134,14 @@
       <label>
         URL base de impressão (opcional)
         <input bind:value={url_impressao_base} placeholder="https://www.psosistemas.com.br:8443/NomeDaEmpresa/" />
+      </label>
+      <label>
+        Endereço (aparece no cabeçalho dos relatórios)
+        <input bind:value={endereco} placeholder="Rua Principal, 1 - Centro - CEP 00000-000 - Cidade - UF" />
+      </label>
+      <label>
+        CNPJ
+        <input bind:value={cnpj} placeholder="00.000.000/0001-00" />
       </label>
     </section>
 

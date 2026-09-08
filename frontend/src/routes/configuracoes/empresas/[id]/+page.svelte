@@ -122,6 +122,8 @@
         ativo:   empresa.ativo,
         sso_query_acesso: empresa.sso_query_acesso ?? null,
         url_impressao_base: empresa.url_impressao_base ?? null,
+        endereco: empresa.endereco ?? null,
+        cnpj:     empresa.cnpj ?? null,
       };
       // Only include db_pass if user typed a new value
       if (empresa.db_pass) {
@@ -180,6 +182,14 @@
         <label>
           URL base de impressão (opcional)
           <input bind:value={empresa.url_impressao_base} placeholder="https://www.psosistemas.com.br:8443/NomeDaEmpresa/" />
+        </label>
+        <label>
+          Endereço (aparece no cabeçalho dos relatórios)
+          <input bind:value={empresa.endereco} placeholder="Rua Principal, 1 - Centro - CEP 00000-000 - Cidade - UF" />
+        </label>
+        <label>
+          CNPJ
+          <input bind:value={empresa.cnpj} placeholder="00.000.000/0001-00" />
         </label>
       </section>
 
