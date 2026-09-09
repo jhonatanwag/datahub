@@ -5,7 +5,7 @@ from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta
 import secrets
 import logging
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 import httpx
 from config.settings import settings
 from config.redis import get_redis
@@ -140,17 +140,27 @@ async def meu_dashboard(user=Depends(get_current_user)):
 
 @router.get("/slug/{slug}/relatorio-pdf")
 async def relatorio_pdf(slug: str, request: Request, user=Depends(get_current_user)):
-    rows = await query_meta(
-        "SELECT nome FROM paineis WHERE slug = $1 AND ativo = true "
-        "ORDER BY empresa_id NULLS LAST LIMIT 1",
-        slug,
-    )
+    if user["role"] == "externo":
+        if slug not in user.get("paineis_liberados", []):
+            raise HTTPException(403, "Sem acesso a este painel")
+        rows = await query_meta(
+            "SELECT nome FROM paineis "
+            "WHERE slug = $1 AND (empresa_id = $2 OR empresa_id IS NULL) AND ativo = true",
+            slug, user["empresa_id"],
+        )
+    else:
+        rows = await query_meta(
+            "SELECT DISTINCT ON (p.slug) p.nome "
+            "FROM paineis p "
+            "JOIN painel_usuarios pu ON pu.painel_id = p.id "
+            "WHERE p.slug = $1 AND pu.usuario_id = $2 AND p.ativo = true "
+            "AND (p.empresa_id = $3 OR p.empresa_id IS NULL) "
+            "ORDER BY p.slug, p.empresa_id NULLS LAST",
+            slug, user["id"], user["empresa_id"],
+        )
     if not rows:
         raise HTTPException(404, "Painel não encontrado")
     nome = rows[0]["nome"]
-
-    if user["role"] == "externo" and slug not in user.get("paineis_liberados", []):
-        raise HTTPException(403, "Sem acesso a este painel")
 
     auth = request.headers.get("authorization", "")
     jwt_str = auth[7:] if auth.lower().startswith("bearer ") else ""
@@ -163,10 +173,10 @@ async def relatorio_pdf(slug: str, request: Request, user=Depends(get_current_us
 
     qs = dict(request.query_params)
     qs["pdf_token"] = token
-    url = f"{settings.RELATORIO_BASE_URL}/relatorio/painel/{slug}?{urlencode(qs)}"
+    url = f"{settings.RELATORIO_BASE_URL}/relatorio/painel/{quote(slug, safe='')}?{urlencode(qs)}"
 
     try:
-        async with httpx.AsyncClient(timeout=45) as http:
+        async with httpx.AsyncClient(timeout=60) as http:
             resp = await http.post(
                 f"{settings.RENDERER_URL}/render",
                 json={"url": url},

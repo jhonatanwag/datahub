@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from conftest import _connect_meta, hard_delete_painel
+from conftest import _connect_meta, hard_delete_painel, ADMIN_EMAIL
 
 
 def _redis():
@@ -34,8 +34,13 @@ def painel_temp():
     async def _criar():
         conn = await _connect_meta()
         try:
+            uid = await conn.fetchval("SELECT id FROM usuarios WHERE email = $1", ADMIN_EMAIL)
             row = await conn.fetchrow(
                 "INSERT INTO paineis (slug, nome) VALUES ('painel_pdf_teste', 'Painel PDF Teste') RETURNING id"
+            )
+            await conn.execute(
+                "INSERT INTO painel_usuarios (painel_id, usuario_id) VALUES ($1, $2)",
+                row["id"], uid,
             )
             return row["id"]
         finally:
@@ -95,3 +100,24 @@ def test_relatorio_pdf_502_quando_renderer_cai(client, auth_token, painel_temp, 
         headers={"Authorization": f"Bearer {auth_token}"},
     )
     assert r.status_code == 502
+
+
+def test_relatorio_pdf_sem_acesso_404(client, auth_token, monkeypatch):
+    async def _criar():
+        conn = await _connect_meta()
+        try:
+            row = await conn.fetchrow(
+                "INSERT INTO paineis (slug, nome) VALUES ('painel_pdf_sem_acesso', 'Sem Acesso') RETURNING id"
+            )
+            return row["id"]
+        finally:
+            await conn.close()
+    pid = asyncio.run(_criar())
+    try:
+        r = client.get(
+            "/api/paineis/slug/painel_pdf_sem_acesso/relatorio-pdf",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert r.status_code == 404
+    finally:
+        hard_delete_painel(pid)
