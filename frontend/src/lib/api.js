@@ -43,6 +43,9 @@ export const api = {
     ssoTrocar: (exchange) =>
         request('/api/auth/sso/trocar', { method: 'POST', body: JSON.stringify({ exchange }) }),
 
+    trocarPdfToken: (pdf_token) =>
+        request('/api/auth/pdf-token/trocar', { method: 'POST', body: JSON.stringify({ pdf_token }) }),
+
     // Charts
     chart: (slug, params = {}) => {
         const p = new URLSearchParams(params);
