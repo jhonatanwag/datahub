@@ -48,6 +48,10 @@ class SsoTrocarInput(BaseModel):
     exchange: str
 
 
+class PdfTokenInput(BaseModel):
+    pdf_token: str
+
+
 @router.post("/login")
 async def login(body: LoginInput):
     try:
@@ -229,6 +233,15 @@ async def sso_trocar(body: SsoTrocarInput):
     except Exception as e:
         logger.error(f"Erro ao trocar token SSO: {e}")
         raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
+
+@router.post("/pdf-token/trocar")
+async def trocar_pdf_token(body: PdfTokenInput):
+    redis = await get_redis()
+    jwt_str = await redis.getdel(f"pdf_exchange:{body.pdf_token}")
+    if not jwt_str:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+    return {"token": jwt_str}
 
 
 @router.get("/minhas-empresas")

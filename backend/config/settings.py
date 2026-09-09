@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379"
     GROQ_API_KEY: str
     FRONTEND_URL: str = "http://localhost:3000"
+    RENDERER_URL: str = "http://pdf-renderer:4000"
+    RENDERER_SECRET: str = ""
+    RELATORIO_BASE_URL: str = "http://frontend:3000"
 
     class Config:
         env_file = ".env.dev"

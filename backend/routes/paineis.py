@@ -3,8 +3,15 @@ from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta
+import secrets
+import logging
+from urllib.parse import urlencode
+import httpx
+from config.settings import settings
+from config.redis import get_redis
 
 router = APIRouter(prefix="/api/paineis", tags=["Painéis"])
+logger = logging.getLogger("datahub")
 
 
 def _com_imagem_url(row: dict) -> dict:
@@ -129,6 +136,53 @@ async def meu_dashboard(user=Depends(get_current_user)):
         ORDER BY p.slug, p.empresa_id NULLS LAST, p.ordem_menu
     """, user["id"], user["empresa_id"])
     return sorted([_com_imagem_url(dict(r)) for r in rows], key=lambda x: x["ordem_menu"])
+
+
+@router.get("/slug/{slug}/relatorio-pdf")
+async def relatorio_pdf(slug: str, request: Request, user=Depends(get_current_user)):
+    rows = await query_meta(
+        "SELECT nome FROM paineis WHERE slug = $1 AND ativo = true "
+        "ORDER BY empresa_id NULLS LAST LIMIT 1",
+        slug,
+    )
+    if not rows:
+        raise HTTPException(404, "Painel não encontrado")
+    nome = rows[0]["nome"]
+
+    if user["role"] == "externo" and slug not in user.get("paineis_liberados", []):
+        raise HTTPException(403, "Sem acesso a este painel")
+
+    auth = request.headers.get("authorization", "")
+    jwt_str = auth[7:] if auth.lower().startswith("bearer ") else ""
+    if not jwt_str:
+        raise HTTPException(401, "Token ausente")
+
+    token = secrets.token_hex(32)
+    redis = await get_redis()
+    await redis.setex(f"pdf_exchange:{token}", 60, jwt_str)
+
+    qs = dict(request.query_params)
+    qs["pdf_token"] = token
+    url = f"{settings.RELATORIO_BASE_URL}/relatorio/painel/{slug}?{urlencode(qs)}"
+
+    try:
+        async with httpx.AsyncClient(timeout=45) as http:
+            resp = await http.post(
+                f"{settings.RENDERER_URL}/render",
+                json={"url": url},
+                headers={"X-Renderer-Secret": settings.RENDERER_SECRET},
+            )
+        resp.raise_for_status()
+    except httpx.HTTPError as e:
+        logger.error(f"pdf-renderer falhou: {e}")
+        raise HTTPException(502, "Falha ao gerar o PDF")
+
+    filename = f"Relatorio - {nome}.pdf".replace("/", "-").replace('"', "")
+    return Response(
+        content=resp.content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.get("/slug/{slug}")
