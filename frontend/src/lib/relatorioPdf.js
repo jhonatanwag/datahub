@@ -12,22 +12,46 @@ async function baixarBlob(painelSlug, opts) {
     headers: tok ? { Authorization: `Bearer ${tok}` } : {},
   });
   if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(txt || `HTTP ${res.status}`);
+    let msg = `HTTP ${res.status}`;
+    try {
+      const j = await res.clone().json();
+      if (j && j.detail) msg = j.detail;
+    } catch {
+      const t = await res.text().catch(() => '');
+      if (t) msg = t;
+    }
+    throw new Error(msg);
   }
   return res.blob();
 }
 
 export async function abrirPdf(painelSlug, opts) {
-  const blob = await baixarBlob(painelSlug, opts);
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener');
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const win = window.open('', '_blank');   // dentro do gesto do usuário
+  try {
+    const blob = await baixarBlob(painelSlug, opts);
+    const url = URL.createObjectURL(blob);
+    if (win) {
+      win.opener = null;
+      win.location = url;
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Relatorio - ${painelSlug}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    if (win) win.close();
+    throw e;
+  }
 }
 
 export function podeCompartilhar() {
   try {
     if (!navigator.canShare) return false;
+    if (!window.matchMedia?.('(pointer: coarse)').matches) return false;  // desktop → esconde
     const f = new File([new Blob()], 'x.pdf', { type: 'application/pdf' });
     return navigator.canShare({ files: [f] });
   } catch {
