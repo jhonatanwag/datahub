@@ -94,5 +94,21 @@ services:
     depends_on:
       - backend
 
+  # ── PDF renderer (headless Chrome) ───────────────────────────
+  pdf-renderer:
+    build:
+      context: ./renderer
+    container_name: datahub_pdf_renderer
+    restart: unless-stopped
+    environment:
+      - RENDERER_SECRET=dev-secret
+    depends_on:
+      - frontend
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
