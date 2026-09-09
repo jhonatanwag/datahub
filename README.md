@@ -78,6 +78,7 @@ pela rede interna do EasyPanel (ver passo 3).
 | `backend` | `backend/Dockerfile` | interna |
 | `worker` | mesma imagem do `backend`, comando sobrescrito: `python -m arq worker.WorkerSettings` | interna |
 | `frontend` | `frontend/Dockerfile` | **pública**, domínio configurado no EasyPanel |
+| `pdf-renderer` | `renderer/Dockerfile` | interna |
 
 Só o `frontend` precisa de domínio público — o `nginx.conf` dele já faz
 proxy de `/api/` para `backend:3001` internamente, então `backend` e
@@ -90,6 +91,43 @@ prática, o `POSTGRES_USER` não costuma ficar como `datahub_user` — o
 deploy real neste projeto ficou só com a role padrão da imagem
 `postgres:16-alpine`, que é **`postgres`**. Confirme com `\du` dentro do
 terminal do serviço antes de assumir o nome da role.
+
+#### O serviço `pdf-renderer` (relatório em PDF)
+
+O relatório em PDF do painel é renderizado por um serviço `pdf-renderer`
+(headless Chrome via Playwright). O `backend` monta a URL do relatório no
+`frontend`, manda pro `pdf-renderer`, que abre no Chrome e devolve o PDF
+— o `backend` repassa inline pro navegador do usuário.
+
+- **Nome do serviço:** tem que ser exatamente `pdf-renderer` — é o
+  hostname que o default `RENDERER_URL=http://pdf-renderer:4000` resolve.
+  Se usar outro nome, setar `RENDERER_URL` no `backend` de acordo.
+- **`RENDERER_SECRET`** — segredo compartilhado entre `backend` e
+  `pdf-renderer`. Definir **o mesmo valor forte** nos dois serviços (o
+  `backend` manda no header `X-Renderer-Secret`, o renderer rejeita com
+  401 se não bater). O valor de dev fica em `backend/.env.dev`, que é
+  gitignored — em produção gere um valor novo.
+- **`RELATORIO_BASE_URL`** (no `backend`) — hostname interno do
+  `frontend`. Em dev o default é `http://frontend:3000`, mas em produção
+  o nginx do `frontend` escuta na porta **80**, então setar
+  `RELATORIO_BASE_URL=http://frontend` (sem `:3000`).
+- **Imagem grande:** o `pdf-renderer` parte de
+  `mcr.microsoft.com/playwright:v1.55.0-jammy` (~1.7 GB) — a primeira
+  build/pull demora, e o container precisa de ~1 GB de RAM livre pro
+  Chrome (2 contextos simultâneos). Se um deploy não reconstruir a
+  imagem, é a mesma armadilha dos outros serviços (Forçar reconstrução /
+  Stop-Start no EasyPanel).
+- Não há bind-mount em produção — mudar código do renderer exige rebuild.
+
+**Recreate, não restart, quando muda `environment:`** — `docker restart`
+(e o "Restart" do EasyPanel) **não** recarrega as variáveis de
+`environment:`. Ao mudar env var de qualquer serviço — inclusive o
+`VITE_API_URL=` vazio do `frontend` — o container tem que ser
+**recriado** (`docker compose up -d --force-recreate <svc>`, ou "Forçar
+reconstrução" / Stop→Start no EasyPanel), não só reiniciado. (O
+`allowedHosts: ['frontend']` no `vite.config.ts` é só de dev — o Vite dev
+server rejeita o `Host: frontend` do renderer sem ele; em produção o
+`frontend` é nginx estático e não precisa disso.)
 
 ### 2. Aplicar o schema no `datahub_meta`
 
@@ -309,6 +347,15 @@ Passo manual no VPS, fora do repositório:
 | `META_DB_NAME` | `datahub_meta` |
 | `META_DB_USER` | `postgres` (role padrão da imagem — ver nota no passo 1) |
 | `META_DB_PASS` | senha definida no serviço `postgres` |
+| `RENDERER_SECRET` | valor forte compartilhado — **o mesmo** no `pdf-renderer` |
+| `RELATORIO_BASE_URL` | `http://frontend` (nginx do frontend escuta na 80) |
+| `RENDERER_URL` | opcional — default `http://pdf-renderer:4000` já serve |
+
+**`pdf-renderer`:**
+
+| Variável | Valor |
+|---|---|
+| `RENDERER_SECRET` | mesmo valor forte definido no `backend` |
 
 **`frontend`:** não definir `VITE_API_URL` no build — fica vazio, e
 `frontend/src/lib/api.js` usa caminhos relativos (`/api/...`), resolvidos
