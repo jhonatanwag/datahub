@@ -1,5 +1,6 @@
 <script>
   import { baixarCSV, baixarXLSX } from '$lib/exportTable.js';
+  import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
 
   export let colunas = [];
   export let dados   = [];
@@ -81,11 +82,23 @@
     return cor ? `color:${cor}` : '';
   }
 
-  function exportarPDF() {
+  let gerandoPdf = false;
+  const compartilhavel = podeCompartilhar();
+
+  async function exportarPDF() {
     if (!painelSlug || indicadorId == null) return;
-    const p = new URLSearchParams(filtrosQuery);
-    p.set('indicador', indicadorId);
-    window.open(`/relatorio/painel/${painelSlug}?${p}`, '_blank', 'noopener');
+    gerandoPdf = true;
+    try { await abrirPdf(painelSlug, { indicador: indicadorId, filtrosQuery }); }
+    catch (e) { alert('Erro ao gerar o PDF: ' + e.message); }
+    finally { gerandoPdf = false; }
+  }
+
+  async function enviarWhatsapp() {
+    if (!painelSlug || indicadorId == null) return;
+    gerandoPdf = true;
+    try { await compartilharWhatsapp(painelSlug, titulo, { indicador: indicadorId, filtrosQuery }); }
+    catch (e) { alert('Erro: ' + e.message); }
+    finally { gerandoPdf = false; }
   }
 </script>
 
@@ -163,9 +176,14 @@
       ⬇ Excel
     </button>
     {#if painelSlug}
-    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0}>
-      🖨 PDF
+    <button class="btn-export btn-export-pdf btn-sm" on:click={exportarPDF} disabled={dados.length === 0 || gerandoPdf}>
+      {gerandoPdf ? 'Gerando…' : '🖨 PDF'}
     </button>
+    {#if compartilhavel}
+    <button class="btn-export btn-export-pdf btn-sm" on:click={enviarWhatsapp} disabled={dados.length === 0 || gerandoPdf}>
+      WhatsApp
+    </button>
+    {/if}
     {/if}
     <span>{dados.length} registros</span>
     <label class="tamanho-pagina">

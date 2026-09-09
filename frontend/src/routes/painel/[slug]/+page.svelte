@@ -9,6 +9,7 @@
   import MapPanel       from '$lib/components/MapPanel.svelte';
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
   import { resumoFiltros } from '$lib/resumoFiltros.js';
+  import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
 
   let slug        = $page.params.slug;
   let painel      = null;
@@ -26,8 +27,21 @@
 
   $: filtrosQuery = new URLSearchParams(filtrosAtivos).toString();
 
-  function imprimirPainel() {
-    window.open(`/relatorio/painel/${slug}?${filtrosQuery}`, '_blank', 'noopener');
+  let gerandoPdf = false;
+  const compartilhavel = podeCompartilhar();
+
+  async function imprimirPainel() {
+    gerandoPdf = true;
+    try { await abrirPdf(slug, { filtrosQuery }); }
+    catch (e) { alert('Erro ao gerar o PDF: ' + e.message); }
+    finally { gerandoPdf = false; }
+  }
+
+  async function enviarWhatsapp() {
+    gerandoPdf = true;
+    try { await compartilharWhatsapp(slug, painel.nome, { filtrosQuery }); }
+    catch (e) { alert('Erro: ' + e.message); }
+    finally { gerandoPdf = false; }
   }
 
   function resolverToken(val) {
@@ -169,14 +183,22 @@
     <div class="painel-header">
       <div class="painel-header-topo">
         <h2>{painel.nome}</h2>
-        <button class="btn-ghost btn-imprimir" on:click={imprimirPainel}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="6 9 6 2 18 2 18 9"/>
-            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-            <rect x="6" y="14" width="12" height="8"/>
-          </svg>
-          Imprimir
-        </button>
+        <div class="painel-header-acoes">
+          <button class="btn-ghost btn-imprimir" on:click={imprimirPainel} disabled={gerandoPdf}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 6 2 18 2 18 9"/>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            {gerandoPdf ? 'Gerando…' : 'Abrir PDF'}
+          </button>
+          {#if compartilhavel}
+            <button class="btn-ghost btn-imprimir" on:click={enviarWhatsapp} disabled={gerandoPdf}>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.5-1.2-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.3 0 .5l-.4.5-.3.3c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.2.1.4.1.5-.1l.7-.9c.2-.2.4-.2.6-.1l1.9.9c.2.1.4.2.5.3.1.2.1.7-.1 1.3Z"/></svg>
+              WhatsApp
+            </button>
+          {/if}
+        </div>
       </div>
       {#if painel.descricao}
         <p class="descricao">{painel.descricao}</p>
@@ -334,6 +356,8 @@
 .painel-header { margin-bottom: 16px; }
 .painel-header h2 { font-family: var(--font-display); font-size: 20px; color: var(--text); }
 .painel-header-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.painel-header-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-imprimir[disabled] { opacity: .55; cursor: default; }
 .btn-imprimir { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 12px; border-radius: 6px; flex-shrink: 0; }
 .btn-imprimir svg { width: 15px; height: 15px; }
 .descricao { color: var(--muted); font-size: 13px; margin-top: 4px; }
