@@ -37,6 +37,8 @@
     return f;
   }
 
+  const temDados = (i) => Array.isArray(i?.dados) ? i.dados.length > 0 : !!i?.dados;
+
   function marcarPronto(id) {
     prontos = new Set(prontos).add(id);
     verificarPronto();
@@ -105,7 +107,7 @@
 
   $: lista = indicadorUnico ? [indicadorUnico] : indicadores;
   $: idsAssincronos = lista
-    .filter(i => i && (String(i.query_tipo).startsWith('chart_') || i.query_tipo === 'map') && !i.erro)
+    .filter(i => i && (String(i.query_tipo).startsWith('chart_') || i.query_tipo === 'map') && !i.erro && temDados(i))
     .map(i => i.id);
   $: tituloRelatorio = indicadorUnico
     ? (indicadorUnico.titulo || indicadorUnico.query_slug)
@@ -189,16 +191,20 @@
               descricao={ind.descricao}
             />
           {:else if String(ind.query_tipo).startsWith('chart_')}
-            <ChartPanel
-              tipo={ind.query_tipo}
-              dados={ind.dados}
-              fonteTamanho={ind.chart_fonte_tamanho}
-              truncarLabel={ind.chart_truncar_label}
-              truncarTamanho={ind.chart_truncar_tamanho}
-              mostrarValor={ind.chart_mostrar_valor}
-              valorLabel={ind.chart_valor_label}
-              on:pronto={() => marcarPronto(ind.id)}
-            />
+            {#if temDados(ind)}
+              <ChartPanel
+                tipo={ind.query_tipo}
+                dados={ind.dados}
+                fonteTamanho={ind.chart_fonte_tamanho}
+                truncarLabel={ind.chart_truncar_label}
+                truncarTamanho={ind.chart_truncar_tamanho}
+                mostrarValor={ind.chart_mostrar_valor}
+                valorLabel={ind.chart_valor_label}
+                on:pronto={() => marcarPronto(ind.id)}
+              />
+            {:else}
+              <p class="rel-vazio">Sem dados no período</p>
+            {/if}
           {:else if ind.query_tipo === 'table'}
             <DataTable
               dados={ind.dados}
@@ -222,7 +228,11 @@
               modoRelatorio={true}
             />
           {:else if ind.query_tipo === 'map'}
-            <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} temaForcado="claro" on:pronto={() => marcarPronto(ind.id)} />
+            {#if temDados(ind)}
+              <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} temaForcado="claro" on:pronto={() => marcarPronto(ind.id)} />
+            {:else}
+              <p class="rel-vazio">Sem dados no período</p>
+            {/if}
           {:else}
             <p class="rel-erro">Tipo "{ind.query_tipo}" não suportado no relatório.</p>
           {/if}
@@ -246,6 +256,7 @@
     text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border);
   }
   .rel-erro { color: #C62828; font-size: 12px; padding: 8px 12px; }
+  .rel-vazio { color: var(--muted); font-size: 12px; padding: 16px 12px; text-align: center; }
 
   @media screen and (max-width: 820px) {
     .painel-grid { grid-template-columns: 1fr !important; }

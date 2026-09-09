@@ -7,7 +7,7 @@ export default defineConfig({
 		host: true,
 		allowedHosts: ['frontend'],
 		proxy: {
-			'/api': { target: 'http://backend:3001', changeOrigin: true }
+			'/api': { target: process.env.VITE_PROXY_TARGET || 'http://backend:3001', changeOrigin: true }
 		}
 	}
 });
