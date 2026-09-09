@@ -102,6 +102,7 @@ services:
     restart: unless-stopped
     environment:
       - RENDERER_SECRET=dev-secret
+      - RELATORIO_BASE_URL=http://frontend:3000
     depends_on:
       - frontend
     healthcheck:

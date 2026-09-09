@@ -107,10 +107,15 @@ O relatório em PDF do painel é renderizado por um serviço `pdf-renderer`
   `backend` manda no header `X-Renderer-Secret`, o renderer rejeita com
   401 se não bater). O valor de dev fica em `backend/.env.dev`, que é
   gitignored — em produção gere um valor novo.
-- **`RELATORIO_BASE_URL`** (no `backend`) — hostname interno do
-  `frontend`. Em dev o default é `http://frontend:3000`, mas em produção
-  o nginx do `frontend` escuta na porta **80**, então setar
-  `RELATORIO_BASE_URL=http://frontend` (sem `:3000`).
+- Se `RENDERER_SECRET` **não** for definido no serviço `pdf-renderer`, o
+  container **não sobe** (fail closed). O `backend` loga um warning no
+  startup quando o seu `RENDERER_SECRET` está vazio.
+- **`RELATORIO_BASE_URL`** — hostname interno do `frontend`. Em dev o
+  default é `http://frontend:3000`, mas em produção o nginx do `frontend`
+  escuta na porta **80**, então setar `RELATORIO_BASE_URL=http://frontend`
+  (sem `:3000`). Setar **o mesmo valor** no `backend` (monta a URL) e no
+  `pdf-renderer` (allowlist — só renderiza URLs sob esse prefixo; default
+  `http://frontend`).
 - **Imagem grande:** o `pdf-renderer` parte de
   `mcr.microsoft.com/playwright:v1.55.0-jammy` (~1.7 GB) — a primeira
   build/pull demora, e o container precisa de ~1 GB de RAM livre pro
@@ -355,7 +360,8 @@ Passo manual no VPS, fora do repositório:
 
 | Variável | Valor |
 |---|---|
-| `RENDERER_SECRET` | mesmo valor forte definido no `backend` |
+| `RENDERER_SECRET` | mesmo valor forte definido no `backend` — **sem ele o container não sobe** |
+| `RELATORIO_BASE_URL` | mesmo valor do `backend` (`http://frontend`) — allowlist de URL |
 
 **`frontend`:** não definir `VITE_API_URL` no build — fica vazio, e
 `frontend/src/lib/api.js` usa caminhos relativos (`/api/...`), resolvidos

@@ -46,6 +46,9 @@ async def startup():
     except Exception as e:
         logger.error(f"✗ Falha ao conectar Redis: {e}")
 
+    if not settings.RENDERER_SECRET:
+        logger.warning("⚠ RENDERER_SECRET vazio — o pdf-renderer recusa iniciar sem ele (relatório PDF ficará indisponível)")
+
     logger.info(f"DataHub API v1.0.0 rodando na porta {settings.PORT}")
 
 
