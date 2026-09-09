@@ -15,6 +15,7 @@
   const params = $page.url.searchParams;
   const slug = $page.params.slug;
   const idIndicador = params.get('indicador');
+  const pdfToken = params.get('pdf_token');
 
   let carregando = true;
   let erro = null;
@@ -53,6 +54,10 @@
     document.documentElement.classList.add('relatorio-tema');
     document.documentElement.removeAttribute('data-theme');
     try {
+      if (pdfToken) {
+        const r = await api.trocarPdfToken(pdfToken);
+        localStorage.setItem('token', r.token);
+      }
       const me = await api.me();
       empresa = {
         nome: me.company_name ?? '',
@@ -96,6 +101,8 @@
     document.documentElement.classList.remove('relatorio-tema');
   });
 
+  $: if (typeof window !== 'undefined') window.__RELATORIO_PRONTO__ = pronto;
+
   $: lista = indicadorUnico ? [indicadorUnico] : indicadores;
   $: idsAssincronos = lista
     .filter(i => i && (String(i.query_tipo).startsWith('chart_') || i.query_tipo === 'map') && !i.erro)
@@ -118,13 +125,6 @@
   <title>{tituloRelatorio} — Relatório</title>
   {#if paisagem}<style>@page { size: A4 landscape; }</style>{/if}
 </svelte:head>
-
-<div class="relatorio-toolbar no-print">
-  <strong>{tituloRelatorio}</strong>
-  <span class="espaco"></span>
-  {#if !pronto}<span class="preparando">Preparando relatório…</span>{/if}
-  <button disabled={!pronto} on:click={() => window.print()}>Imprimir / Salvar PDF</button>
-</div>
 
 <RelatorioCabecalho
   titulo={tituloRelatorio}
@@ -173,7 +173,7 @@
   {:else}
     <div class="painel-grid" style="grid-template-columns: repeat({painel.colunas}, 1fr)">
       {#each indicadores as ind}
-        <div class="grid-item" style="grid-column: {ind.coluna} / span {ind.col_span}; grid-row: {ind.linha} / span {ind.row_span};">
+        <div class="grid-item" style="grid-column: {ind.coluna} / span {ind.col_span};">
           <div class="card-titulo">{ind.titulo || ind.query_slug}</div>
 
           {#if ind.erro}
@@ -235,11 +235,7 @@
 <RelatorioRodape />
 
 <style>
-  .relatorio-toolbar { }
-  .relatorio-toolbar .espaco { flex: 1; }
-  .relatorio-toolbar .preparando { font-size: 13px; opacity: .9; }
-
-  .painel-grid { display: grid; gap: 14px; }
+  .painel-grid { display: grid; gap: 14px; grid-auto-flow: row dense; }
   .grid-item {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 8px; overflow: hidden; min-width: 0; break-inside: avoid;

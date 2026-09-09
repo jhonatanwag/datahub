@@ -89,6 +89,8 @@
     if (PUBLIC_ROUTES.includes(path)) return;
 
     const tok = localStorage.getItem('token');
+    const relatorioComToken = path.startsWith('/relatorio/') && $page.url.searchParams.has('pdf_token');
+    if (!tok && relatorioComToken) return;   // a própria página troca o pdf_token
     if (!tok) { goto('/login'); return; }
 
     if (!$usuario) {

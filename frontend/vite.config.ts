@@ -5,6 +5,7 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
 		host: true,
+		allowedHosts: ['frontend'],
 		proxy: {
 			'/api': { target: 'http://backend:3001', changeOrigin: true }
 		}
