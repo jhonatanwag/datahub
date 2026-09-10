@@ -3,7 +3,9 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
-from config.databases import query_meta
+from config.databases import query_meta, meta_tx
+from services.grupos import resolver_grupo_id
+from services.query_runner import invalidar_cache_query
 
 FORMATO = "datahub-painel"
 VERSAO = 1
@@ -301,3 +303,223 @@ async def analisar_bundle(bundle: dict) -> dict:
                 avisos.append(f"Dependência ausente: variável '{vs}' não está no arquivo nem no destino")
 
     return {"formato_ok": True, "plano": plano, "avisos": avisos}
+
+
+# --- Task 4: importação (upsert seletivo em transação) --------------------------
+
+async def _checar_dependencias(bundle, aplicar_var, aplicar_qry, aplicar_pnl) -> list[str]:
+    """Toda query/variável referenciada pelo que vai ser aplicado tem que já
+    existir no destino OU estar na lista de aplicação."""
+    faltando: list[str] = []
+
+    async def query_ok(slug):
+        if slug in aplicar_qry:
+            return True
+        return bool(await query_meta("SELECT 1 FROM queries WHERE slug = $1", slug))
+
+    async def var_ok(slug):
+        if slug in aplicar_var:
+            return True
+        return bool(await query_meta("SELECT 1 FROM variaveis WHERE slug = $1", slug))
+
+    if aplicar_pnl:
+        for ind in bundle["painel"].get("indicadores", []):
+            if not await query_ok(ind["query_slug"]):
+                faltando.append(f"query '{ind['query_slug']}'")
+            fs = ind.get("filtro_clique_variavel_slug")
+            if fs and not await var_ok(fs):
+                faltando.append(f"variável '{fs}'")
+        for pv in bundle["painel"].get("variaveis_painel", []):
+            if not await var_ok(pv["variavel_slug"]):
+                faltando.append(f"variável '{pv['variavel_slug']}'")
+
+    for q in bundle["queries"]:
+        if q["slug"] not in aplicar_qry:
+            continue
+        if q.get("subquery_slug") and not await query_ok(q["subquery_slug"]):
+            faltando.append(f"subquery '{q['subquery_slug']}'")
+        for p in q.get("parametros", []):
+            if p.get("variavel_slug") and not await var_ok(p["variavel_slug"]):
+                faltando.append(f"variável '{p['variavel_slug']}'")
+
+    # dedup preservando ordem
+    return list(dict.fromkeys(faltando))
+
+
+async def _upsert_variavel(conn, vb: dict):
+    existente = await conn.fetch("SELECT id FROM variaveis WHERE slug = $1", vb["slug"])
+    campos = ["nome", "descricao", "tipo", "query_fonte", "param_names", "ativo"]
+    vals = [vb.get("nome"), vb.get("descricao"), vb.get("tipo"),
+            vb.get("query_fonte"), list(vb.get("param_names") or []), vb.get("ativo", True)]
+    if existente:
+        sets = ", ".join(f"{c} = ${i+1}" for i, c in enumerate(campos))
+        await conn.execute(f"UPDATE variaveis SET {sets} WHERE id = ${len(campos)+1}",
+                           *vals, existente[0]["id"])
+    else:
+        await conn.execute(
+            "INSERT INTO variaveis (slug, nome, descricao, tipo, query_fonte, param_names, ativo) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7)",
+            vb["slug"], *vals)
+
+
+async def _upsert_query_base(conn, qb: dict):
+    """Passo 1: cria/atualiza a query SEM subquery_id (resolvido no passo 2)."""
+    emp_id = await _empresa_id_de_slug(qb.get("empresa_slug"))
+    grupo_id = await resolver_grupo_id("query_grupos", qb.get("grupo_nome"), conn=conn)
+    img = base64.b64decode(qb["kpi_imagem_base64"]) if qb.get("kpi_imagem_base64") else None
+
+    dados = {c: qb.get(c) for c in QUERY_CAMPOS if c != "slug"}
+    dados["empresa_id"] = emp_id
+    dados["grupo_id"] = grupo_id
+    dados["kpi_imagem"] = img
+    dados["kpi_imagem_mime"] = qb.get("kpi_imagem_mime")
+
+    existente = await conn.fetch(
+        "SELECT id FROM queries WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+        qb["slug"], emp_id)
+
+    cols = list(dados.keys())
+    if existente:
+        sets = ", ".join(f"{c} = ${i+1}" for i, c in enumerate(cols))
+        await conn.execute(f"UPDATE queries SET {sets} WHERE id = ${len(cols)+1}",
+                           *[dados[c] for c in cols], existente[0]["id"])
+    else:
+        ph = ", ".join(f"${i+1}" for i in range(len(cols) + 1))
+        await conn.execute(
+            f"INSERT INTO queries (slug, {', '.join(cols)}) VALUES ({ph})",
+            qb["slug"], *[dados[c] for c in cols])
+
+
+async def _set_subquery(conn, slug: str, subquery_slug: str):
+    sub = await conn.fetch("SELECT id FROM queries WHERE slug = $1 ORDER BY empresa_id NULLS FIRST LIMIT 1",
+                           subquery_slug)
+    sub_id = sub[0]["id"] if sub else None
+    await conn.execute("UPDATE queries SET subquery_id = $1 WHERE slug = $2", sub_id, slug)
+
+
+async def _id_query_por_slug(conn, slug: str, emp_slug):
+    emp_id = await _empresa_id_de_slug(emp_slug)
+    r = await conn.fetch("SELECT id FROM queries WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+                         slug, emp_id)
+    return r[0]["id"] if r else None
+
+
+async def _id_var_por_slug(conn, slug):
+    if not slug:
+        return None
+    r = await conn.fetch("SELECT id FROM variaveis WHERE slug = $1", slug)
+    return r[0]["id"] if r else None
+
+
+async def _reinserir_filhas_query(conn, qb: dict):
+    qid = await _id_query_por_slug(conn, qb["slug"], qb.get("empresa_slug"))
+    for tabela in ("query_parametros", "query_agrupamentos", "query_agregacoes", "query_subquery_parametros"):
+        await conn.execute(f"DELETE FROM {tabela} WHERE query_id = $1", qid)
+
+    for p in qb.get("parametros", []):
+        await conn.execute(
+            "INSERT INTO query_parametros (query_id, nome, tipo, obrigatorio, valor_padrao, descricao, variavel_id, param_slot) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+            qid, p["nome"], p.get("tipo", "text"), p.get("obrigatorio", False),
+            p.get("valor_padrao"), p.get("descricao"),
+            await _id_var_por_slug(conn, p.get("variavel_slug")), p.get("param_slot"))
+    for a in qb.get("agrupamentos", []):
+        await conn.execute("INSERT INTO query_agrupamentos (query_id, coluna, ordem) VALUES ($1,$2,$3)",
+                           qid, a["coluna"], a.get("ordem", 0))
+    for a in qb.get("agregacoes", []):
+        await conn.execute("INSERT INTO query_agregacoes (query_id, coluna, funcao, label, ordem) VALUES ($1,$2,$3,$4,$5)",
+                           qid, a["coluna"], a["funcao"], a.get("label"), a.get("ordem", 0))
+    for s in qb.get("subquery_parametros", []):
+        await conn.execute(
+            "INSERT INTO query_subquery_parametros (query_id, coluna_origem, parametro_destino, ordem) VALUES ($1,$2,$3,$4)",
+            qid, s["coluna_origem"], s["parametro_destino"], s.get("ordem", 0))
+
+
+async def _upsert_painel(conn, pb: dict):
+    emp_id = await _empresa_id_de_slug(pb.get("empresa_slug"))
+    grupo_id = await resolver_grupo_id("painel_grupos", pb.get("grupo_nome"), conn=conn)
+    img = base64.b64decode(pb["imagem_base64"]) if pb.get("imagem_base64") else None
+
+    dados = {c: pb.get(c) for c in PAINEL_CAMPOS if c != "slug"}
+    dados["empresa_id"] = emp_id
+    dados["grupo_id"] = grupo_id
+    dados["imagem"] = img
+    dados["imagem_mime"] = pb.get("imagem_mime")
+    cols = list(dados.keys())
+
+    existente = await conn.fetch("SELECT id FROM paineis WHERE slug = $1", pb["slug"])
+    if existente:
+        pid = existente[0]["id"]
+        sets = ", ".join(f"{c} = ${i+1}" for i, c in enumerate(cols))
+        await conn.execute(f"UPDATE paineis SET {sets} WHERE id = ${len(cols)+1}",
+                           *[dados[c] for c in cols], pid)
+    else:
+        ph = ", ".join(f"${i+1}" for i in range(len(cols) + 1))
+        row = await conn.fetch(
+            f"INSERT INTO paineis (slug, {', '.join(cols)}) VALUES ({ph}) RETURNING id",
+            pb["slug"], *[dados[c] for c in cols])
+        pid = row[0]["id"]
+
+    await conn.execute("DELETE FROM painel_indicadores WHERE painel_id = $1", pid)
+    for ind in pb.get("indicadores", []):
+        await conn.execute(
+            "INSERT INTO painel_indicadores "
+            "(painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+            pid, ind["query_slug"], ind.get("titulo"), ind["linha"], ind["coluna"],
+            ind.get("col_span", 1), ind.get("row_span", 1), ind.get("posicao", 0),
+            await _id_var_por_slug(conn, ind.get("filtro_clique_variavel_slug")))
+
+    await conn.execute("DELETE FROM painel_variaveis WHERE painel_id = $1", pid)
+    for pv in pb.get("variaveis_painel", []):
+        vid = await _id_var_por_slug(conn, pv["variavel_slug"])
+        if vid is None:
+            continue
+        await conn.execute(
+            "INSERT INTO painel_variaveis "
+            "(painel_id, variavel_id, obrigatorio, valor_padrao, valor_padrao_inicio, valor_padrao_fim, posicao) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7)",
+            pid, vid, pv.get("obrigatorio", False), pv.get("valor_padrao"),
+            pv.get("valor_padrao_inicio"), pv.get("valor_padrao_fim"), pv.get("posicao", 0))
+
+
+async def importar_bundle(bundle: dict, aplicar: dict) -> dict:
+    validar_formato(bundle)
+    aplicar_var = set(aplicar.get("variaveis", []))
+    aplicar_qry = set(aplicar.get("queries", []))
+    aplicar_pnl = bool(aplicar.get("painel"))
+
+    faltando = await _checar_dependencias(bundle, aplicar_var, aplicar_qry, aplicar_pnl)
+    if faltando:
+        raise HTTPException(400, "Dependências ausentes (marque para importar): " + ", ".join(faltando))
+
+    slugs_query_tocados: list[str] = []
+    async with meta_tx() as conn:
+        for vb in bundle["variaveis"]:
+            if vb["slug"] in aplicar_var:
+                await _upsert_variavel(conn, vb)
+
+        for qb in bundle["queries"]:
+            if qb["slug"] in aplicar_qry:
+                await _upsert_query_base(conn, qb)
+                slugs_query_tocados.append(qb["slug"])
+
+        for qb in bundle["queries"]:
+            if qb["slug"] in aplicar_qry and qb.get("subquery_slug"):
+                await _set_subquery(conn, qb["slug"], qb["subquery_slug"])
+
+        for qb in bundle["queries"]:
+            if qb["slug"] in aplicar_qry:
+                await _reinserir_filhas_query(conn, qb)
+
+        if aplicar_pnl:
+            await _upsert_painel(conn, bundle["painel"])
+
+    for slug in slugs_query_tocados:
+        await invalidar_cache_query(slug)
+
+    return {
+        "painel_slug": bundle["painel"]["slug"],
+        "aplicado": {"variaveis": len(aplicar_var), "queries": len(aplicar_qry), "painel": aplicar_pnl},
+        "avisos": [],
+    }

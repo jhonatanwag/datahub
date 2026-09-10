@@ -185,6 +185,8 @@ export const api = {
     },
     analisarImportPainel: (bundle) =>
         request('/api/portabilidade/paineis/analisar', { method: 'POST', body: JSON.stringify(bundle) }),
+    importarPainel: (payload) =>
+        request('/api/portabilidade/paineis/importar', { method: 'POST', body: JSON.stringify(payload) }),
 
     // Indicadores do painel
     indicadoresPainel:      (id)        => request(`/api/paineis/${id}/indicadores`),

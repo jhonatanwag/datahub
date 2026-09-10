@@ -167,3 +167,160 @@ def test_analisar_rejeita_formato_invalido(client, auth_token):
     r = client.post("/api/portabilidade/paineis/analisar",
                     json={"formato": "outra-coisa"}, headers=_headers(auth_token))
     assert r.status_code == 400
+
+
+# --- Task 4: importação (upsert seletivo em transação) --------------------------
+
+def _analisar(client, token, bundle):
+    r = client.post("/api/portabilidade/paineis/analisar", json=bundle, headers=_headers(token))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _importar(client, token, bundle, aplicar):
+    return client.post("/api/portabilidade/paineis/importar",
+                       json={"bundle": bundle, "aplicar": aplicar}, headers=_headers(token))
+
+
+def test_importar_respeita_lista_aplicar_e_cria_so_o_marcado(client, auth_token):
+    t = auth_token
+    q = _criar_query(client, t, tipo="table")
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": q["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+
+    # apaga tudo do destino
+    hard_delete_painel(painel["id"])
+    client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+
+    novo_painel_id = None
+    try:
+        # aplicar só a query, não o painel
+        r = _importar(client, t, bundle, {"variaveis": [], "queries": [q["slug"]], "painel": False})
+        assert r.status_code == 200, r.text
+        assert r.json()["aplicado"]["queries"] == 1
+        criada = client.get("/api/queries/", headers=_headers(t)).json()
+        assert any(x["slug"] == q["slug"] for x in criada)
+
+        # agora aplicar o painel também
+        r = _importar(client, t, bundle, {"variaveis": [], "queries": [q["slug"]], "painel": True})
+        assert r.status_code == 200, r.text
+        pl = client.get("/api/paineis/", headers=_headers(t)).json()
+        alvo = next(x for x in pl if x["slug"] == bundle["painel"]["slug"])
+        novo_painel_id = alvo["id"]
+        inds = client.get(f"/api/paineis/{novo_painel_id}/indicadores", headers=_headers(t)).json()
+        assert inds[0]["query_slug"] == q["slug"]
+    finally:
+        if novo_painel_id:
+            hard_delete_painel(novo_painel_id)
+        nova = client.get("/api/queries/", headers=_headers(t)).json()
+        alvo = next((x for x in nova if x["slug"] == q["slug"]), None)
+        if alvo:
+            client.delete(f"/api/queries/{alvo['id']}", headers=_headers(t))
+
+
+def test_importar_bloqueia_quando_dependencia_ausente(client, auth_token):
+    t = auth_token
+    q = _criar_query(client, t, tipo="table")
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": q["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+    hard_delete_painel(painel["id"])
+    client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+
+    try:
+        # aplicar o painel mas NÃO a query da qual ele depende, e a query não existe no destino
+        r = _importar(client, t, bundle, {"variaveis": [], "queries": [], "painel": True})
+        assert r.status_code == 400
+        assert q["slug"] in r.text
+    finally:
+        pl = client.get("/api/paineis/", headers=_headers(t)).json()
+        alvo = next((x for x in pl if x["slug"] == bundle["painel"]["slug"]), None)
+        if alvo:
+            hard_delete_painel(alvo["id"])
+
+
+def test_importar_sobrescreve_query_existente_com_conteudo_do_bundle(client, auth_token):
+    t = auth_token
+    q = _criar_query(client, t, tipo="table", sql_texto="SELECT 1 AS valor")
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": q["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+
+    try:
+        # edita a query no destino
+        client.patch(f"/api/queries/{q['id']}", json={"sql_texto": "SELECT 42 AS valor"}, headers=_headers(t))
+        # reimporta o bundle original marcando a query
+        r = _importar(client, t, bundle, {"variaveis": [], "queries": [q["slug"]], "painel": False})
+        assert r.status_code == 200, r.text
+        atual = client.get(f"/api/queries/{q['id']}", headers=_headers(t)).json()
+        assert atual["sql_texto"] == "SELECT 1 AS valor"
+    finally:
+        hard_delete_painel(painel["id"])
+        client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+
+
+def test_importar_recursao_de_subquery_mutua(client, auth_token):
+    t = auth_token
+    a = _criar_query(client, t, tipo="table")
+    b = _criar_query(client, t, tipo="table")
+    client.patch(f"/api/queries/{a['id']}", json={"subquery_id": b["id"]}, headers=_headers(t))
+    client.patch(f"/api/queries/{b['id']}", json={"subquery_id": a["id"]}, headers=_headers(t))
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": a["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+    hard_delete_painel(painel["id"])
+    client.delete(f"/api/queries/{a['id']}", headers=_headers(t))
+    client.delete(f"/api/queries/{b['id']}", headers=_headers(t))
+
+    ids = []
+    try:
+        r = _importar(client, t, bundle,
+                      {"variaveis": [], "queries": [a["slug"], b["slug"]], "painel": False})
+        assert r.status_code == 200, r.text
+        todas = client.get("/api/queries/", headers=_headers(t)).json()
+        qa = next(x for x in todas if x["slug"] == a["slug"])
+        qb = next(x for x in todas if x["slug"] == b["slug"])
+        ids = [qa["id"], qb["id"]]
+        assert qa["subquery_id"] == qb["id"]
+        assert qb["subquery_id"] == qa["id"]
+    finally:
+        # quebra o ciclo antes de deletar
+        for i in ids:
+            client.patch(f"/api/queries/{i}", json={"subquery_id": None}, headers=_headers(t))
+        for i in ids:
+            client.delete(f"/api/queries/{i}", headers=_headers(t))
+
+
+def test_importar_faz_rollback_quando_painel_falha(client, auth_token):
+    t = auth_token
+    q = _criar_query(client, t, tipo="table", sql_texto="SELECT 1 AS valor")
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": q["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+    hard_delete_painel(painel["id"])
+    client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+
+    # força estouro de VARCHAR(100) no slug do painel — a query é gravada antes
+    # do painel na MESMA transação; se o rollback funcionar, a query some junto.
+    bundle["painel"]["slug"] = "x" * 120
+
+    try:
+        with pytest.raises(Exception):
+            _importar(client, t, bundle, {"variaveis": [], "queries": [q["slug"]], "painel": True})
+        nova = client.get("/api/queries/", headers=_headers(t)).json()
+        assert not any(x["slug"] == q["slug"] for x in nova), "rollback falhou: query foi gravada"
+    finally:
+        nova = client.get("/api/queries/", headers=_headers(t)).json()
+        alvo = next((x for x in nova if x["slug"] == q["slug"]), None)
+        if alvo:
+            client.delete(f"/api/queries/{alvo['id']}", headers=_headers(t))
+        pl = client.get("/api/paineis/", headers=_headers(t)).json()
+        alvo = next((x for x in pl if x["slug"] == bundle["painel"]["slug"]), None)
+        if alvo:
+            hard_delete_painel(alvo["id"])

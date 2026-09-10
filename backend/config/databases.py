@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import asyncpg
 from typing import Dict, Optional
 from config.settings import settings
@@ -58,6 +59,16 @@ async def query_meta(sql: str, *args):
     pool = await get_meta_pool()
     async with pool.acquire() as conn:
         return await conn.fetch(sql, *args)
+
+
+@asynccontextmanager
+async def meta_tx():
+    """Conexão dedicada do pool meta dentro de uma transação — para
+    operações multi-tabela que precisam ser atômicas (ex: importação)."""
+    pool = await get_meta_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            yield conn
 
 
 async def close_all_pools():
