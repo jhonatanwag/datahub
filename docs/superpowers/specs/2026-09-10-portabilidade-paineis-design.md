@@ -256,18 +256,17 @@ Ordem de gravação:
    desativado e o bundle diz ativo.
 2. **`queries` — passo 1**: upsert por `(slug, empresa_id)` **sem**
    `subquery_id` e sem `grupo_id` resolvido ainda. `empresa_id` resolvido
-   de `empresa_slug` (null se não achar). `grupo_id` via
-   `_resolver_grupo_id` (mesma função de `queries.py` — extrair para um
-   módulo compartilhado ou duplicar; decisão no plano).
+   de `empresa_slug` (null se não achar). `grupo_id` via o helper
+   compartilhado `resolver_grupo_id` (ver abaixo).
 3. **`queries` — passo 2**: para as que têm `subquery_slug`, resolve o id
    agora (todas já existem) e faz `UPDATE queries SET subquery_id = ...`.
 4. **Tabelas-filhas das queries aplicadas**: `DELETE ... WHERE query_id =
    $1` + reinsert, para `query_parametros` (com `variavel_id` resolvido de
    `variavel_slug`), `query_agrupamentos`, `query_agregacoes`,
    `query_subquery_parametros`. Mesmo padrão dos `PUT` existentes.
-5. **`paineis`** — upsert por slug. `grupo_id` via `_resolver_grupo_id` de
-   `paineis.py`. `empresa_id` de `empresa_slug`. `imagem` decodificada de
-   base64.
+5. **`paineis`** — upsert por slug. `grupo_id` via o helper compartilhado
+   `resolver_grupo_id` (tabela `painel_grupos`). `empresa_id` de
+   `empresa_slug`. `imagem` decodificada de base64.
 6. **`painel_indicadores`** e **`painel_variaveis`** — `DELETE WHERE
    painel_id = $1` + reinsert. `filtro_clique_variavel_id` e `variavel_id`
    resolvidos por slug (null se o slug não resolver — mesma tolerância do
@@ -282,6 +281,35 @@ Ordem de gravação:
      "avisos": [ "..." ]
    }
    ```
+
+### Helper de grupo compartilhado
+
+Hoje `_resolver_grupo_id` está **duplicado** em `routes/queries.py` e
+`routes/paineis.py` — mesma lógica (acha por nome case-insensitive ou
+cria), só muda a tabela (`query_grupos` vs `painel_grupos`). Extrair para
+`services/grupos.py`:
+
+```python
+async def resolver_grupo_id(tabela: str, nome: str | None) -> int | None:
+    """tabela ∈ {'query_grupos', 'painel_grupos'} — literal fixo no código,
+    nunca entrada de usuário."""
+    nome = (nome or "").strip()
+    if not nome:
+        return None
+    existente = await query_meta(f"SELECT id FROM {tabela} WHERE LOWER(nome) = LOWER($1)", nome)
+    if existente:
+        return existente[0]["id"]
+    novo = await query_meta(f"INSERT INTO {tabela} (nome) VALUES ($1) RETURNING id", nome)
+    return novo[0]["id"]
+```
+
+`queries.py` e `paineis.py` passam a chamar
+`resolver_grupo_id("query_grupos", nome)` /
+`resolver_grupo_id("painel_grupos", nome)` e removem a cópia local. O
+módulo de portabilidade usa a versão que recebe uma conexão (ver helper de
+transação) — passar `conn` como parâmetro opcional, ou uma segunda função
+`resolver_grupo_id_conn(conn, tabela, nome)`; decisão de forma no plano,
+mas o resultado é **uma implementação só da lógica**.
 
 ### Helper de transação
 
