@@ -48,6 +48,7 @@ services:
       - ./backend/.env.dev
     volumes:
       - ./backend:/app        # hot reload
+      - backend_data:/data    # logos de empresa (/data/logos/*.png) — senão somem a cada rebuild do container
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,3 +114,4 @@ services:
 
 volumes:
   postgres_data:
+  backend_data:
