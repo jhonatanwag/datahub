@@ -4,6 +4,7 @@ from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta, query_company
 from services.query_runner import resolver_query, invalidar_cache_query, validar_sql, _cast
+from services.grupos import resolver_grupo_id
 
 router = APIRouter(prefix="/api/queries", tags=["Queries"])
 
@@ -126,19 +127,6 @@ ORIENTACOES_PDF_VALIDAS = {'retrato', 'paisagem'}
 POSICOES_KPI_IMAGEM_VALIDAS = {'esquerda', 'direita'}
 
 ROTULOS_VALIDOS = {'horizontal', 'inclinado', 'vertical'}
-
-
-async def _resolver_grupo_id(nome):
-    """Acha o grupo pelo nome (case-insensitive) ou cria um novo — a tela de
-    query só manda um texto livre, sem tela de gestão de grupos separada."""
-    nome = (nome or "").strip()
-    if not nome:
-        return None
-    existente = await query_meta("SELECT id FROM query_grupos WHERE LOWER(nome) = LOWER($1)", nome)
-    if existente:
-        return existente[0]["id"]
-    novo = await query_meta("INSERT INTO query_grupos (nome) VALUES ($1) RETURNING id", nome)
-    return novo[0]["id"]
 
 
 def _com_kpi_imagem_url(row: dict) -> dict:
@@ -428,7 +416,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
         if body.chart_rotulo_valor not in ROTULOS_VALIDOS:
             raise HTTPException(status_code=400, detail=f"Rotação do valor no gráfico inválida. Use: {ROTULOS_VALIDOS}")
         validar_sql(body.sql_texto)
-        grupo_id = await _resolver_grupo_id(body.grupo_nome)
+        grupo_id = await resolver_grupo_id("query_grupos", body.grupo_nome)
 
         rows = await query_meta("""
             INSERT INTO queries (
@@ -527,7 +515,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             validar_sql(updates["sql_texto"])
 
         if grupo_nome_informado:
-            updates["grupo_id"] = await _resolver_grupo_id(grupo_nome)
+            updates["grupo_id"] = await resolver_grupo_id("query_grupos", grupo_nome)
 
         campos = []
         valores = []
