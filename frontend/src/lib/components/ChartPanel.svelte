@@ -10,8 +10,12 @@
   export let truncarTamanho = 15;
   export let mostrarValor = false;
   export let valorLabel = null;
+  export let rotuloEixo = 'horizontal';   // 'horizontal' | 'inclinado' | 'vertical' — rotação do rótulo do eixo de categoria
   export let filtroColuna = null;
   export let valoresSelecionados = [];
+
+  const ROTACAO = { horizontal: 0, inclinado: 45, vertical: 90 };
+  $: rotacaoRotulo = ROTACAO[rotuloEixo] ?? 0;
 
   const dispatch = createEventDispatcher();
 
@@ -90,14 +94,17 @@
     const isHorizontal = tipo === 'chart_bar_horizontal';
     const cols = colunasSerie(dados, tipo === 'chart_bar' || tipo === 'chart_bar_horizontal' || tipo === 'chart_line');
     const multiSerie = cols.length > 1;
+    const rot = rotacaoRotulo;   // 0 | 45 | 90 — rotação do rótulo do eixo de categoria
 
     const eixoCategoria = {
       type: 'category', data: labels,
       axisLabel: {
         color: corMuted, fontSize: fonteTamanho, interval: 0, formatter: truncar,
-        // encosta o 1º/último rótulo na borda em vez de centralizar (senão a
-        // metade de fora é cortada quando o gráfico ocupa a largura toda)
-        alignMinLabel: 'left', alignMaxLabel: 'right',
+        rotate: rot,
+        // sem rotação, encosta o 1º/último rótulo na borda em vez de centralizar
+        // (senão a metade de fora é cortada quando o gráfico ocupa a largura toda);
+        // com rotação o ECharts já resolve a borda sozinho
+        ...(rot ? {} : { alignMinLabel: 'left', alignMaxLabel: 'right' }),
       },
     };
     const eixoValor = {
@@ -126,7 +133,11 @@
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' },
       legend: multiSerie ? { data: cols.map(nomeSerie), top: 0, textStyle: { color: corTexto, fontSize: fonteTamanho } } : undefined,
-      grid: { left: 60, right: 20, top: multiSerie ? 40 : 20, bottom: 40 },
+      grid: {
+        left: 60, right: 20, top: multiSerie ? 40 : 20,
+        // rótulo rotacionado do eixo X ocupa mais espaço vertical embaixo
+        bottom: (!isHorizontal && rot) ? (rot === 90 ? 90 : 70) : 40,
+      },
       xAxis: isHorizontal ? eixoValor : eixoCategoria,
       yAxis: isHorizontal ? eixoCategoria : eixoValor,
       series,
@@ -160,6 +171,7 @@
     $usuario?.tema;        // dependência reativa: recria a option quando o tema muda
     filtroColuna;           // dependência reativa: recria quando a coluna de filtro muda
     valoresSelecionados;    // dependência reativa: recria quando a seleção de clique muda
+    rotacaoRotulo;          // dependência reativa: recria quando muda a rotação do rótulo
     chart.setOption(buildOption(tipo, dados), true);
   }
 

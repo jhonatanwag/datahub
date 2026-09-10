@@ -298,6 +298,7 @@
                 truncarTamanho={ind.chart_truncar_tamanho}
                 mostrarValor={ind.chart_mostrar_valor}
                 valorLabel={ind.chart_valor_label}
+                rotuloEixo={ind.chart_rotulo_eixo}
                 filtroColuna={ind.chart_filtro_coluna}
                 valoresSelecionados={valoresClicados(ind)}
                 on:filtroClique={(e) => onFiltroClique(ind, e.detail.valor)}

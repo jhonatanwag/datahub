@@ -25,6 +25,7 @@ class QueryInput(BaseModel):
     chart_truncar_tamanho: Optional[int] = 15
     chart_mostrar_valor: Optional[bool] = False
     chart_valor_label: Optional[str] = None
+    chart_rotulo_eixo: Optional[str] = 'horizontal'  # 'horizontal' | 'inclinado' | 'vertical'
     impressao_habilitada: bool = False
     impressao_caminho: Optional[str] = None
     impressao_coluna: Optional[str] = None
@@ -61,6 +62,7 @@ class QueryUpdate(BaseModel):
     chart_truncar_tamanho: Optional[int] = None
     chart_mostrar_valor: Optional[bool] = None
     chart_valor_label: Optional[str] = None
+    chart_rotulo_eixo: Optional[str] = None
     impressao_habilitada: Optional[bool] = None
     impressao_caminho: Optional[str] = None
     impressao_coluna: Optional[str] = None
@@ -120,6 +122,8 @@ CAMADAS_MAPA_VALIDAS = {'padrao', 'satelite'}
 ORIENTACOES_PDF_VALIDAS = {'retrato', 'paisagem'}
 
 POSICOES_KPI_IMAGEM_VALIDAS = {'esquerda', 'direita'}
+
+ROTULOS_EIXO_VALIDOS = {'horizontal', 'inclinado', 'vertical'}
 
 
 async def _resolver_grupo_id(nome):
@@ -417,6 +421,8 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             raise HTTPException(status_code=400, detail=f"Orientação de PDF inválida. Use: {ORIENTACOES_PDF_VALIDAS}")
         if body.kpi_imagem_posicao not in POSICOES_KPI_IMAGEM_VALIDAS:
             raise HTTPException(status_code=400, detail=f"Posição de imagem do KPI inválida. Use: {POSICOES_KPI_IMAGEM_VALIDAS}")
+        if body.chart_rotulo_eixo not in ROTULOS_EIXO_VALIDOS:
+            raise HTTPException(status_code=400, detail=f"Rotação de rótulo do eixo inválida. Use: {ROTULOS_EIXO_VALIDOS}")
         validar_sql(body.sql_texto)
         grupo_id = await _resolver_grupo_id(body.grupo_nome)
 
@@ -429,9 +435,9 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna, grupo_id, kpi_valor_primeiro
+                chart_filtro_coluna, grupo_id, kpi_valor_primeiro, chart_rotulo_eixo
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -444,7 +450,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.meta_coluna_inicio, body.meta_coluna_fim,
             body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id,
             body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao,
-            body.chart_filtro_coluna, grupo_id, body.kpi_valor_primeiro)
+            body.chart_filtro_coluna, grupo_id, body.kpi_valor_primeiro, body.chart_rotulo_eixo)
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
@@ -478,7 +484,7 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim',
             'meta_cor_dentro', 'meta_cor_fora', 'subquery_id',
             'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao',
-            'kpi_valor_primeiro', 'chart_filtro_coluna'
+            'kpi_valor_primeiro', 'chart_filtro_coluna', 'chart_rotulo_eixo'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
@@ -505,6 +511,9 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
 
         if "kpi_imagem_posicao" in updates and updates["kpi_imagem_posicao"] not in POSICOES_KPI_IMAGEM_VALIDAS:
             raise HTTPException(status_code=400, detail=f"Posição de imagem do KPI inválida. Use: {POSICOES_KPI_IMAGEM_VALIDAS}")
+
+        if "chart_rotulo_eixo" in updates and updates["chart_rotulo_eixo"] not in ROTULOS_EIXO_VALIDOS:
+            raise HTTPException(status_code=400, detail=f"Rotação de rótulo do eixo inválida. Use: {ROTULOS_EIXO_VALIDOS}")
 
         if "sql_texto" in updates:
             validar_sql(updates["sql_texto"])
@@ -562,7 +571,8 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro
+                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
+                chart_rotulo_eixo
             )
             SELECT
                 $1, $2, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
@@ -572,7 +582,8 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro
+                chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
+                chart_rotulo_eixo
             FROM queries WHERE id = $3
             RETURNING *
         """, novo_slug, novo_nome, query_id)

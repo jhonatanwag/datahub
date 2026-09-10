@@ -14,6 +14,7 @@
     chart_fonte_tamanho: 12, chart_truncar_label: false,
     chart_truncar_tamanho: 15, chart_mostrar_valor: false,
     chart_valor_label: '',
+    chart_rotulo_eixo: 'horizontal',
     chart_filtro_coluna: '',
     impressao_habilitada: false, impressao_caminho: '', impressao_coluna: '',
     meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
@@ -527,6 +528,14 @@
             Mostrar valor no gráfico
           </label>
           {#if ['chart_bar', 'chart_bar_horizontal', 'chart_line'].includes(form.tipo)}
+            <label class="lbl">
+              Rotação do rótulo do eixo X
+              <select bind:value={form.chart_rotulo_eixo}>
+                <option value="horizontal">Horizontal</option>
+                <option value="inclinado">Inclinado (45°)</option>
+                <option value="vertical">Vertical (90°)</option>
+              </select>
+            </label>
             <label class="lbl">
               Nome de exibição do valor principal (opcional)
               <input type="text" bind:value={form.chart_valor_label} placeholder="ex: Perdas" style="width:180px" />

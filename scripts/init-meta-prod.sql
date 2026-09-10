@@ -87,6 +87,7 @@ CREATE TABLE queries (
     chart_truncar_tamanho INTEGER DEFAULT 15,
     chart_mostrar_valor   BOOLEAN DEFAULT false,
     chart_valor_label     VARCHAR(50),
+    chart_rotulo_eixo     VARCHAR(12) DEFAULT 'horizontal',  -- 'horizontal' | 'inclinado' | 'vertical'
     impressao_habilitada  BOOLEAN DEFAULT false,
     impressao_caminho     TEXT,
     impressao_coluna      TEXT,
