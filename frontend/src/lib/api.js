@@ -183,6 +183,8 @@ export const api = {
         a.remove();
         URL.revokeObjectURL(url);
     },
+    analisarImportPainel: (bundle) =>
+        request('/api/portabilidade/paineis/analisar', { method: 'POST', body: JSON.stringify(bundle) }),
 
     // Indicadores do painel
     indicadoresPainel:      (id)        => request(`/api/paineis/${id}/indicadores`),

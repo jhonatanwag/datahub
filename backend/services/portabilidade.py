@@ -191,3 +191,113 @@ def validar_formato(bundle: dict) -> None:
     for chave in ("painel", "queries", "variaveis"):
         if chave not in bundle:
             raise HTTPException(400, f"Arquivo incompleto: falta '{chave}'")
+
+
+# --- Task 3: análise de import (diff sem gravar) ---------------------------------
+
+# chaves comparadas por entidade (topo + arrays-filhos)
+_PAINEL_DIFF_KEYS = PAINEL_CAMPOS + [
+    "grupo_nome", "empresa_slug", "imagem_base64", "imagem_mime",
+    "indicadores", "variaveis_painel",
+]
+_QUERY_DIFF_KEYS = QUERY_CAMPOS + [
+    "grupo_nome", "empresa_slug", "subquery_slug", "kpi_imagem_base64", "kpi_imagem_mime",
+    "parametros", "agrupamentos", "agregacoes", "subquery_parametros",
+]
+_VARIAVEL_DIFF_KEYS = VARIAVEL_CAMPOS
+
+
+def _comparar(atual: dict, novo: dict, keys) -> list[str]:
+    difs = []
+    for k in keys:
+        if atual.get(k) != novo.get(k):
+            difs.append(k)
+    return difs
+
+
+async def _empresa_id_de_slug(slug):
+    if not slug:
+        return None
+    r = await query_meta("SELECT id FROM empresas WHERE slug = $1", slug)
+    return r[0]["id"] if r else None
+
+
+async def _classificar_query(qb: dict) -> dict:
+    emp_id = await _empresa_id_de_slug(qb.get("empresa_slug"))
+    existente = await query_meta(
+        "SELECT * FROM queries WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+        qb["slug"], emp_id,
+    )
+    base = {"slug": qb["slug"], "nome": qb.get("nome")}
+    if not existente:
+        return {**base, "situacao": "novo", "campos_diferentes": []}
+    atual = await _serializar_query(dict(existente[0]))
+    difs = _comparar(atual, qb, _QUERY_DIFF_KEYS)
+    return {**base, "situacao": "identico" if not difs else "conflito", "campos_diferentes": difs}
+
+
+async def _classificar_variavel(vb: dict) -> dict:
+    existente = await query_meta("SELECT * FROM variaveis WHERE slug = $1", vb["slug"])
+    base = {"slug": vb["slug"], "nome": vb.get("nome")}
+    if not existente:
+        return {**base, "situacao": "novo", "campos_diferentes": []}
+    atual = _serializar_variavel(dict(existente[0]))
+    difs = _comparar(atual, vb, _VARIAVEL_DIFF_KEYS)
+    return {**base, "situacao": "identico" if not difs else "conflito", "campos_diferentes": difs}
+
+
+async def _classificar_painel(pb: dict) -> dict:
+    existente = await query_meta("SELECT * FROM paineis WHERE slug = $1", pb["slug"])
+    base = {"slug": pb["slug"], "nome": pb.get("nome")}
+    if not existente:
+        return {**base, "situacao": "novo", "campos_diferentes": []}
+    atual = await _serializar_painel(dict(existente[0]))
+    difs = _comparar(atual, pb, _PAINEL_DIFF_KEYS)
+    return {**base, "situacao": "identico" if not difs else "conflito", "campos_diferentes": difs}
+
+
+async def analisar_bundle(bundle: dict) -> dict:
+    validar_formato(bundle)
+    avisos: list[str] = []
+
+    plano = {
+        "painel": await _classificar_painel(bundle["painel"]),
+        "queries": [await _classificar_query(q) for q in bundle["queries"]],
+        "variaveis": [await _classificar_variavel(v) for v in bundle["variaveis"]],
+    }
+
+    # aviso: empresa_slug do bundle não existe no destino
+    slugs_emp = {e for e in (
+        [bundle["painel"].get("empresa_slug")] + [q.get("empresa_slug") for q in bundle["queries"]]
+    ) if e}
+    for s in sorted(slugs_emp):
+        if await _empresa_id_de_slug(s) is None:
+            avisos.append(f"Empresa '{s}' não existe no destino — entidade entrará como global")
+
+    # aviso: dependência referenciada que não está no bundle e não existe no destino
+    slugs_query_bundle = {q["slug"] for q in bundle["queries"]}
+    for ind in bundle["painel"].get("indicadores", []):
+        qs = ind["query_slug"]
+        if qs not in slugs_query_bundle:
+            existe = await query_meta("SELECT 1 FROM queries WHERE slug = $1", qs)
+            if not existe:
+                avisos.append(f"Dependência ausente: query '{qs}' não está no arquivo nem no destino")
+
+    slugs_var_bundle = {v["slug"] for v in bundle["variaveis"]}
+    refs_var = set()
+    for ind in bundle["painel"].get("indicadores", []):
+        if ind.get("filtro_clique_variavel_slug"):
+            refs_var.add(ind["filtro_clique_variavel_slug"])
+    for pv in bundle["painel"].get("variaveis_painel", []):
+        refs_var.add(pv["variavel_slug"])
+    for q in bundle["queries"]:
+        for p in q.get("parametros", []):
+            if p.get("variavel_slug"):
+                refs_var.add(p["variavel_slug"])
+    for vs in sorted(refs_var):
+        if vs not in slugs_var_bundle:
+            existe = await query_meta("SELECT 1 FROM variaveis WHERE slug = $1", vs)
+            if not existe:
+                avisos.append(f"Dependência ausente: variável '{vs}' não está no arquivo nem no destino")
+
+    return {"formato_ok": True, "plano": plano, "avisos": avisos}

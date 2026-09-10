@@ -121,3 +121,49 @@ def test_exportar_avisa_indicador_com_query_inexistente(client, auth_token):
         assert b["queries"] == []
     finally:
         hard_delete_painel(painel["id"])
+
+
+def _exportar(client, token, painel_id):
+    r = client.get(f"/api/paineis/{painel_id}/exportar", headers=_headers(token))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_analisar_classifica_novo_identico_e_conflito(client, auth_token):
+    t = auth_token
+    q = _criar_query(client, t, tipo="table", sql_texto="SELECT 1 AS valor")
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": q["slug"], "linha": 1, "coluna": 1}],
+               headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+
+    try:
+        # tudo já existe e nada mudou -> identico
+        r = client.post("/api/portabilidade/paineis/analisar", json=bundle, headers=_headers(t))
+        assert r.status_code == 200, r.text
+        plano = r.json()["plano"]
+        assert plano["painel"]["situacao"] == "identico"
+        assert plano["queries"][0]["situacao"] == "identico"
+
+        # mexe no sql_texto do bundle -> conflito em sql_texto
+        bundle["queries"][0]["sql_texto"] = "SELECT 999 AS valor"
+        r = client.post("/api/portabilidade/paineis/analisar", json=bundle, headers=_headers(t))
+        item = r.json()["plano"]["queries"][0]
+        assert item["situacao"] == "conflito"
+        assert "sql_texto" in item["campos_diferentes"]
+
+        # slug de query inexistente -> novo
+        bundle["queries"][0]["slug"] = "totalmente_nova_xyz"
+        bundle["painel"]["indicadores"][0]["query_slug"] = "totalmente_nova_xyz"
+        r = client.post("/api/portabilidade/paineis/analisar", json=bundle, headers=_headers(t))
+        assert r.json()["plano"]["queries"][0]["situacao"] == "novo"
+    finally:
+        hard_delete_painel(painel["id"])
+        client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+
+
+def test_analisar_rejeita_formato_invalido(client, auth_token):
+    r = client.post("/api/portabilidade/paineis/analisar",
+                    json={"formato": "outra-coisa"}, headers=_headers(auth_token))
+    assert r.status_code == 400
