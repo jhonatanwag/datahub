@@ -313,6 +313,9 @@ ALTER TABLE empresas ADD COLUMN cnpj VARCHAR(20);
 
 -- 2026-09-08 — orientação (retrato/paisagem) do relatório do painel inteiro
 ALTER TABLE paineis ADD COLUMN impressao_orientacao VARCHAR(10) DEFAULT 'retrato';
+
+-- 2026-09-09 — rotação do rótulo do eixo X do gráfico (horizontal/inclinado/vertical)
+ALTER TABLE queries ADD COLUMN chart_rotulo_eixo VARCHAR(12) DEFAULT 'horizontal';
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,
