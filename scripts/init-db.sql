@@ -99,6 +99,7 @@ CREATE TABLE queries (
     chart_mostrar_valor   BOOLEAN DEFAULT false,
     chart_valor_label     VARCHAR(50),
     chart_rotulo_eixo     VARCHAR(12) DEFAULT 'horizontal',  -- 'horizontal' | 'inclinado' | 'vertical' — rotação do rótulo do eixo de categoria
+    chart_rotulo_valor    VARCHAR(12) DEFAULT 'horizontal',  -- idem, mas pro valor desenhado dentro do gráfico (quando chart_mostrar_valor)
     impressao_habilitada  BOOLEAN DEFAULT false,
     impressao_caminho     TEXT,
     impressao_coluna      TEXT,

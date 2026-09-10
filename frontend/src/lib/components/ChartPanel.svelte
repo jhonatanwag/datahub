@@ -11,11 +11,13 @@
   export let mostrarValor = false;
   export let valorLabel = null;
   export let rotuloEixo = 'horizontal';   // 'horizontal' | 'inclinado' | 'vertical' — rotação do rótulo do eixo de categoria
+  export let rotuloValor = 'horizontal';  // idem, pro valor desenhado dentro do gráfico (quando mostrarValor)
   export let filtroColuna = null;
   export let valoresSelecionados = [];
 
   const ROTACAO = { horizontal: 0, inclinado: 45, vertical: 90 };
   $: rotacaoRotulo = ROTACAO[rotuloEixo] ?? 0;
+  $: rotacaoValor = ROTACAO[rotuloValor] ?? 0;
 
   const dispatch = createEventDispatcher();
 
@@ -126,6 +128,7 @@
       label: {
         show: mostrarValor, position: isHorizontal ? 'right' : 'top',
         color: corTexto, fontSize: fonteTamanho,
+        rotate: rotacaoValor,
       },
     }));
 
@@ -171,7 +174,8 @@
     $usuario?.tema;        // dependência reativa: recria a option quando o tema muda
     filtroColuna;           // dependência reativa: recria quando a coluna de filtro muda
     valoresSelecionados;    // dependência reativa: recria quando a seleção de clique muda
-    rotacaoRotulo;          // dependência reativa: recria quando muda a rotação do rótulo
+    rotacaoRotulo;          // dependência reativa: recria quando muda a rotação do rótulo do eixo
+    rotacaoValor;           // dependência reativa: recria quando muda a rotação do valor
     chart.setOption(buildOption(tipo, dados), true);
   }
 

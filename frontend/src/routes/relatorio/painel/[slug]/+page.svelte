@@ -209,6 +209,7 @@
                 mostrarValor={ind.chart_mostrar_valor}
                 valorLabel={ind.chart_valor_label}
                 rotuloEixo={ind.chart_rotulo_eixo}
+                rotuloValor={ind.chart_rotulo_valor}
                 filtroColuna={ind.chart_filtro_coluna}
                 on:pronto={() => marcarPronto(ind.id)}
               />

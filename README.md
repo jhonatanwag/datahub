@@ -316,6 +316,9 @@ ALTER TABLE paineis ADD COLUMN impressao_orientacao VARCHAR(10) DEFAULT 'retrato
 
 -- 2026-09-09 — rotação do rótulo do eixo X do gráfico (horizontal/inclinado/vertical)
 ALTER TABLE queries ADD COLUMN chart_rotulo_eixo VARCHAR(12) DEFAULT 'horizontal';
+
+-- 2026-09-09 — rotação do valor desenhado dentro do gráfico (horizontal/inclinado/vertical)
+ALTER TABLE queries ADD COLUMN chart_rotulo_valor VARCHAR(12) DEFAULT 'horizontal';
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

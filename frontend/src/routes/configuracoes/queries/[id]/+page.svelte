@@ -17,7 +17,7 @@
     chart_fonte_tamanho: 12, chart_truncar_label: false,
     chart_truncar_tamanho: 15, chart_mostrar_valor: false,
     chart_valor_label: '',
-    chart_rotulo_eixo: 'horizontal',
+    chart_rotulo_eixo: 'horizontal', chart_rotulo_valor: 'horizontal',
     chart_filtro_coluna: '',
     impressao_habilitada: false, impressao_caminho: '', impressao_coluna: '',
     meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
@@ -94,6 +94,7 @@
         chart_mostrar_valor:   q.chart_mostrar_valor ?? false,
         chart_valor_label:     q.chart_valor_label || '',
         chart_rotulo_eixo:     q.chart_rotulo_eixo || 'horizontal',
+        chart_rotulo_valor:    q.chart_rotulo_valor || 'horizontal',
         chart_filtro_coluna:   q.chart_filtro_coluna || '',
         impressao_habilitada: q.impressao_habilitada ?? false,
         impressao_caminho:    q.impressao_caminho || '',
@@ -246,6 +247,7 @@
         chart_mostrar_valor:   form.chart_mostrar_valor,
         chart_valor_label:     form.chart_valor_label,
         chart_rotulo_eixo:     form.chart_rotulo_eixo,
+        chart_rotulo_valor:    form.chart_rotulo_valor,
         chart_filtro_coluna:   form.chart_filtro_coluna || null,
         impressao_habilitada: form.impressao_habilitada,
         impressao_caminho:    form.impressao_caminho || null,
@@ -631,6 +633,16 @@
               <input type="checkbox" bind:checked={form.chart_mostrar_valor} />
               Mostrar valor no gráfico
             </label>
+            {#if form.chart_mostrar_valor && ['chart_bar', 'chart_bar_horizontal', 'chart_line'].includes(form.tipo)}
+              <label class="lbl">
+                Rotação do valor no gráfico
+                <select bind:value={form.chart_rotulo_valor}>
+                  <option value="horizontal">Horizontal</option>
+                  <option value="inclinado">Inclinado (45°)</option>
+                  <option value="vertical">Vertical (90°)</option>
+                </select>
+              </label>
+            {/if}
             {#if ['chart_bar', 'chart_bar_horizontal', 'chart_line'].includes(form.tipo)}
               <label class="lbl">
                 Rotação do rótulo do eixo X
