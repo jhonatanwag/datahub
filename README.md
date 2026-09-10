@@ -134,6 +134,70 @@ reconstrução" / Stop→Start no EasyPanel), não só reiniciado. (O
 server rejeita o `Host: frontend` do renderer sem ele; em produção o
 `frontend` é nginx estático e não precisa disso.)
 
+#### ⚠️ Rede interna do Swarm quebra fácil — recuperação do `pdf-renderer` (e do login)
+
+O deploy real roda em **Docker Swarm** (via EasyPanel). A malha de rede
+interna (overlay `easypanel-datahub` + os VIPs de load-balancing dos
+serviços) **desmonta** depois de: reboot do VPS, `systemctl restart docker`,
+e às vezes ao adicionar um serviço novo. Sintomas:
+
+- Botão "Abrir PDF" → aba em branco → erro **502 / "Bad gateway"** (página do
+  Cloudflare). No log do `backend`: `pdf-renderer falhou: All connection
+  attempts failed`.
+- Em casos piores, o **login para** (o `nginx` do `frontend` não alcança o
+  `backend`).
+
+Causa: a resolução por **nome de serviço** cai no **VIP** do Swarm, e as
+regras VIP→task (IPVS) ficam órfãs. Os IPs das tasks direto funcionam; o VIP
+não.
+
+**Recuperação (na ordem, esperando cada serviço ficar `1/1` antes do
+próximo):** parar todos e subir:
+
+```
+postgres → redis → worker → backend → frontend → pdf-renderer
+```
+
+Isso já resolveu todas as vezes. **Não rodar `systemctl restart docker`** a
+não ser em último caso — ele quebra a malha e exige a recuperação acima.
+
+**Config que tem que ficar de pé pro `pdf-renderer` funcionar** (o backend
+fala com o renderer pela rede interna; o renderer carrega o relatório pela
+**URL pública**, contornando a parte mais frágil da rede):
+
+| Serviço | Env var | Valor |
+|---|---|---|
+| `backend` + `pdf-renderer` | `RENDERER_SECRET` | mesmo valor forte nos dois |
+| `backend` + `pdf-renderer` | `RELATORIO_BASE_URL` | `https://bi.psosistemas.com.br` (URL pública) |
+| `backend` | `RENDERER_URL` | default `http://pdf-renderer:4000` serve |
+
+Além disso, o `pdf-renderer` foi posto em **`endpoint-mode: dnsrr`** (resolve
+direto pro IP da task, sem VIP):
+
+```bash
+docker service update --endpoint-mode dnsrr datahub_pdf-renderer
+```
+
+⚠️ **O `dnsrr` e env vars setadas via `docker service update --env-add` NÃO
+sobrevivem a um "Deploy" pelo EasyPanel** (ele reescreve o serviço com o
+template dele). Depois de qualquer Deploy/Rebuild do `pdf-renderer` ou do
+`backend` pelo EasyPanel, rodar de novo o comando acima e conferir. Deixar
+`RENDERER_SECRET` e `RELATORIO_BASE_URL` **também** na aba Environment da UI
+do EasyPanel pra persistirem.
+
+**Check rápido "está ok?":**
+```bash
+BID=$(docker ps -qf name=datahub_backend)
+docker exec $BID curl -s -m5 -o /dev/null -w "%{http_code}\n" http://pdf-renderer:4000/health
+# 200 = ok. 000/timeout = malha quebrada → recuperação na ordem acima.
+```
+
+**Blindagem definitiva (quando der):** expor o `pdf-renderer` por um
+subdomínio no EasyPanel (ex: `pdf.psosistemas.com.br`) — ele já valida o
+`RENDERER_SECRET` em todo request e só renderiza URLs sob `RELATORIO_BASE_URL`.
+Aí `RENDERER_URL=https://pdf.psosistemas.com.br` no `backend` e o backend
+para de depender da rede interna do Swarm pra falar com o renderer.
+
 ### 2. Aplicar o schema no `datahub_meta`
 
 Com o serviço `postgres` no ar, rodar `scripts/init-meta-prod.sql` contra
