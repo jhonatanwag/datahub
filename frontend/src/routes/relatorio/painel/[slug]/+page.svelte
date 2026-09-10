@@ -104,6 +104,7 @@
   });
 
   $: if (typeof window !== 'undefined') window.__RELATORIO_PRONTO__ = pronto;
+  $: if (typeof window !== 'undefined') window.__RELATORIO_PAISAGEM__ = paisagem;
 
   $: lista = indicadorUnico ? [indicadorUnico] : indicadores;
   $: idsAssincronos = lista

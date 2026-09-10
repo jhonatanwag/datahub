@@ -93,7 +93,12 @@
 
     const eixoCategoria = {
       type: 'category', data: labels,
-      axisLabel: { color: corMuted, fontSize: fonteTamanho, interval: 0, formatter: truncar },
+      axisLabel: {
+        color: corMuted, fontSize: fonteTamanho, interval: 0, formatter: truncar,
+        // encosta o 1º/último rótulo na borda em vez de centralizar (senão a
+        // metade de fora é cortada quando o gráfico ocupa a largura toda)
+        alignMinLabel: 'left', alignMaxLabel: 'right',
+      },
     };
     const eixoValor = {
       type: 'value', axisLabel: { color: corMuted, fontSize: fonteTamanho },
@@ -139,9 +144,15 @@
     chart = echarts.init(container, null, { renderer: 'svg' });
     chart.on('click', onClickGrafico);
     if (dados.length) chart.setOption(buildOption(tipo, dados));
-    dispatch('pronto');
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(container);
+    // Só sinaliza prontidão depois que o layout assentou e o chart mediu o
+    // container de verdade — no relatório server-side o page.pdf() captura sem
+    // esperar o ResizeObserver, então o chart precisa já estar no tamanho certo.
+    requestAnimationFrame(() => {
+      chart?.resize();
+      dispatch('pronto');
+    });
     return () => ro.disconnect();
   });
 

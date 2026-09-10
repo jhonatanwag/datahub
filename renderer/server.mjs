@@ -43,18 +43,40 @@ function release() {
   if (next) { ativos++; next(); }
 }
 
+// A4 em px CSS @96dpi — o viewport tem que bater com a página final, senão o
+// @media print da tela expande `.relatorio-pagina` até a largura do viewport e
+// o page.pdf() escala tudo pra caber no A4 (relatório sai "com zoom out" e os
+// gráficos ECharts, medidos na largura da tela, não preenchem o card).
+const A4_RETRATO = { width: 794, height: 1123 };
+const A4_PAISAGEM = { width: 1123, height: 794 };
+
 async function render(url) {
   const browser = await getBrowser();
-  const context = await browser.newContext();
+  const context = await browser.newContext({ viewport: A4_RETRATO });
   try {
     const page = await context.newPage();
+    await page.emulateMedia({ media: 'print' });
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
     await page
       .waitForFunction(() => window.__RELATORIO_PRONTO__ === true, { timeout: 25000 })
       .catch(() => {});   // best-effort: página travada ainda gera PDF
+
+    const paisagem = await page
+      .evaluate(() => window.__RELATORIO_PAISAGEM__ === true)
+      .catch(() => false);
+    if (paisagem) {
+      await page.setViewportSize(A4_PAISAGEM);
+      // deixa o ResizeObserver do ECharts re-medir os gráficos (2 frames) antes
+      // do snapshot do page.pdf(), que não espera callbacks assíncronos.
+      await page.evaluate(
+        () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+      );
+    }
+
     return await page.pdf({
       printBackground: true,
       preferCSSPageSize: true,
+      landscape: paisagem,
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
     });
   } finally {
