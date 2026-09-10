@@ -324,3 +324,143 @@ def test_importar_faz_rollback_quando_painel_falha(client, auth_token):
         alvo = next((x for x in pl if x["slug"] == bundle["painel"]["slug"]), None)
         if alvo:
             hard_delete_painel(alvo["id"])
+
+
+# --- Fix wave: revisão de branch inteira ---------------------------------------
+
+def test_analisar_rejeita_payload_interno_malformado(client, auth_token):
+    """FR4: painel sem slug / queries que não é lista → 400, nunca 500."""
+    t = auth_token
+
+    # painel é dict mas sem 'slug'
+    r = client.post("/api/portabilidade/paineis/analisar",
+                    json={"formato": "datahub-painel", "versao": 1,
+                          "painel": {"nome": "x"}, "queries": [], "variaveis": []},
+                    headers=_headers(t))
+    assert r.status_code == 400, r.text
+
+    # queries não é lista
+    r = client.post("/api/portabilidade/paineis/analisar",
+                    json={"formato": "datahub-painel", "versao": 1,
+                          "painel": {"slug": "p", "nome": "x"},
+                          "queries": "notalist", "variaveis": []},
+                    headers=_headers(t))
+    assert r.status_code == 400, r.text
+
+    # item de variaveis sem slug
+    r = client.post("/api/portabilidade/paineis/analisar",
+                    json={"formato": "datahub-painel", "versao": 1,
+                          "painel": {"slug": "p", "nome": "x"},
+                          "queries": [], "variaveis": [{"nome": "sem slug"}]},
+                    headers=_headers(t))
+    assert r.status_code == 400, r.text
+
+
+def test_importar_rejeita_sql_invalido_e_nao_grava_nada(client, auth_token):
+    """FR3: sql_texto de query aplicada que não passa validar_sql → 400 com o
+    slug na mensagem, e nada é persistido."""
+    t = auth_token
+    q = _criar_query(client, t, tipo="table", sql_texto="SELECT 1 AS valor")
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": q["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+    hard_delete_painel(painel["id"])
+    client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+
+    bundle["queries"][0]["sql_texto"] = "DELETE FROM clientes"
+
+    try:
+        r = _importar(client, t, bundle, {"variaveis": [], "queries": [q["slug"]], "painel": False})
+        assert r.status_code == 400, r.text
+        assert q["slug"] in r.text
+        nova = client.get("/api/queries/", headers=_headers(t)).json()
+        assert not any(x["slug"] == q["slug"] for x in nova), "SQL inválido: query não devia ter sido gravada"
+    finally:
+        nova = client.get("/api/queries/", headers=_headers(t)).json()
+        alvo = next((x for x in nova if x["slug"] == q["slug"]), None)
+        if alvo:
+            client.delete(f"/api/queries/{alvo['id']}", headers=_headers(t))
+        pl = client.get("/api/paineis/", headers=_headers(t)).json()
+        alvo = next((x for x in pl if x["slug"] == bundle["painel"]["slug"]), None)
+        if alvo:
+            hard_delete_painel(alvo["id"])
+
+
+def test_importar_limpa_subquery_id_obsoleto(client, auth_token):
+    """FR2: reimportar um bundle onde a query deixou de ter subquery_slug deve
+    zerar o subquery_id no destino (senão vira conflito fantasma permanente)."""
+    t = auth_token
+    sub = _criar_query(client, t, tipo="table", sql_texto="SELECT 2 AS valor")
+    principal = _criar_query(client, t, tipo="table", subquery_id=sub["id"])
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": principal["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+    hard_delete_painel(painel["id"])
+    client.delete(f"/api/queries/{principal['id']}", headers=_headers(t))
+    client.delete(f"/api/queries/{sub['id']}", headers=_headers(t))
+
+    ids = []
+    try:
+        # 1) importa com a subquery ligada
+        r = _importar(client, t, bundle,
+                      {"variaveis": [], "queries": [sub["slug"], principal["slug"]], "painel": False})
+        assert r.status_code == 200, r.text
+        todas = client.get("/api/queries/", headers=_headers(t)).json()
+        qp = next(x for x in todas if x["slug"] == principal["slug"])
+        qs = next(x for x in todas if x["slug"] == sub["slug"])
+        ids = [qp["id"], qs["id"]]
+        assert qp["subquery_id"] == qs["id"]
+
+        # 2) origem removeu a subquery — reimporta sem subquery_slug
+        entry = next(x for x in bundle["queries"] if x["slug"] == principal["slug"])
+        entry["subquery_slug"] = None
+        entry["subquery_parametros"] = []
+        r = _importar(client, t, bundle,
+                      {"variaveis": [], "queries": [principal["slug"]], "painel": False})
+        assert r.status_code == 200, r.text
+
+        todas = client.get("/api/queries/", headers=_headers(t)).json()
+        qp = next(x for x in todas if x["slug"] == principal["slug"])
+        assert qp["subquery_id"] is None, "subquery_id obsoleto não foi limpo"
+
+        # 3) analisar deve ver 'identico', não 'conflito' fantasma
+        plano = _analisar(client, t, bundle)["plano"]
+        item = next(x for x in plano["queries"] if x["slug"] == principal["slug"])
+        assert item["situacao"] == "identico", item
+    finally:
+        for i in ids:
+            client.patch(f"/api/queries/{i}", json={"subquery_id": None}, headers=_headers(t))
+        for i in ids:
+            client.delete(f"/api/queries/{i}", headers=_headers(t))
+
+
+def test_importar_avisos_empresa_slug_inexistente(client, auth_token):
+    """FR1: entidade aplicada com empresa_slug que não existe no destino →
+    response.avisos menciona o slug da empresa e 'global'."""
+    t = auth_token
+    q = _criar_query(client, t, tipo="table", sql_texto="SELECT 1 AS valor")
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": q["slug"], "linha": 1, "coluna": 1}], headers=_headers(t))
+    bundle = _exportar(client, t, painel["id"])
+    hard_delete_painel(painel["id"])
+    client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+
+    bundle["queries"][0]["empresa_slug"] = "empresa_fantasma_zzz"
+
+    try:
+        r = _importar(client, t, bundle, {"variaveis": [], "queries": [q["slug"]], "painel": False})
+        assert r.status_code == 200, r.text
+        avisos = r.json()["avisos"]
+        assert any("empresa_fantasma_zzz" in a and "global" in a for a in avisos), avisos
+    finally:
+        nova = client.get("/api/queries/", headers=_headers(t)).json()
+        alvo = next((x for x in nova if x["slug"] == q["slug"]), None)
+        if alvo:
+            client.delete(f"/api/queries/{alvo['id']}", headers=_headers(t))
+        pl = client.get("/api/paineis/", headers=_headers(t)).json()
+        alvo = next((x for x in pl if x["slug"] == bundle["painel"]["slug"]), None)
+        if alvo:
+            hard_delete_painel(alvo["id"])

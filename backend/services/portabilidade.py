@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 from config.databases import query_meta, meta_tx
 from services.grupos import resolver_grupo_id
-from services.query_runner import invalidar_cache_query
+from services.query_runner import invalidar_cache_query, validar_sql
 
 FORMATO = "datahub-painel"
 VERSAO = 1
@@ -194,6 +194,18 @@ def validar_formato(bundle: dict) -> None:
         if chave not in bundle:
             raise HTTPException(400, f"Arquivo incompleto: falta '{chave}'")
 
+    # shape do payload interno — evita KeyError/TypeError virarem HTTP 500
+    painel = bundle["painel"]
+    if not isinstance(painel, dict) or not painel.get("slug"):
+        raise HTTPException(400, "Arquivo inválido: 'painel' precisa ser um objeto com 'slug'")
+    for chave in ("queries", "variaveis"):
+        lista = bundle[chave]
+        if not isinstance(lista, list):
+            raise HTTPException(400, f"Arquivo inválido: '{chave}' precisa ser uma lista")
+        for item in lista:
+            if not isinstance(item, dict) or not item.get("slug"):
+                raise HTTPException(400, f"Arquivo inválido: cada item de '{chave}' precisa ter 'slug'")
+
 
 # --- Task 3: análise de import (diff sem gravar) ---------------------------------
 
@@ -342,6 +354,26 @@ async def _checar_dependencias(bundle, aplicar_var, aplicar_qry, aplicar_pnl) ->
             if p.get("variavel_slug") and not await var_ok(p["variavel_slug"]):
                 faltando.append(f"variável '{p['variavel_slug']}'")
 
+    # SQL das entidades aplicadas tem que passar por validar_sql, igual ao
+    # create/update de query — mantém o invariante "todo SQL gravado é válido"
+    # e transforma bundle ruim em 400 (antes da transação) em vez de gravar.
+    sql_erros: list[str] = []
+    for q in bundle["queries"]:
+        if q["slug"] not in aplicar_qry:
+            continue
+        try:
+            validar_sql(q.get("sql_texto") or "")
+        except ValueError as e:
+            sql_erros.append(f"SQL inválido na query '{q['slug']}': {e}")
+    for v in bundle["variaveis"]:
+        if v["slug"] in aplicar_var and v.get("query_fonte"):
+            try:
+                validar_sql(v["query_fonte"])
+            except ValueError as e:
+                sql_erros.append(f"SQL inválido na variável '{v['slug']}': {e}")
+    if sql_erros:
+        raise HTTPException(400, "; ".join(dict.fromkeys(sql_erros)))
+
     # dedup preservando ordem
     return list(dict.fromkeys(faltando))
 
@@ -444,8 +476,14 @@ async def _reinserir_filhas_query(conn, qb: dict):
             qid, s["coluna_origem"], s["parametro_destino"], s.get("ordem", 0))
 
 
-async def _upsert_painel(conn, pb: dict):
+async def _upsert_painel(conn, pb: dict, avisos: list | None = None):
+    if avisos is None:
+        avisos = []
     emp_id = await _empresa_id_de_slug(pb.get("empresa_slug"))
+    if pb.get("empresa_slug") and emp_id is None:
+        avisos.append(
+            f"Empresa '{pb['empresa_slug']}' não existe no destino — "
+            f"painel '{pb['slug']}' importada como global")
     grupo_id = await resolver_grupo_id("painel_grupos", pb.get("grupo_nome"), conn=conn)
     img = base64.b64decode(pb["imagem_base64"]) if pb.get("imagem_base64") else None
 
@@ -471,18 +509,25 @@ async def _upsert_painel(conn, pb: dict):
 
     await conn.execute("DELETE FROM painel_indicadores WHERE painel_id = $1", pid)
     for ind in pb.get("indicadores", []):
+        fcv_slug = ind.get("filtro_clique_variavel_slug")
+        fcv_id = await _id_var_por_slug(conn, fcv_slug)
+        if fcv_slug and fcv_id is None:
+            avisos.append(
+                f"Filtro-por-clique '{fcv_slug}' do indicador não encontrado — ignorado")
         await conn.execute(
             "INSERT INTO painel_indicadores "
             "(painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id) "
             "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
             pid, ind["query_slug"], ind.get("titulo"), ind["linha"], ind["coluna"],
             ind.get("col_span", 1), ind.get("row_span", 1), ind.get("posicao", 0),
-            await _id_var_por_slug(conn, ind.get("filtro_clique_variavel_slug")))
+            fcv_id)
 
     await conn.execute("DELETE FROM painel_variaveis WHERE painel_id = $1", pid)
     for pv in pb.get("variaveis_painel", []):
         vid = await _id_var_por_slug(conn, pv["variavel_slug"])
         if vid is None:
+            avisos.append(
+                f"Variável de painel '{pv['variavel_slug']}' não encontrada — filtro ignorado")
             continue
         await conn.execute(
             "INSERT INTO painel_variaveis "
@@ -504,6 +549,7 @@ async def importar_bundle(bundle: dict, aplicar: dict) -> dict:
 
     por_slug = {q["slug"]: q for q in bundle["queries"]}
     slugs_query_tocados: list[str] = []
+    avisos: list[str] = []
     async with meta_tx() as conn:
         for vb in bundle["variaveis"]:
             if vb["slug"] in aplicar_var:
@@ -513,20 +559,35 @@ async def importar_bundle(bundle: dict, aplicar: dict) -> dict:
             if qb["slug"] in aplicar_qry:
                 await _upsert_query_base(conn, qb)
                 slugs_query_tocados.append(qb["slug"])
+                emp_slug = qb.get("empresa_slug")
+                if emp_slug and await _empresa_id_de_slug(emp_slug) is None:
+                    avisos.append(
+                        f"Empresa '{emp_slug}' não existe no destino — "
+                        f"query '{qb['slug']}' importada como global")
 
         for qb in bundle["queries"]:
-            if qb["slug"] in aplicar_qry and qb.get("subquery_slug"):
+            if qb["slug"] not in aplicar_qry:
+                continue
+            if qb.get("subquery_slug"):
                 sub_entry = por_slug.get(qb["subquery_slug"])
                 sub_emp_slug = sub_entry.get("empresa_slug") if sub_entry else qb.get("empresa_slug")
                 await _set_subquery(conn, qb["slug"], qb.get("empresa_slug"),
                                     qb["subquery_slug"], sub_emp_slug)
+            else:
+                # origem removeu a subquery — zera o id obsoleto no destino,
+                # senão vira conflito fantasma permanente em subquery_slug
+                emp_id = await _empresa_id_de_slug(qb.get("empresa_slug"))
+                await conn.execute(
+                    "UPDATE queries SET subquery_id = NULL "
+                    "WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+                    qb["slug"], emp_id)
 
         for qb in bundle["queries"]:
             if qb["slug"] in aplicar_qry:
                 await _reinserir_filhas_query(conn, qb)
 
         if aplicar_pnl:
-            await _upsert_painel(conn, bundle["painel"])
+            await _upsert_painel(conn, bundle["painel"], avisos)
 
     for slug in slugs_query_tocados:
         await invalidar_cache_query(slug)
@@ -534,5 +595,5 @@ async def importar_bundle(bundle: dict, aplicar: dict) -> dict:
     return {
         "painel_slug": bundle["painel"]["slug"],
         "aplicado": {"variaveis": len(aplicar_var), "queries": len(aplicar_qry), "painel": aplicar_pnl},
-        "avisos": [],
+        "avisos": list(dict.fromkeys(avisos)),
     }
