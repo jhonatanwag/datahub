@@ -147,56 +147,64 @@ e às vezes ao adicionar um serviço novo. Sintomas:
 - Em casos piores, o **login para** (o `nginx` do `frontend` não alcança o
   `backend`).
 
-Causa: a resolução por **nome de serviço** cai no **VIP** do Swarm, e as
-regras VIP→task (IPVS) ficam órfãs. Os IPs das tasks direto funcionam; o VIP
-não.
+Causa: a resolução por **nome de serviço** (`pdf-renderer`, `backend`, ...)
+cai no **VIP** do Swarm, e as regras VIP→task (IPVS) ficam órfãs depois
+desses eventos. Os IPs das tasks direto funcionam; o VIP não.
 
-**Recuperação (na ordem, esperando cada serviço ficar `1/1` antes do
-próximo):** parar todos e subir:
+##### Config que faz o `pdf-renderer` funcionar (e sobrevive a deploy/restart/reboot)
+
+O truque é **não usar o VIP**. Duas peças:
+
+| Serviço | Env var | Valor | Por quê |
+|---|---|---|---|
+| `backend` | `RENDERER_URL` | `http://tasks.datahub_pdf-renderer:4000` | `tasks.<serviço>` é DNS **built-in do Swarm** que resolve direto pros IPs das tasks — fura o VIP quebrado, e não some em deploy (é do Swarm, não config do EasyPanel) |
+| `backend` + `pdf-renderer` | `RELATORIO_BASE_URL` | `https://bi.psosistemas.com.br` | o Chrome do renderer carrega o relatório pela URL **pública** (via Cloudflare→nginx), não pela overlay |
+| `backend` + `pdf-renderer` | `RENDERER_SECRET` | mesmo valor forte nos dois | — |
+
+Setar tudo na aba **Environment** da UI do EasyPanel (persiste). O nome do
+service no Swarm é `datahub_pdf-renderer` (prefixo do projeto) — conferir com
+`docker service ls`. Depois de adicionar/mudar env var, o EasyPanel **não
+recria a task automático** — forçar:
+
+```bash
+docker service update --update-order stop-first --force datahub_backend
+# (o backend publica porta em host-mode → --force puro falha com
+#  "host-mode port already in use"; precisa do --update-order stop-first)
+```
+
+##### Se mesmo assim quebrar (reboot / systemctl restart docker)
+
+Quando a **overlay inteira** desmonta (não só o VIP), a recuperação é parar
+todos os serviços e subir **nesta ordem**, esperando cada um ficar `1/1`:
 
 ```
 postgres → redis → worker → backend → frontend → pdf-renderer
 ```
 
-Isso já resolveu todas as vezes. **Não rodar `systemctl restart docker`** a
-não ser em último caso — ele quebra a malha e exige a recuperação acima.
+**Não rodar `systemctl restart docker`** — ele piora (órfã os VIPs de todos
+os serviços, derruba o login também). Só em último caso, e seguido da
+recuperação em ordem acima.
 
-**Config que tem que ficar de pé pro `pdf-renderer` funcionar** (o backend
-fala com o renderer pela rede interna; o renderer carrega o relatório pela
-**URL pública**, contornando a parte mais frágil da rede):
+##### Check rápido "está ok?"
 
-| Serviço | Env var | Valor |
-|---|---|---|
-| `backend` + `pdf-renderer` | `RENDERER_SECRET` | mesmo valor forte nos dois |
-| `backend` + `pdf-renderer` | `RELATORIO_BASE_URL` | `https://bi.psosistemas.com.br` (URL pública) |
-| `backend` | `RENDERER_URL` | default `http://pdf-renderer:4000` serve |
-
-Além disso, o `pdf-renderer` foi posto em **`endpoint-mode: dnsrr`** (resolve
-direto pro IP da task, sem VIP):
-
-```bash
-docker service update --endpoint-mode dnsrr datahub_pdf-renderer
-```
-
-⚠️ **O `dnsrr` e env vars setadas via `docker service update --env-add` NÃO
-sobrevivem a um "Deploy" pelo EasyPanel** (ele reescreve o serviço com o
-template dele). Depois de qualquer Deploy/Rebuild do `pdf-renderer` ou do
-`backend` pelo EasyPanel, rodar de novo o comando acima e conferir. Deixar
-`RENDERER_SECRET` e `RELATORIO_BASE_URL` **também** na aba Environment da UI
-do EasyPanel pra persistirem.
-
-**Check rápido "está ok?":**
 ```bash
 BID=$(docker ps -qf name=datahub_backend)
-docker exec $BID curl -s -m5 -o /dev/null -w "%{http_code}\n" http://pdf-renderer:4000/health
-# 200 = ok. 000/timeout = malha quebrada → recuperação na ordem acima.
+docker exec $BID curl -s -m5 -o /dev/null -w "%{http_code}\n" http://tasks.datahub_pdf-renderer:4000/health
+# 200 = ok. 000/timeout = overlay quebrada → recuperação na ordem acima.
 ```
 
-**Blindagem definitiva (quando der):** expor o `pdf-renderer` por um
-subdomínio no EasyPanel (ex: `pdf.psosistemas.com.br`) — ele já valida o
-`RENDERER_SECRET` em todo request e só renderiza URLs sob `RELATORIO_BASE_URL`.
-Aí `RENDERER_URL=https://pdf.psosistemas.com.br` no `backend` e o backend
-para de depender da rede interna do Swarm pra falar com o renderer.
+##### Abordagens que NÃO funcionaram (não repetir)
+
+- **`docker service update --endpoint-mode dnsrr`** — funciona, mas o
+  EasyPanel reseta pra `vip` em todo Deploy; e deixou um IP de VIP velho
+  preso no DNS (`getent hosts pdf-renderer` retornava 2 IPs, metade das
+  requisições caía no morto).
+- **Domínio `pdf.psosistemas.com.br` via Traefik** — o EasyPanel roteia por
+  arquivo de config, não Docker labels; a rota não subiu (Traefik dava 404).
+  Pode voltar a ser a "blindagem definitiva" se alguém acertar a config do
+  Traefik/EasyPanel, mas o `tasks.<serviço>` resolveu sem isso.
+- **IP fixo da task no `RENDERER_URL`** — funciona, mas o IP muda a cada
+  redeploy do renderer.
 
 ### 2. Aplicar o schema no `datahub_meta`
 
