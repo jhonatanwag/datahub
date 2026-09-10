@@ -31,7 +31,7 @@
 .relatorio-pagina {
   max-width: 210mm;
   margin: 0 auto;
-  padding: 150px 16mm 60px;   /* topo/base livres pro cabeçalho/rodapé fixos */
+  padding: 24px 16mm 40px;
   background: var(--surface);
   min-height: 100vh;
   box-sizing: border-box;
@@ -43,19 +43,27 @@
 }
 
 @media screen and (max-width: 820px) {
-  .relatorio-pagina { padding: 150px 12px 60px; }
+  .relatorio-pagina { padding: 16px 12px 32px; }
 }
 
 @media print {
-  @page { size: A4; margin: 12mm; }
+  /* O cabeçalho grande (RelatorioCabecalho) é conteúdo normal — aparece uma vez
+     no topo. O cabeçalho/rodapé que se REPETEM em toda página são desenhados
+     pelo Chrome via page.pdf({displayHeaderFooter}) no renderer, dentro da
+     margem de @page (não conflitam com o conteúdo — era o que fazia o título
+     do card sumir atrás do header fixo da 2ª página em diante). */
+  @page { size: A4; }
 
   .no-print { display: none !important; }
+  .rr { display: none !important; }   /* rodapé vem do page.pdf(), não do fluxo */
+  .seta { display: none !important; } /* setas ▶ de expandir grupo — no relatório a árvore já sai toda aberta */
 
   html, body, .relatorio-tema body { background: #fff !important; }
 
   .relatorio-pagina {
-    max-width: none; margin: 0; box-shadow: none; border-radius: 0;
-    padding: 132px 0 52px;
+    max-width: none; margin: 0; min-height: 0;
+    box-shadow: none; border-radius: 0;
+    padding: 0 12mm;   /* folga lateral; topo/base vêm da margem do page.pdf() */
   }
 
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }

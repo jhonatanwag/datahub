@@ -50,6 +50,21 @@ function release() {
 const A4_RETRATO = { width: 794, height: 1123 };
 const A4_PAISAGEM = { width: 1123, height: 794 };
 
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Cabeçalho/rodapé que o Chrome repete em TODA página do PDF (dentro da margem
+// de @page, sem colidir com o conteúdo). O cabeçalho GRANDE continua sendo
+// conteúdo normal da página, aparece uma vez.
+function headerTemplate(meta) {
+  return `<style>#rh{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:8px;color:#8A968A;width:100%;box-sizing:border-box;padding:0 12mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact}#rh b{color:#2E5E3E;font-weight:700}</style>
+<div id="rh"><span><b>${esc(meta.titulo)}</b>${meta.empresa ? ' · ' + esc(meta.empresa) : ''}</span><span>${esc(meta.emitidoEm)}</span></div>`;
+}
+function footerTemplate() {
+  return `<style>#rf{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:8px;color:#8A968A;width:100%;box-sizing:border-box;padding:4px 12mm 0;border-top:1px solid #E3E8E1;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact}</style>
+<div id="rf"><span>DataHub · GPA Analytics · Relatório gerado eletronicamente</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span></div>`;
+}
+
 async function render(url) {
   const browser = await getBrowser();
   const context = await browser.newContext({ viewport: A4_RETRATO });
@@ -61,9 +76,13 @@ async function render(url) {
       .waitForFunction(() => window.__RELATORIO_PRONTO__ === true, { timeout: 25000 })
       .catch(() => {});   // best-effort: página travada ainda gera PDF
 
-    const paisagem = await page
-      .evaluate(() => window.__RELATORIO_PAISAGEM__ === true)
-      .catch(() => false);
+    const { paisagem, meta } = await page
+      .evaluate(() => ({
+        paisagem: window.__RELATORIO_PAISAGEM__ === true,
+        meta: window.__RELATORIO_META__ || {},
+      }))
+      .catch(() => ({ paisagem: false, meta: {} }));
+
     if (paisagem) {
       await page.setViewportSize(A4_PAISAGEM);
       // deixa o ResizeObserver do ECharts re-medir os gráficos (2 frames) antes
@@ -75,9 +94,15 @@ async function render(url) {
 
     return await page.pdf({
       printBackground: true,
-      preferCSSPageSize: true,
+      format: 'A4',
       landscape: paisagem,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      displayHeaderFooter: true,
+      headerTemplate: headerTemplate(meta),
+      footerTemplate: footerTemplate(),
+      // topo/base reservam o cabeçalho/rodapé repetidos; lateral 0 pra o
+      // conteúdo ser medido na largura cheia do A4 (o viewport = largura A4);
+      // a folga lateral vem do padding do .relatorio-pagina na impressão.
+      margin: { top: '16mm', bottom: '14mm', left: '0', right: '0' },
     });
   } finally {
     await context.close();

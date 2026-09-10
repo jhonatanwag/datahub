@@ -50,7 +50,8 @@
 
 <style>
   .rc {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    /* conteúdo normal — aparece uma vez no topo do relatório. O cabeçalho que
+       se repete em toda página do PDF vem do page.pdf({displayHeaderFooter}). */
     background: #F4F6F2;
   }
   .rc-faixa {

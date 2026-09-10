@@ -105,6 +105,13 @@
 
   $: if (typeof window !== 'undefined') window.__RELATORIO_PRONTO__ = pronto;
   $: if (typeof window !== 'undefined') window.__RELATORIO_PAISAGEM__ = paisagem;
+  // Metadados pro cabeçalho/rodapé que o page.pdf() repete em toda página
+  // (displayHeaderFooter no renderer). O cabeçalho grande continua no fluxo.
+  $: if (typeof window !== 'undefined') window.__RELATORIO_META__ = {
+    titulo: tituloRelatorio,
+    empresa: empresa.nome,
+    emitidoEm: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date()),
+  };
 
   $: lista = indicadorUnico ? [indicadorUnico] : indicadores;
   $: idsAssincronos = lista
@@ -207,27 +214,35 @@
               <p class="rel-vazio">Sem dados no período</p>
             {/if}
           {:else if ind.query_tipo === 'table'}
-            <DataTable
-              dados={ind.dados}
-              titulo={ind.titulo || ind.query_slug}
-              modoRelatorio={true}
-              impressaoHabilitada={ind.impressao_habilitada}
-              impressaoColuna={ind.impressao_coluna}
-              metaHabilitada={ind.meta_habilitada}
-              metaColunaValor={ind.meta_coluna_valor}
-              metaColunaInicio={ind.meta_coluna_inicio}
-              metaColunaFim={ind.meta_coluna_fim}
-              metaCorDentro={ind.meta_cor_dentro}
-              metaCorFora={ind.meta_cor_fora}
-            />
+            {#if temDados(ind)}
+              <DataTable
+                dados={ind.dados}
+                titulo={ind.titulo || ind.query_slug}
+                modoRelatorio={true}
+                impressaoHabilitada={ind.impressao_habilitada}
+                impressaoColuna={ind.impressao_coluna}
+                metaHabilitada={ind.meta_habilitada}
+                metaColunaValor={ind.meta_coluna_valor}
+                metaColunaInicio={ind.meta_coluna_inicio}
+                metaColunaFim={ind.meta_coluna_fim}
+                metaCorDentro={ind.meta_cor_dentro}
+                metaCorFora={ind.meta_cor_fora}
+              />
+            {:else}
+              <p class="rel-vazio">Sem dados no período</p>
+            {/if}
           {:else if ind.query_tipo === 'table_dynamic'}
-            <DynamicTable
-              dados={ind.dados}
-              titulo={ind.titulo || ind.query_slug}
-              agrupamentos={ind.agrupamentos ?? []}
-              agregacoes={ind.agregacoes ?? []}
-              modoRelatorio={true}
-            />
+            {#if temDados(ind)}
+              <DynamicTable
+                dados={ind.dados}
+                titulo={ind.titulo || ind.query_slug}
+                agrupamentos={ind.agrupamentos ?? []}
+                agregacoes={ind.agregacoes ?? []}
+                modoRelatorio={true}
+              />
+            {:else}
+              <p class="rel-vazio">Sem dados no período</p>
+            {/if}
           {:else if ind.query_tipo === 'map'}
             {#if temDados(ind)}
               <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} temaForcado="claro" on:pronto={() => marcarPronto(ind.id)} />
