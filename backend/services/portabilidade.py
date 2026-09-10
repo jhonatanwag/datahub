@@ -390,11 +390,20 @@ async def _upsert_query_base(conn, qb: dict):
             qb["slug"], *[dados[c] for c in cols])
 
 
-async def _set_subquery(conn, slug: str, subquery_slug: str):
-    sub = await conn.fetch("SELECT id FROM queries WHERE slug = $1 ORDER BY empresa_id NULLS FIRST LIMIT 1",
-                           subquery_slug)
+async def _set_subquery(conn, slug: str, empresa_slug, subquery_slug: str, subquery_empresa_slug):
+    """Passo 2: liga a query pai (slug, empresa) à sua subquery. Ambos os
+    statements são escopados por (slug, empresa_id IS NOT DISTINCT FROM ...),
+    igual a `_id_query_por_slug` — nunca por slug sozinho, senão um slug
+    repetido entre empresas resolveria/gravaria na linha errada."""
+    emp_id = await _empresa_id_de_slug(empresa_slug)
+    sub_emp_id = await _empresa_id_de_slug(subquery_empresa_slug)
+    sub = await conn.fetch(
+        "SELECT id FROM queries WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+        subquery_slug, sub_emp_id)
     sub_id = sub[0]["id"] if sub else None
-    await conn.execute("UPDATE queries SET subquery_id = $1 WHERE slug = $2", sub_id, slug)
+    await conn.execute(
+        "UPDATE queries SET subquery_id = $1 WHERE slug = $2 AND empresa_id IS NOT DISTINCT FROM $3",
+        sub_id, slug, emp_id)
 
 
 async def _id_query_por_slug(conn, slug: str, emp_slug):
@@ -493,6 +502,7 @@ async def importar_bundle(bundle: dict, aplicar: dict) -> dict:
     if faltando:
         raise HTTPException(400, "Dependências ausentes (marque para importar): " + ", ".join(faltando))
 
+    por_slug = {q["slug"]: q for q in bundle["queries"]}
     slugs_query_tocados: list[str] = []
     async with meta_tx() as conn:
         for vb in bundle["variaveis"]:
@@ -506,7 +516,10 @@ async def importar_bundle(bundle: dict, aplicar: dict) -> dict:
 
         for qb in bundle["queries"]:
             if qb["slug"] in aplicar_qry and qb.get("subquery_slug"):
-                await _set_subquery(conn, qb["slug"], qb["subquery_slug"])
+                sub_entry = por_slug.get(qb["subquery_slug"])
+                sub_emp_slug = sub_entry.get("empresa_slug") if sub_entry else qb.get("empresa_slug")
+                await _set_subquery(conn, qb["slug"], qb.get("empresa_slug"),
+                                    qb["subquery_slug"], sub_emp_slug)
 
         for qb in bundle["queries"]:
             if qb["slug"] in aplicar_qry:
