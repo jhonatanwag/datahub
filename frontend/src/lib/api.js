@@ -160,6 +160,33 @@ export const api = {
             body: formData,
         }).then(r => r.json());
     },
+    exportarPainel: async (id) => {
+        const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+        const res = await fetch(`${BASE}/api/paineis/${id}/exportar`, {
+            headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+        });
+        if (!res.ok) {
+            const txt = await res.text();
+            let msg; try { msg = JSON.parse(txt).detail || txt; } catch { msg = txt; }
+            throw new Error(msg || `HTTP ${res.status}`);
+        }
+        const blob = await res.blob();
+        const dispo = res.headers.get('Content-Disposition') || '';
+        const m = dispo.match(/filename="(.+?)"/);
+        const nome = m ? m[1] : `painel-${id}.json`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nome;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    },
+    analisarImportPainel: (bundle) =>
+        request('/api/portabilidade/paineis/analisar', { method: 'POST', body: JSON.stringify(bundle) }),
+    importarPainel: (payload) =>
+        request('/api/portabilidade/paineis/importar', { method: 'POST', body: JSON.stringify(payload) }),
 
     // Indicadores do painel
     indicadoresPainel:      (id)        => request(`/api/paineis/${id}/indicadores`),

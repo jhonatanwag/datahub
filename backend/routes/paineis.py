@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta
+from services.grupos import resolver_grupo_id
 import secrets
 import logging
 from urllib.parse import urlencode, quote
@@ -60,20 +61,6 @@ class VariavelPainelInput(BaseModel):
     valor_padrao_inicio: Optional[str] = None  # date_range: slot início
     valor_padrao_fim: Optional[str] = None      # date_range: slot fim
     posicao: int = 0
-
-
-async def _resolver_grupo_id(nome):
-    """Acha o grupo pelo nome (case-insensitive) ou cria um novo — a tela de
-    painel só manda um texto livre, sem tela de gestão de grupos separada.
-    Mesmo padrão de `_resolver_grupo_id` em routes/queries.py."""
-    nome = (nome or "").strip()
-    if not nome:
-        return None
-    existente = await query_meta("SELECT id FROM painel_grupos WHERE LOWER(nome) = LOWER($1)", nome)
-    if existente:
-        return existente[0]["id"]
-    novo = await query_meta("INSERT INTO painel_grupos (nome) VALUES ($1) RETURNING id", nome)
-    return novo[0]["id"]
 
 
 # ── Rotas estáticas ANTES das dinâmicas ──────────────────────
@@ -264,7 +251,7 @@ async def buscar_painel(painel_id: int, user=Depends(get_current_user)):
 
 @router.post("/")
 async def criar_painel(body: PainelInput, user=Depends(require_admin)):
-    grupo_id = await _resolver_grupo_id(body.grupo_nome)
+    grupo_id = await resolver_grupo_id("painel_grupos", body.grupo_nome)
     rows = await query_meta("""
         INSERT INTO paineis
             (slug, nome, descricao, icone, colunas, linhas_fixas,
@@ -286,7 +273,7 @@ async def atualizar_painel(painel_id: int, body: dict, user=Depends(require_admi
         raise HTTPException(404, "Painel não encontrado")
 
     if "grupo_nome" in body:
-        body["grupo_id"] = await _resolver_grupo_id(body.pop("grupo_nome"))
+        body["grupo_id"] = await resolver_grupo_id("painel_grupos", body.pop("grupo_nome"))
 
     campos = []
     valores = []

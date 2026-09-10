@@ -29,6 +29,19 @@
       alert(e.message);
     }
   }
+
+  let exportandoId = null;
+
+  async function exportar(p) {
+    exportandoId = p.id;
+    try {
+      await api.exportarPainel(p.id);
+    } catch (e) {
+      alert(`Falha ao exportar: ${e.message}`);
+    } finally {
+      exportandoId = null;
+    }
+  }
 </script>
 
 <svelte:head><title>Painéis — GPA Analytics</title></svelte:head>
@@ -36,7 +49,10 @@
 <div class="page">
   <div class="page-header">
     <h2>Painéis</h2>
-    <a href="/configuracoes/paineis/novo" class="btn-primary">+ Novo Painel</a>
+    <div class="header-acoes">
+      <a href="/configuracoes/paineis/importar" class="btn-ghost">Importar painel</a>
+      <a href="/configuracoes/paineis/novo" class="btn-primary">+ Novo Painel</a>
+    </div>
   </div>
 
   {#if carregando}
@@ -83,6 +99,9 @@
           <div class="card-actions">
             <a href="/painel/{p.slug}" class="btn-ghost btn-sm" target="_blank">Ver painel</a>
             <a href="/configuracoes/paineis/{p.id}" class="btn-ghost btn-sm">Editar</a>
+            <button class="btn-ghost btn-sm" on:click={() => exportar(p)} disabled={exportandoId === p.id}>
+              {exportandoId === p.id ? 'Exportando…' : 'Exportar'}
+            </button>
             {#if p.ativo}
               <button class="btn-ghost btn-sm danger" on:click={() => desativar(p)}>Desativar</button>
             {/if}
@@ -96,6 +115,7 @@
 <style>
 .page { padding: 24px; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.header-acoes { display: flex; gap: 8px; align-items: center; }
 h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .filtros { margin-bottom: 16px; }
 .filtros select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; width: 220px; }
