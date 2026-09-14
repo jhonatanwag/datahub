@@ -273,7 +273,9 @@
               grid-row:    {ind.linha}  / span {ind.row_span};
             "
           >
-            <div class="card-titulo">{ind.titulo || ind.query_slug}</div>
+            {#if ind.erro || ind.query_tipo !== 'kpi'}
+              <div class="card-titulo">{ind.titulo || ind.query_slug}</div>
+            {/if}
 
             {#if ind.erro}
               <p class="error" style="font-size:12px; padding:8px">{ind.erro}</p>
@@ -287,6 +289,7 @@
                 imagemPosicao={ind.kpi_imagem_posicao}
                 valorPrimeiro={ind.kpi_valor_primeiro}
                 descricao={ind.descricao}
+                titulo={ind.titulo || ind.query_slug}
               />
 
             {:else if ind.query_tipo?.startsWith('chart_')}

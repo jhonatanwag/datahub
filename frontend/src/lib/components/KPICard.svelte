@@ -6,6 +6,7 @@
   export let imagemPosicao  = 'direita'; // 'esquerda' | 'direita' — o valor do KPI fica sempre no lado oposto
   export let descricao      = null;
   export let valorPrimeiro  = false; // true = valor em cima, label embaixo
+  export let titulo         = null; // quando informado, título fica dentro do próprio card (mesma cor/fundo)
 
   $: valor    = dados?.valor     ?? 0;
   $: label    = dados?.label     ?? '—';
@@ -27,6 +28,10 @@
 </script>
 
 <div class="kpi-card card" style={estiloCard}>
+  {#if titulo}
+    <div class="kpi-titulo" style={estiloLabel}>{titulo}</div>
+  {/if}
+
   <div class="kpi-topo" class:com-imagem={!!imagemUrl}>
     {#if imagemUrl && imagemPosicao === 'esquerda'}
       <img class="kpi-imagem" src={imagemUrl} alt="" />
@@ -63,6 +68,7 @@
 .kpi-topo.com-imagem { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
 .kpi-texto { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .kpi-imagem { width: 56px; height: 56px; object-fit: contain; border-radius: var(--radius-lg); flex-shrink: 0; }
+.kpi-titulo { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .valor { font-family: var(--font-display); font-size: 28px; font-weight: 500; color: var(--text); }
 .delta { font-size: 12px; font-weight: 600; }
@@ -76,6 +82,7 @@
 @media (max-width: 768px) {
   .valor { font-size: 24px; }
   .kpi-imagem { width: 44px; height: 44px; }
+  .kpi-titulo { font-size: 11px; }
 }
 
 @media (min-width: 1920px) {
@@ -84,5 +91,6 @@
   .delta { font-size: 15px; }
   .kpi-imagem { width: 72px; height: 72px; }
   .kpi-descricao { font-size: 13px; }
+  .kpi-titulo { font-size: 14px; }
 }
 </style>

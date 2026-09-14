@@ -184,7 +184,9 @@
     <div class="painel-grid" style="grid-template-columns: repeat({painel.colunas}, 1fr)">
       {#each indicadores as ind}
         <div class="grid-item" style="grid-column: {ind.coluna} / span {ind.col_span};">
-          <div class="card-titulo">{ind.titulo || ind.query_slug}</div>
+          {#if ind.erro || ind.query_tipo !== 'kpi'}
+            <div class="card-titulo">{ind.titulo || ind.query_slug}</div>
+          {/if}
 
           {#if ind.erro}
             <p class="rel-erro">{ind.erro}</p>
@@ -197,6 +199,7 @@
               imagemPosicao={ind.kpi_imagem_posicao}
               valorPrimeiro={ind.kpi_valor_primeiro}
               descricao={ind.descricao}
+              titulo={ind.titulo || ind.query_slug}
             />
           {:else if String(ind.query_tipo).startsWith('chart_')}
             {#if temDados(ind)}
