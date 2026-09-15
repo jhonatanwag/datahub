@@ -105,8 +105,11 @@
         rotate: rot,
         // sem rotação, encosta o 1º/último rótulo na borda em vez de centralizar
         // (senão a metade de fora é cortada quando o gráfico ocupa a largura toda);
-        // com rotação o ECharts já resolve a borda sozinho
-        ...(rot ? {} : { alignMinLabel: 'left', alignMaxLabel: 'right' }),
+        // com rotação o ECharts já resolve a borda sozinho.
+        // Só faz sentido quando a categoria é o eixo horizontal (chart_bar/chart_line):
+        // no chart_bar_horizontal a categoria vira o eixo Y e alignMinLabel/alignMaxLabel
+        // (alinhamento horizontal do texto) empurra o rótulo de borda pra dentro do gráfico.
+        ...(!rot && !isHorizontal ? { alignMinLabel: 'left', alignMaxLabel: 'right' } : {}),
       },
     };
     const eixoValor = {
