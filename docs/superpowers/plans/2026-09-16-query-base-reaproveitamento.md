@@ -49,7 +49,7 @@
 **Interfaces:**
 - Produces: coluna `queries.query_base_id INTEGER REFERENCES queries(id) ON DELETE SET NULL` + índice `idx_queries_base` — usada por todas as tasks seguintes.
 
-- [ ] **Step 1: Aplicar no banco de dev**
+- [x] **Step 1: Aplicar no banco de dev**
 
 ```bash
 docker exec datahub_postgres psql -U postgres -d datahub_meta -c "
@@ -58,7 +58,7 @@ CREATE INDEX idx_queries_base ON queries(query_base_id);
 "
 ```
 
-- [ ] **Step 2: Verificar que a coluna e o índice existem**
+- [x] **Step 2: Verificar que a coluna e o índice existem**
 
 ```bash
 docker exec datahub_postgres psql -U postgres -d datahub_meta -c "\d queries" | grep -E "query_base_id|idx_queries_base"
@@ -66,7 +66,7 @@ docker exec datahub_postgres psql -U postgres -d datahub_meta -c "\d queries" | 
 
 Expected: a linha `query_base_id | integer` aparece na lista de colunas, e `idx_queries_base` aparece em Indexes.
 
-- [ ] **Step 3: Refletir no schema de referência local**
+- [x] **Step 3: Refletir no schema de referência local**
 
 Em `scripts/init-db.sql`, localizar o bloco `CREATE TABLE queries (...)` e a linha que hoje cria `subquery_id` (mesma coluna que serviu de precedente pra esse padrão). Adicionar logo depois dela:
 
@@ -80,11 +80,11 @@ E depois do bloco de `CREATE INDEX` de `queries`, adicionar:
 CREATE INDEX idx_queries_base ON queries(query_base_id);
 ```
 
-- [ ] **Step 4: Refletir no schema de produção**
+- [x] **Step 4: Refletir no schema de produção**
 
 Repetir exatamente o mesmo par de edições (coluna + índice) em `scripts/init-meta-prod.sql`, no mesmo formato.
 
-- [ ] **Step 5: Documentar a pendência de produção**
+- [x] **Step 5: Documentar a pendência de produção**
 
 Em `README.md`, seção "Deltas de schema pendentes" (mesmo bloco onde outras colunas novas já foram documentadas, ex. `tema`), adicionar:
 
@@ -94,7 +94,7 @@ ALTER TABLE queries ADD COLUMN query_base_id INTEGER REFERENCES queries(id) ON D
 CREATE INDEX idx_queries_base ON queries(query_base_id);
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/init-db.sql scripts/init-meta-prod.sql README.md
@@ -113,7 +113,7 @@ git commit -m "feat: coluna query_base_id em queries (reaproveitamento de SQL en
 - Consumes: nada de tasks anteriores (só a coluna do schema).
 - Produces: `resolver_query` passa a aceitar queries com `query_base_id` preenchido; novo `invalidar_cache_derivadas(query_id: int) -> None` em `query_runner.py`, usado pela Task 3.
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Criar `backend/tests/test_queries_base.py`:
 
@@ -159,7 +159,7 @@ def test_derivada_executa_via_cte_da_base(client, auth_token):
         client.delete(f"/api/queries/{base['id']}", headers=_headers(t))
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/test_queries_base.py::test_derivada_executa_via_cte_da_base -v
@@ -167,7 +167,7 @@ docker exec datahub_backend python -m pytest tests/test_queries_base.py::test_de
 
 Expected: FAIL — `criar_query` aceita `query_base_id` no payload (Pydantic ignora campo desconhecido silenciosamente hoje... na verdade não, `QueryInput` ainda não tem o campo, então o valor é descartado) e a query derivada é gravada com `sql_texto` que referencia `base`, uma tabela inexistente → `executar` retorna 500 (`relation "base" does not exist`), não 200.
 
-- [ ] **Step 3: Implementar a composição da CTE**
+- [x] **Step 3: Implementar a composição da CTE**
 
 Em `backend/services/query_runner.py`, dentro de `resolver_query` (linha 98, logo após `query = dict(rows[0])`), inserir:
 
@@ -211,7 +211,7 @@ Substituir a chamada de `param_rows` (linha 110-116 atual) pra usar `query_param
 
 O resto da função (loop de `valores`, `_cast`, `query_company`, cache) não muda.
 
-- [ ] **Step 4: Rodar e confirmar que passa**
+- [x] **Step 4: Rodar e confirmar que passa**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/test_queries_base.py::test_derivada_executa_via_cte_da_base -v
@@ -219,7 +219,7 @@ docker exec datahub_backend python -m pytest tests/test_queries_base.py::test_de
 
 Ainda deve falhar nesse ponto — `criar_query` ainda não persiste `query_base_id` (isso é a Task 3). Confirmar que o erro mudou: agora é 200 mas com dados vazios/errados, ou ainda erro de "relation base does not exist" se o campo continuar sendo descartado no `POST`. **Esperado neste passo: ainda falha, mas por causa da Task 3, não da Task 2** — documentar isso no commit da Task 2 e seguir; o teste só vai passar de verdade ao final da Task 3.
 
-- [ ] **Step 5: Adicionar `invalidar_cache_derivadas`**
+- [x] **Step 5: Adicionar `invalidar_cache_derivadas`**
 
 Em `backend/services/query_runner.py`, logo depois de `invalidar_cache_query` (linha 152-161):
 
@@ -233,7 +233,7 @@ async def invalidar_cache_derivadas(query_id: int):
         await invalidar_cache_query(d["slug"])
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/services/query_runner.py backend/tests/test_queries_base.py
@@ -252,7 +252,7 @@ git commit -m "feat: resolver_query compõe CTE quando query_base_id está setad
 - Consumes: `invalidar_cache_derivadas` (Task 2, `services/query_runner.py`).
 - Produces: `POST/PATCH /api/queries` aceitam e validam `query_base_id`; `POST /api/queries/testar` compõe a CTE; `POST /api/queries/{id}/duplicar` preserva o vínculo.
 
-- [ ] **Step 1: Escrever os testes que faltam (continuação de `test_queries_base.py`)**
+- [x] **Step 1: Escrever os testes que faltam (continuação de `test_queries_base.py`)**
 
 ```python
 def test_criar_derivada_com_base_e_persistida(client, auth_token):
@@ -391,7 +391,7 @@ def test_testar_query_com_base_compoe_cte(client, auth_token):
         client.delete(f"/api/queries/{base['id']}", headers=_headers(t))
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falham**
+- [x] **Step 2: Rodar e confirmar que falham**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/test_queries_base.py -v
@@ -399,7 +399,7 @@ docker exec datahub_backend python -m pytest tests/test_queries_base.py -v
 
 Expected: todos os testes novos falham (400 esperado vira 200, `query_base_id` não persiste, `testar` não compõe CTE).
 
-- [ ] **Step 3: Adicionar o campo aos modelos**
+- [x] **Step 3: Adicionar o campo aos modelos**
 
 Em `backend/routes/queries.py:47` (logo após `chart_filtro_coluna: Optional[str] = None` em `QueryInput`), adicionar:
 
@@ -413,7 +413,7 @@ Fazer o mesmo em `QueryUpdate`, logo após a linha equivalente (linha 83):
     query_base_id: Optional[int] = None
 ```
 
-- [ ] **Step 4: Importar o novo helper**
+- [x] **Step 4: Importar o novo helper**
 
 Em `backend/routes/queries.py:6`, trocar:
 
@@ -427,7 +427,7 @@ por:
 from services.query_runner import resolver_query, invalidar_cache_query, invalidar_cache_derivadas, validar_sql, _cast
 ```
 
-- [ ] **Step 5: Criar o helper de validação**
+- [x] **Step 5: Criar o helper de validação**
 
 Em `backend/routes/queries.py`, logo depois de `_com_kpi_imagem_url` (depois da linha 139), adicionar:
 
@@ -447,7 +447,7 @@ async def _validar_query_base(query_base_id: Optional[int], excluir_id: Optional
         )
 ```
 
-- [ ] **Step 6: Validar e incluir no `criar_query`**
+- [x] **Step 6: Validar e incluir no `criar_query`**
 
 Em `backend/routes/queries.py:418` (logo após `validar_sql(body.sql_texto)`, antes de `grupo_id = await resolver_grupo_id(...)`), adicionar:
 
@@ -480,7 +480,7 @@ No `INSERT` de `criar_query` (linhas 421-446), adicionar `query_base_id` à list
 
 (Contagem de `$N` sobe de 34 pra 35; o resto do `INSERT` fica igual.)
 
-- [ ] **Step 7: Validar e incluir no `atualizar_query`**
+- [x] **Step 7: Validar e incluir no `atualizar_query`**
 
 Em `backend/routes/queries.py:480` (dentro de `ALLOWED_COLS`), adicionar `'query_base_id'` ao conjunto:
 
@@ -511,7 +511,7 @@ por:
             await invalidar_cache_derivadas(query_id)
 ```
 
-- [ ] **Step 8: Compor a CTE em `testar_query`**
+- [x] **Step 8: Compor a CTE em `testar_query`**
 
 Em `backend/routes/queries.py:187-216`, depois de `validar_sql(body.sql_texto)` (linha 190), adicionar:
 
@@ -538,7 +538,7 @@ para:
         resultado = await query_company(company_slug, sql_para_rodar, *valores)
 ```
 
-- [ ] **Step 9: Incluir na duplicação**
+- [x] **Step 9: Incluir na duplicação**
 
 Em `backend/routes/queries.py:561-585` (`duplicar_query`), adicionar `query_base_id` às duas listas de colunas do `INSERT ... SELECT` (linhas 570-571 e 581-582 — as duas ocorrências de `chart_rotulo_eixo, chart_rotulo_valor`):
 
@@ -549,7 +549,7 @@ Em `backend/routes/queries.py:561-585` (`duplicar_query`), adicionar `query_base
 
 (mesma troca nas duas ocorrências — a lista de colunas do `INSERT INTO queries (...)` e a lista espelhada do `SELECT ...`.)
 
-- [ ] **Step 10: Rodar e confirmar que passam**
+- [x] **Step 10: Rodar e confirmar que passam**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/test_queries_base.py -v
@@ -557,7 +557,7 @@ docker exec datahub_backend python -m pytest tests/test_queries_base.py -v
 
 Expected: todos os testes (Task 2 + Task 3) em PASS.
 
-- [ ] **Step 11: Rodar a suíte completa (regressão)**
+- [x] **Step 11: Rodar a suíte completa (regressão)**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/ -v
@@ -565,7 +565,7 @@ docker exec datahub_backend python -m pytest tests/ -v
 
 Expected: nenhum teste pré-existente quebrou (`subquery_id`, `table_dynamic`, `portabilidade` etc. continuam passando sem alteração de comportamento).
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add backend/routes/queries.py backend/tests/test_queries_base.py
@@ -584,7 +584,7 @@ git commit -m "feat: query_base_id em criar/editar/testar/duplicar query, com va
 - Consumes: `query_base_id` persistido (Task 3).
 - Produces: bundle de export inclui `base_query_slug`; import resolve o vínculo por slug, mesmo padrão de `subquery_slug`.
 
-- [ ] **Step 1: Escrever os testes que faltam**
+- [x] **Step 1: Escrever os testes que faltam**
 
 Em `backend/tests/test_portabilidade_paineis.py`, adicionar (usando os helpers `_headers`/`_criar_query`/`_criar_painel` já existentes no topo do arquivo):
 
@@ -655,7 +655,7 @@ def test_importar_resolve_base_query_slug(client, auth_token):
                 hard_delete_painel(p["id"])
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falham**
+- [x] **Step 2: Rodar e confirmar que falham**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/test_portabilidade_paineis.py::test_exportar_traz_fecho_transitivo_de_query_base tests/test_portabilidade_paineis.py::test_importar_resolve_base_query_slug -v
@@ -663,7 +663,7 @@ docker exec datahub_backend python -m pytest tests/test_portabilidade_paineis.py
 
 Expected: FAIL — `base_query_slug` não existe no bundle; `query_base_id` fica `None` depois do import.
 
-- [ ] **Step 3: Serializar `base_query_slug`**
+- [x] **Step 3: Serializar `base_query_slug`**
 
 Em `backend/services/portabilidade.py:57` (logo após a linha de `subquery_slug`), adicionar:
 
@@ -671,7 +671,7 @@ Em `backend/services/portabilidade.py:57` (logo após a linha de `subquery_slug`
     out["base_query_slug"] = await _nome_por_id("queries", "slug", row["query_base_id"])
 ```
 
-- [ ] **Step 4: Incluir no fecho transitivo do export**
+- [x] **Step 4: Incluir no fecho transitivo do export**
 
 Em `montar_bundle_painel`, logo depois do bloco de `subquery_id` (linhas 146-149), adicionar:
 
@@ -682,7 +682,7 @@ Em `montar_bundle_painel`, logo depois do bloco de `subquery_id` (linhas 146-149
                 fila.append(base[0]["slug"])
 ```
 
-- [ ] **Step 5: Incluir no diff de conflito**
+- [x] **Step 5: Incluir no diff de conflito**
 
 Em `backend/services/portabilidade.py:217-220`, adicionar `"base_query_slug"` à lista `_QUERY_DIFF_KEYS`:
 
@@ -693,7 +693,7 @@ _QUERY_DIFF_KEYS = QUERY_CAMPOS + [
 ]
 ```
 
-- [ ] **Step 6: Checar dependência ausente no `_checar_dependencias`**
+- [x] **Step 6: Checar dependência ausente no `_checar_dependencias`**
 
 Em `backend/services/portabilidade.py`, dentro do loop de `for q in bundle["queries"]:` que já checa `subquery_slug` (linhas 348-352), adicionar logo depois:
 
@@ -702,7 +702,7 @@ Em `backend/services/portabilidade.py`, dentro do loop de `for q in bundle["quer
             faltando.append(f"query base '{q['base_query_slug']}'")
 ```
 
-- [ ] **Step 7: Resolver o vínculo no import (passo 2, mesmo padrão de `_set_subquery`)**
+- [x] **Step 7: Resolver o vínculo no import (passo 2, mesmo padrão de `_set_subquery`)**
 
 Adicionar uma função nova logo depois de `_set_subquery` (depois da linha 438):
 
@@ -738,7 +738,7 @@ Em `importar_bundle`, logo depois do loop que resolve `subquery_slug`/limpa `sub
                     qb["slug"], emp_id)
 ```
 
-- [ ] **Step 8: Rodar e confirmar que passam**
+- [x] **Step 8: Rodar e confirmar que passam**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/test_portabilidade_paineis.py -v
@@ -746,7 +746,7 @@ docker exec datahub_backend python -m pytest tests/test_portabilidade_paineis.py
 
 Expected: todos os testes de portabilidade (novos + pré-existentes) em PASS.
 
-- [ ] **Step 9: Rodar a suíte completa**
+- [x] **Step 9: Rodar a suíte completa**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/ -v
@@ -754,7 +754,7 @@ docker exec datahub_backend python -m pytest tests/ -v
 
 Expected: sem regressão.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add backend/services/portabilidade.py backend/tests/test_portabilidade_paineis.py

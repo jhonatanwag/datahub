@@ -24,6 +24,7 @@
     kpi_imagem_habilitada: false, kpi_imagem_posicao: 'direita',
     kpi_valor_primeiro: false,
     grupo_nome: '',
+    query_base_id: null,
   };
 
   let kpiImagemFile    = null;
@@ -49,6 +50,7 @@
   let queriesDisponiveis = [];
   let subqueryParams     = []; // parâmetros da query_parametros da subconsulta escolhida
   let mapeamentoSubquery = []; // [{coluna_origem, parametro_destino}] — mesmo tamanho de subqueryParams
+  let baseParams         = []; // parâmetros ($1..) da query base escolhida, com _testar_valor local
 
   const tipos = [
     'kpi', 'chart_line', 'chart_bar',
@@ -144,8 +146,18 @@
     mapeamentoSubquery = subqueryParams.map((p, idx) => ({ coluna_origem: '', parametro_destino: p.nome, ordem: idx }));
   }
 
+  async function onBaseQueryChange() {
+    if (!form.query_base_id) {
+      baseParams = [];
+      return;
+    }
+    const fetched = await api.parametrosQuery(form.query_base_id);
+    baseParams = fetched.map(p => ({ ...p, _testar_valor: '' }));
+  }
+
   async function testar(sql) {
-    const testar_parametros = params.map(p => ({
+    const origem = form.query_base_id ? baseParams : params;
+    const testar_parametros = origem.map(p => ({
       nome:  p.nome,
       valor: p._testar_valor !== '' ? p._testar_valor : (p.valor_padrao || null)
     }));
@@ -563,6 +575,37 @@
         </div>
       </div>
     {/if}
+
+    <div class="section-block">
+      <span class="section-title">Query base (opcional)</span>
+      <label class="lbl">
+        Reaproveitar o FROM/JOIN de outra query já cadastrada
+        <select bind:value={form.query_base_id} on:change={onBaseQueryChange}>
+          <option value={null}>— nenhuma (SQL completo abaixo) —</option>
+          {#each queriesDisponiveis.filter(q => !q.query_base_id && q.slug !== form.slug) as q}
+            <option value={q.id}>{q.nome} ({q.slug})</option>
+          {/each}
+        </select>
+      </label>
+      {#if form.query_base_id}
+        <p class="hint-block">
+          Escreva o SQL abaixo como se <code>base</code> já fosse uma tabela — sem repetir
+          FROM/JOIN/filtros. Os parâmetros abaixo (da base) já estão disponíveis dentro da CTE;
+          não precisa recriá-los na seção "Parâmetros".
+        </p>
+        {#if baseParams.length > 0}
+          <div class="params-table">
+            {#each baseParams as p, i}
+              <div class="params-row">
+                <span class="pos-badge">${i + 1}</span>
+                <span>{p.nome}</span>
+                <input class="input-teste" bind:value={baseParams[i]._testar_valor} placeholder="valor p/ teste" />
+              </div>
+            {/each}
+          </div>
+        {/if}
+      {/if}
+    </div>
 
     <!-- Parâmetros -->
     <div class="section-block">
