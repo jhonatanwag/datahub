@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta, query_company
-from services.query_runner import resolver_query, invalidar_cache_query, validar_sql, _cast
+from services.query_runner import resolver_query, invalidar_cache_query, invalidar_cache_derivadas, validar_sql, _cast
 from services.grupos import resolver_grupo_id
 
 router = APIRouter(prefix="/api/queries", tags=["Queries"])
@@ -46,6 +46,7 @@ class QueryInput(BaseModel):
     kpi_valor_primeiro: Optional[bool] = False
     chart_filtro_coluna: Optional[str] = None
     grupo_nome: Optional[str] = None
+    query_base_id: Optional[int] = None
 
 
 class QueryUpdate(BaseModel):
@@ -82,6 +83,7 @@ class QueryUpdate(BaseModel):
     kpi_valor_primeiro: Optional[bool] = None
     chart_filtro_coluna: Optional[str] = None
     grupo_nome: Optional[str] = None
+    query_base_id: Optional[int] = None
 
 
 class ParamInput(BaseModel):
@@ -137,6 +139,21 @@ def _com_kpi_imagem_url(row: dict) -> dict:
     row.pop("kpi_imagem_mime", None)
     row["kpi_imagem_url"] = f"/api/queries/{row['id']}/kpi-imagem" if tem_imagem else None
     return row
+
+
+async def _validar_query_base(query_base_id: Optional[int], excluir_id: Optional[int] = None):
+    if query_base_id is None:
+        return
+    if query_base_id == excluir_id:
+        raise HTTPException(status_code=400, detail="Uma query não pode ser base dela mesma.")
+    rows = await query_meta("SELECT id, query_base_id, ativo FROM queries WHERE id = $1", query_base_id)
+    if not rows or not rows[0]["ativo"]:
+        raise HTTPException(status_code=400, detail=f"Query base #{query_base_id} não encontrada ou inativa.")
+    if rows[0]["query_base_id"] is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Não é permitido encadear: a query escolhida como base já é derivada de outra.",
+        )
 
 
 @router.get("/layout/dashboard")
@@ -199,10 +216,19 @@ async def testar_query(body: QueryInput, user=Depends(require_admin)):
                 return {"ok": False, "erro": f"Empresa #{body.testar_empresa_id} não encontrada ou inativa"}
             company_slug = emp[0]["slug"]
 
+        sql_para_rodar = body.sql_texto
+        if body.query_base_id:
+            base_rows = await query_meta(
+                "SELECT sql_texto FROM queries WHERE id = $1 AND ativo = true", body.query_base_id
+            )
+            if not base_rows:
+                return {"ok": False, "erro": f"Query base #{body.query_base_id} não encontrada ou inativa"}
+            sql_para_rodar = f"WITH base AS ({base_rows[0]['sql_texto']}) {body.sql_texto}"
+
         # Constrói lista de valores posicionais na ordem dos parâmetros
         valores = [_cast(p.get("valor")) for p in body.testar_parametros]
 
-        resultado = await query_company(company_slug, body.sql_texto, *valores)
+        resultado = await query_company(company_slug, sql_para_rodar, *valores)
         data = [dict(r) for r in resultado[:50]]
         return {
             "ok": True,
@@ -416,6 +442,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
         if body.chart_rotulo_valor not in ROTULOS_VALIDOS:
             raise HTTPException(status_code=400, detail=f"Rotação do valor no gráfico inválida. Use: {ROTULOS_VALIDOS}")
         validar_sql(body.sql_texto)
+        await _validar_query_base(body.query_base_id)
         grupo_id = await resolver_grupo_id("query_grupos", body.grupo_nome)
 
         rows = await query_meta("""
@@ -427,9 +454,10 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 meta_habilitada, meta_coluna_valor, meta_coluna_inicio, meta_coluna_fim,
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
-                chart_filtro_coluna, grupo_id, kpi_valor_primeiro, chart_rotulo_eixo, chart_rotulo_valor
+                chart_filtro_coluna, grupo_id, kpi_valor_primeiro, chart_rotulo_eixo, chart_rotulo_valor,
+                query_base_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -443,7 +471,7 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id,
             body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao,
             body.chart_filtro_coluna, grupo_id, body.kpi_valor_primeiro, body.chart_rotulo_eixo,
-            body.chart_rotulo_valor)
+            body.chart_rotulo_valor, body.query_base_id)
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
@@ -477,7 +505,8 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'meta_habilitada', 'meta_coluna_valor', 'meta_coluna_inicio', 'meta_coluna_fim',
             'meta_cor_dentro', 'meta_cor_fora', 'subquery_id',
             'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao',
-            'kpi_valor_primeiro', 'chart_filtro_coluna', 'chart_rotulo_eixo', 'chart_rotulo_valor'
+            'kpi_valor_primeiro', 'chart_filtro_coluna', 'chart_rotulo_eixo', 'chart_rotulo_valor',
+            'query_base_id'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
@@ -514,6 +543,9 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         if "sql_texto" in updates:
             validar_sql(updates["sql_texto"])
 
+        if "query_base_id" in updates:
+            await _validar_query_base(updates["query_base_id"], excluir_id=query_id)
+
         if grupo_nome_informado:
             updates["grupo_id"] = await resolver_grupo_id("query_grupos", grupo_nome)
 
@@ -527,8 +559,9 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
         sql = f"UPDATE queries SET {', '.join(campos)} WHERE id = ${len(valores)} RETURNING *"
         rows = await query_meta(sql, *valores)
 
-        if "sql_texto" in updates or "slug" in updates:
+        if "sql_texto" in updates or "slug" in updates or "ativo" in updates:
             await invalidar_cache_query(atual["slug"])
+            await invalidar_cache_derivadas(query_id)
 
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
@@ -568,7 +601,7 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
-                chart_rotulo_eixo, chart_rotulo_valor
+                chart_rotulo_eixo, chart_rotulo_valor, query_base_id
             )
             SELECT
                 $1, $2, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
@@ -579,7 +612,7 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
-                chart_rotulo_eixo, chart_rotulo_valor
+                chart_rotulo_eixo, chart_rotulo_valor, query_base_id
             FROM queries WHERE id = $3
             RETURNING *
         """, novo_slug, novo_nome, query_id)
