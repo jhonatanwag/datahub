@@ -773,7 +773,7 @@ git commit -m "feat: portabilidade leva query_base_id como dependência transiti
 - Consumes: `GET/POST/PATCH /api/queries` com `query_base_id` (Task 3); `GET /api/queries/{id}/parametros` (já existe).
 - Produces: nenhuma interface nova pra outras tasks — é a ponta da cadeia.
 
-- [ ] **Step 1: `nova/+page.svelte` — estado**
+- [x] **Step 1: `nova/+page.svelte` — estado**
 
 Em `frontend/src/routes/configuracoes/queries/nova/+page.svelte:22` (logo após `subquery_id: null,` dentro de `form`), adicionar:
 
@@ -787,7 +787,7 @@ Logo após a declaração de `let mapeamentoSubquery = [];` (linha 51), adiciona
   let baseParams = []; // parâmetros ($1..) da query base escolhida, com _testar_valor local
 ```
 
-- [ ] **Step 2: `nova/+page.svelte` — handler de troca de base**
+- [x] **Step 2: `nova/+page.svelte` — handler de troca de base**
 
 Logo depois de `onSubqueryChange` (depois da linha 145), adicionar:
 
@@ -802,7 +802,7 @@ Logo depois de `onSubqueryChange` (depois da linha 145), adicionar:
   }
 ```
 
-- [ ] **Step 3: `nova/+page.svelte` — `testar()` usa os parâmetros certos**
+- [x] **Step 3: `nova/+page.svelte` — `testar()` usa os parâmetros certos**
 
 Trocar `testar()` (linhas 147-161) por:
 
@@ -825,7 +825,7 @@ Trocar `testar()` (linhas 147-161) por:
   }
 ```
 
-- [ ] **Step 4: `nova/+page.svelte` — UI do seletor**
+- [x] **Step 4: `nova/+page.svelte` — UI do seletor**
 
 Logo antes do comentário `<!-- Parâmetros -->` (linha 567), inserir um novo bloco:
 
@@ -863,7 +863,7 @@ Logo antes do comentário `<!-- Parâmetros -->` (linha 567), inserir um novo bl
 
 ```
 
-- [ ] **Step 5: `[id]/+page.svelte` — estado**
+- [x] **Step 5: `[id]/+page.svelte` — estado**
 
 Em `frontend/src/routes/configuracoes/queries/[id]/+page.svelte:25` (logo após `subquery_id: null,`), adicionar:
 
@@ -877,7 +877,7 @@ Logo após `let mapeamentoSubquery = [];` (linha 56), adicionar:
   let baseParams = [];
 ```
 
-- [ ] **Step 6: `[id]/+page.svelte` — carregar valor existente no `onMount`**
+- [x] **Step 6: `[id]/+page.svelte` — carregar valor existente no `onMount`**
 
 Em `frontend/src/routes/configuracoes/queries/[id]/+page.svelte:108` (logo após `subquery_id: q.subquery_id ?? null,` dentro do objeto `form` montado no `onMount`), adicionar:
 
@@ -894,7 +894,7 @@ Logo depois do bloco `if (q.tipo === 'table_dynamic') { ... }` (depois da linha 
       }
 ```
 
-- [ ] **Step 7: `[id]/+page.svelte` — handler de troca de base**
+- [x] **Step 7: `[id]/+page.svelte` — handler de troca de base**
 
 Logo depois de `onSubqueryChange` (depois da linha 203), adicionar:
 
@@ -909,7 +909,7 @@ Logo depois de `onSubqueryChange` (depois da linha 203), adicionar:
   }
 ```
 
-- [ ] **Step 8: `[id]/+page.svelte` — `testar()` usa os parâmetros certos**
+- [x] **Step 8: `[id]/+page.svelte` — `testar()` usa os parâmetros certos**
 
 Trocar `testar()` (linhas 205-219) por:
 
@@ -932,7 +932,7 @@ Trocar `testar()` (linhas 205-219) por:
   }
 ```
 
-- [ ] **Step 9: `[id]/+page.svelte` — UI do seletor**
+- [x] **Step 9: `[id]/+page.svelte` — UI do seletor**
 
 Logo antes do comentário `<!-- Parâmetros -->` (linha 673), inserir:
 
@@ -970,7 +970,7 @@ Logo antes do comentário `<!-- Parâmetros -->` (linha 673), inserir:
 
 ```
 
-- [ ] **Step 10: `[id]/+page.svelte` — incluir no payload de `atualizar_query`**
+- [x] **Step 10: `[id]/+page.svelte` — incluir no payload de `atualizar_query`**
 
 Diferente da tela `nova` (que manda `form` inteiro), `salvar()` em `[id]/+page.svelte` monta o payload campo a campo. Em `frontend/src/routes/configuracoes/queries/[id]/+page.svelte:261` (logo após `subquery_id: form.subquery_id,`), adicionar:
 
@@ -978,7 +978,7 @@ Diferente da tela `nova` (que manda `form` inteiro), `salvar()` em `[id]/+page.s
         query_base_id:      form.query_base_id,
 ```
 
-- [ ] **Step 11: Verificação manual via browser (sem framework de teste no frontend)**
+- [x] **Step 11: Verificação manual via browser (sem framework de teste no frontend)**
 
 ```bash
 docker restart datahub_frontend
@@ -992,7 +992,7 @@ Depois, via `mcp__claude-in-chrome__*` (carregar as ferramentas com `ToolSearch`
 4. Salvar a segunda query, abrir `/configuracoes/queries/{id}` dela e confirmar que o seletor "Query base" já vem preenchido com a primeira.
 5. Apagar as duas queries de teste.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add frontend/src/routes/configuracoes/queries/nova/+page.svelte frontend/src/routes/configuracoes/queries/[id]/+page.svelte
@@ -1010,7 +1010,7 @@ git commit -m "feat: seletor de query base nas telas de nova/editar query"
 - Consumes: mecanismo completo das Tasks 1-4 (schema + `resolver_query` + validação de `criar_query`).
 - Produces: nenhuma — é o piloto real, consumido só por verificação manual/visual.
 
-- [ ] **Step 1: Conferir o estado atual (baseline antes de migrar)**
+- [x] **Step 1: Conferir o estado atual (baseline antes de migrar)**
 
 ```bash
 docker exec datahub_postgres psql -U postgres -d datahub_meta -c "
@@ -1020,7 +1020,7 @@ FROM queries WHERE slug LIKE 'pen_pendencias_%' AND ativo = true;"
 
 Expected: `total = 30`, `bytes` próximo de 70000 (baseline documentado no spec).
 
-- [ ] **Step 2: Criar as 3 queries base**
+- [x] **Step 2: Criar as 3 queries base**
 
 ```bash
 cat <<'EOF' > /tmp/migracao_pendencia_bases.sql
@@ -1123,7 +1123,7 @@ EOF
 cat /tmp/migracao_pendencia_bases.sql | docker exec -i datahub_postgres psql -U postgres -d datahub_meta -v ON_ERROR_STOP=1
 ```
 
-- [ ] **Step 3: Verificar que as 3 bases retornam dado real**
+- [x] **Step 3: Verificar que as 3 bases retornam dado real**
 
 ```bash
 docker exec datahub_backend python -c "
@@ -1141,7 +1141,7 @@ asyncio.run(main())
 
 Expected: as 3 rodam sem exceção (contagem de linhas pode ser 0 se o filtro obrigatório `$10` não for passado — mesmo comportamento que as queries originais já tinham antes da migração, não é regressão).
 
-- [ ] **Step 4: Reescrever as 30 derivadas — tabela de mapeamento (slug → SQL derivado)**
+- [x] **Step 4: Reescrever as 30 derivadas — tabela de mapeamento (slug → SQL derivado)**
 
 Pra cada um dos 3 sufixos (`''` = tipo PENDENCIA original sem sufixo, `_sede`, `_lavoura`), rodar o bloco abaixo trocando `<SUF>` pelo sufixo e `<BASESLUG>` pela base correspondente (`pen_pendencias_base_pendencia` / `pen_pendencias_base_sede` / `pen_pendencias_base_lavoura`). Primeiro o bloco pra `<SUF> = ''` (as 10 originais, sem sufixo no slug — conferir os slugs exatos com `docker exec datahub_postgres psql -U postgres -d datahub_meta -c "SELECT slug FROM queries WHERE grupo_id = (SELECT grupo_id FROM queries WHERE slug='pen_pendencias_lancamentos') AND slug NOT LIKE '%_sede' AND slug NOT LIKE '%_lavoura' AND slug NOT LIKE '%_base_%';"` antes de rodar, pra confirmar que são exatamente os 10 esperados: `pen_pendencias_pendente_equip`, `pen_pendencias_aguar_manut_equip`, `pen_pendencias_finalizadas_equip`, `pen_pendencias_por_frente`, `pen_pendencias_percentual_sit`, `pen_pendencias_por_sistemas_em_aberto`, `pen_pendencias_por_tipo_equip`, `pen_pendencias_por_tipo_marca`, `pen_pendencias_por_tipo_modelo`, `pen_pendencias_lancamentos`):
 
@@ -1235,7 +1235,7 @@ EOF
 cat /tmp/migracao_pendencia_derivadas.sql | docker exec -i datahub_postgres psql -U postgres -d datahub_meta -v ON_ERROR_STOP=1
 ```
 
-- [ ] **Step 5: Repetir o Step 4 pras 10 queries `_sede`**
+- [x] **Step 5: Repetir o Step 4 pras 10 queries `_sede`**
 
 Copiar `/tmp/migracao_pendencia_derivadas.sql` pra `/tmp/migracao_pendencia_derivadas_sede.sql`, e nesse novo arquivo:
 - trocar toda ocorrência de `'pen_pendencias_base_pendencia'` por `'pen_pendencias_base_sede'`;
@@ -1247,7 +1247,7 @@ Rodar do mesmo jeito:
 cat /tmp/migracao_pendencia_derivadas_sede.sql | docker exec -i datahub_postgres psql -U postgres -d datahub_meta -v ON_ERROR_STOP=1
 ```
 
-- [ ] **Step 6: Repetir o Step 4 pras 10 queries `_lavoura`**
+- [x] **Step 6: Repetir o Step 4 pras 10 queries `_lavoura`**
 
 Mesma coisa, com `pen_pendencias_base_lavoura` e sufixo `_lavoura`.
 
@@ -1255,7 +1255,7 @@ Mesma coisa, com `pen_pendencias_base_lavoura` e sufixo `_lavoura`.
 cat /tmp/migracao_pendencia_derivadas_lavoura.sql | docker exec -i datahub_postgres psql -U postgres -d datahub_meta -v ON_ERROR_STOP=1
 ```
 
-- [ ] **Step 7: Verificar o tamanho final do grupo**
+- [x] **Step 7: Verificar o tamanho final do grupo**
 
 ```bash
 docker exec datahub_postgres psql -U postgres -d datahub_meta -c "
@@ -1265,7 +1265,7 @@ FROM queries WHERE (slug LIKE 'pen_pendencias_%' OR slug LIKE 'pen_pendencias_ba
 
 Expected: `total = 33` (3 bases + 30 derivadas), `bytes` bem menor que os ~70000 do baseline (Step 1) — próximo dos ~13-15KB estimados no spec.
 
-- [ ] **Step 8: Comparar resultado antes/depois pra cada uma das 30 derivadas**
+- [x] **Step 8: Comparar resultado antes/depois pra cada uma das 30 derivadas**
 
 ```bash
 docker exec datahub_backend python -c "
@@ -1297,7 +1297,7 @@ asyncio.run(main())
 
 Expected: as 30 linhas de saída dizem `OK` (nenhum `ERRO`) — contagem de linhas pode ser 0 pelas mesmas razões já conhecidas (parâmetro `$10` não informado no teste), consistente com o comportamento pré-migração.
 
-- [ ] **Step 9: Verificação visual nos 3 painéis reais**
+- [x] **Step 9: Verificação visual nos 3 painéis reais**
 
 Via browser (`mcp__claude-in-chrome__*`, carregando as ferramentas com `ToolSearch` se preciso):
 
@@ -1305,7 +1305,7 @@ Via browser (`mcp__claude-in-chrome__*`, carregando as ferramentas com `ToolSear
 2. Em cada um: aplicar o filtro de período, conferir que os 10 cards renderizam sem erro (KPIs, gráfico de frente, % por situação, sistemas em aberto, tipo/marca/modelo, tabela de lançamentos).
 3. Clicar num segmento do gráfico "Por Marca" (ou equivalente) e confirmar que o filtro por clique ainda funciona (`filtro_clique_variavel_id` não foi tocado pela migração).
 
-- [ ] **Step 10: Commit (registro da migração, sem diff de código)**
+- [x] **Step 10: Commit (registro da migração, sem diff de código)**
 
 Como a migração é só dado (não há arquivo de código pra commitar), registrar no changelog do README ou como nota — não há `git add` de código nesta task. Se o time quiser rastrear isso em algum lugar versionado, anexar os 3 scripts SQL finais (`/tmp/migracao_pendencia_*.sql`) em `scripts/migrations/2026-09-16-pendencia-query-base.sql` (arquivo novo, só de referência — não roda automaticamente):
 
@@ -1322,7 +1322,7 @@ git commit -m "docs: registra a migração piloto do grupo Pendência pra query 
 
 **Files:** nenhum (só execução)
 
-- [ ] **Step 1: Suíte completa do backend**
+- [x] **Step 1: Suíte completa do backend**
 
 ```bash
 docker exec datahub_backend python -m pytest tests/ -v
@@ -1330,7 +1330,7 @@ docker exec datahub_backend python -m pytest tests/ -v
 
 Expected: todos os testes em PASS, incluindo os novos de `test_queries_base.py` e os 2 novos de `test_portabilidade_paineis.py`.
 
-- [ ] **Step 2: Confirmar que nenhuma query real fora do piloto foi tocada**
+- [x] **Step 2: Confirmar que nenhuma query real fora do piloto foi tocada**
 
 ```bash
 docker exec datahub_postgres psql -U postgres -d datahub_meta -c "
@@ -1339,6 +1339,6 @@ SELECT count(*) FROM queries WHERE query_base_id IS NOT NULL AND slug NOT LIKE '
 
 Expected: `0` — só as 30 derivadas do piloto (e eventuais queries de teste do pytest, já limpas pelos `finally`) têm `query_base_id` setado.
 
-- [ ] **Step 3: Resumo pro usuário**
+- [x] **Step 3: Resumo pro usuário**
 
 Reportar: bytes de SQL antes/depois do grupo Pendência (Task 6, Steps 1 e 7), confirmação de que os 3 painéis renderizam sem regressão, e lembrete de que este delta de schema (Task 1) ainda precisa ser aplicado manualmente em produção quando o usuário decidir fazer o deploy — mesmo processo de sempre (`README.md` → "Deltas de schema pendentes").
