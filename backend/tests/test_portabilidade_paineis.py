@@ -464,3 +464,63 @@ def test_importar_avisos_empresa_slug_inexistente(client, auth_token):
         alvo = next((x for x in pl if x["slug"] == bundle["painel"]["slug"]), None)
         if alvo:
             hard_delete_painel(alvo["id"])
+
+
+def test_exportar_traz_fecho_transitivo_de_query_base(client, auth_token):
+    t = auth_token
+    base = _criar_query(client, t, tipo="table", sql_texto="SELECT 1 AS grupo, 10 AS valor")
+    derivada = _criar_query(client, t, tipo="table", sql_texto="SELECT grupo, valor FROM base",
+                            query_base_id=base["id"])
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": derivada["slug"], "linha": 1, "coluna": 1}],
+               headers=_headers(t))
+    try:
+        b = _exportar(client, t, painel["id"])
+        query_slugs = {q["slug"] for q in b["queries"]}
+        assert derivada["slug"] in query_slugs
+        assert base["slug"] in query_slugs  # fecho transitivo da base
+        dq = next(q for q in b["queries"] if q["slug"] == derivada["slug"])
+        assert dq["base_query_slug"] == base["slug"]
+    finally:
+        hard_delete_painel(painel["id"])
+        client.delete(f"/api/queries/{derivada['id']}", headers=_headers(t))
+        client.delete(f"/api/queries/{base['id']}", headers=_headers(t))
+
+
+def test_importar_resolve_base_query_slug(client, auth_token):
+    t = auth_token
+    base = _criar_query(client, t, tipo="table", sql_texto="SELECT 1 AS grupo, 10 AS valor")
+    derivada = _criar_query(client, t, tipo="table", sql_texto="SELECT grupo, valor FROM base",
+                            query_base_id=base["id"])
+    painel = _criar_painel(client, t)
+    client.put(f"/api/paineis/{painel['id']}/indicadores",
+               json=[{"query_slug": derivada["slug"], "linha": 1, "coluna": 1}],
+               headers=_headers(t))
+    try:
+        bundle = _exportar(client, t, painel["id"])
+
+        # apaga tudo e reimporta do zero — simula levar pra outro ambiente
+        client.delete(f"/api/queries/{derivada['id']}", headers=_headers(t))
+        client.delete(f"/api/queries/{base['id']}", headers=_headers(t))
+        hard_delete_painel(painel["id"])
+
+        r = _importar(client, t, bundle, {
+            "variaveis": [], "painel": True,
+            "queries": [derivada["slug"], base["slug"]],
+        })
+        assert r.status_code == 200, r.text
+
+        todas = client.get("/api/queries/", headers=_headers(t)).json()
+        nova_derivada = next(q for q in todas if q["slug"] == derivada["slug"])
+        nova_base = next(q for q in todas if q["slug"] == base["slug"])
+        assert nova_derivada["query_base_id"] == nova_base["id"]
+    finally:
+        todas = client.get("/api/queries/", headers=_headers(t)).json()
+        for q in todas:
+            if q["slug"] in (derivada["slug"], base["slug"]):
+                client.delete(f"/api/queries/{q['id']}", headers=_headers(t))
+        pl = client.get("/api/paineis/", headers=_headers(t)).json()
+        alvo = next((x for x in pl if x["slug"] == bundle["painel"]["slug"]), None)
+        if alvo:
+            hard_delete_painel(alvo["id"])

@@ -55,6 +55,7 @@ async def _serializar_query(row: dict) -> dict:
     out["grupo_nome"] = await _nome_por_id("query_grupos", "nome", row["grupo_id"])
     out["empresa_slug"] = await _nome_por_id("empresas", "slug", row["empresa_id"])
     out["subquery_slug"] = await _nome_por_id("queries", "slug", row["subquery_id"])
+    out["base_query_slug"] = await _nome_por_id("queries", "slug", row["query_base_id"])
     out["kpi_imagem_base64"] = _b64(row.get("kpi_imagem"))
     out["kpi_imagem_mime"] = row.get("kpi_imagem_mime")
 
@@ -147,6 +148,10 @@ async def montar_bundle_painel(painel_id: int):
             sub = await query_meta("SELECT slug FROM queries WHERE id = $1", rowq["subquery_id"])
             if sub:
                 fila.append(sub[0]["slug"])
+        if rowq["query_base_id"]:
+            base = await query_meta("SELECT slug FROM queries WHERE id = $1", rowq["query_base_id"])
+            if base:
+                fila.append(base[0]["slug"])
 
     queries_reais = [r for r in visitados.values() if r]
 
@@ -215,7 +220,7 @@ _PAINEL_DIFF_KEYS = PAINEL_CAMPOS + [
     "indicadores", "variaveis_painel",
 ]
 _QUERY_DIFF_KEYS = QUERY_CAMPOS + [
-    "grupo_nome", "empresa_slug", "subquery_slug", "kpi_imagem_base64", "kpi_imagem_mime",
+    "grupo_nome", "empresa_slug", "subquery_slug", "base_query_slug", "kpi_imagem_base64", "kpi_imagem_mime",
     "parametros", "agrupamentos", "agregacoes", "subquery_parametros",
 ]
 _VARIAVEL_DIFF_KEYS = VARIAVEL_CAMPOS
@@ -350,6 +355,8 @@ async def _checar_dependencias(bundle, aplicar_var, aplicar_qry, aplicar_pnl) ->
             continue
         if q.get("subquery_slug") and not await query_ok(q["subquery_slug"]):
             faltando.append(f"subquery '{q['subquery_slug']}'")
+        if q.get("base_query_slug") and not await query_ok(q["base_query_slug"]):
+            faltando.append(f"query base '{q['base_query_slug']}'")
         for p in q.get("parametros", []):
             if p.get("variavel_slug") and not await var_ok(p["variavel_slug"]):
                 faltando.append(f"variável '{p['variavel_slug']}'")
@@ -436,6 +443,19 @@ async def _set_subquery(conn, slug: str, empresa_slug, subquery_slug: str, subqu
     await conn.execute(
         "UPDATE queries SET subquery_id = $1 WHERE slug = $2 AND empresa_id IS NOT DISTINCT FROM $3",
         sub_id, slug, emp_id)
+
+
+async def _set_query_base(conn, slug: str, empresa_slug, base_slug: str, base_empresa_slug):
+    """Mesmo padrão de `_set_subquery`, pro vínculo query_base_id."""
+    emp_id = await _empresa_id_de_slug(empresa_slug)
+    base_emp_id = await _empresa_id_de_slug(base_empresa_slug)
+    base = await conn.fetch(
+        "SELECT id FROM queries WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+        base_slug, base_emp_id)
+    base_id = base[0]["id"] if base else None
+    await conn.execute(
+        "UPDATE queries SET query_base_id = $1 WHERE slug = $2 AND empresa_id IS NOT DISTINCT FROM $3",
+        base_id, slug, emp_id)
 
 
 async def _id_query_por_slug(conn, slug: str, emp_slug):
@@ -579,6 +599,21 @@ async def importar_bundle(bundle: dict, aplicar: dict) -> dict:
                 emp_id = await _empresa_id_de_slug(qb.get("empresa_slug"))
                 await conn.execute(
                     "UPDATE queries SET subquery_id = NULL "
+                    "WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
+                    qb["slug"], emp_id)
+
+        for qb in bundle["queries"]:
+            if qb["slug"] not in aplicar_qry:
+                continue
+            if qb.get("base_query_slug"):
+                base_entry = por_slug.get(qb["base_query_slug"])
+                base_emp_slug = base_entry.get("empresa_slug") if base_entry else qb.get("empresa_slug")
+                await _set_query_base(conn, qb["slug"], qb.get("empresa_slug"),
+                                      qb["base_query_slug"], base_emp_slug)
+            else:
+                emp_id = await _empresa_id_de_slug(qb.get("empresa_slug"))
+                await conn.execute(
+                    "UPDATE queries SET query_base_id = NULL "
                     "WHERE slug = $1 AND empresa_id IS NOT DISTINCT FROM $2",
                     qb["slug"], emp_id)
 
