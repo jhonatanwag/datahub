@@ -8,6 +8,7 @@ import secrets
 import logging
 from urllib.parse import urlencode, quote
 import httpx
+import asyncpg
 from config.settings import settings
 from config.redis import get_redis
 
@@ -52,6 +53,7 @@ class IndicadorInput(BaseModel):
     row_span: int = 1
     posicao: int = 0
     filtro_clique_variavel_id: Optional[int] = None
+    imprimir: bool = True
 
 
 class VariavelPainelInput(BaseModel):
@@ -182,6 +184,69 @@ async def relatorio_pdf(slug: str, request: Request, user=Depends(get_current_us
     )
 
 
+@router.get("/slug/{slug}/indicadores/{indicador_id}/imprimir")
+async def imprimir_documento_indicador(
+    slug: str, indicador_id: int, valor: str, user=Depends(get_current_user)
+):
+    """
+    Faz o proxy do documento de impressão (link externo configurado por empresa/query).
+    Buscar no backend evita CORS no navegador e permite renomear o arquivo no
+    frontend antes do download/compartilhamento — o servidor externo sempre
+    devolve o mesmo nome de arquivo, o que trava o download em alguns celulares.
+    """
+    if user["role"] == "externo":
+        if slug not in user.get("paineis_liberados", []):
+            raise HTTPException(403, "Sem acesso a este painel")
+        painel_rows = await query_meta(
+            "SELECT id FROM paineis "
+            "WHERE slug = $1 AND (empresa_id = $2 OR empresa_id IS NULL) AND ativo = true",
+            slug, user["empresa_id"],
+        )
+    else:
+        painel_rows = await query_meta(
+            "SELECT DISTINCT ON (p.slug) p.id "
+            "FROM paineis p "
+            "JOIN painel_usuarios pu ON pu.painel_id = p.id "
+            "WHERE p.slug = $1 AND pu.usuario_id = $2 AND p.ativo = true "
+            "AND (p.empresa_id = $3 OR p.empresa_id IS NULL) "
+            "ORDER BY p.slug, p.empresa_id NULLS LAST",
+            slug, user["id"], user["empresa_id"],
+        )
+    if not painel_rows:
+        raise HTTPException(404, "Painel não encontrado")
+    painel_id = painel_rows[0]["id"]
+
+    indicador_rows = await query_meta("""
+        SELECT q.impressao_habilitada, q.impressao_caminho
+        FROM painel_indicadores pi
+        JOIN queries q ON q.slug = pi.query_slug
+        WHERE pi.id = $1 AND pi.painel_id = $2
+    """, indicador_id, painel_id)
+    if not indicador_rows:
+        raise HTTPException(404, "Indicador não encontrado")
+    indicador = indicador_rows[0]
+
+    if not indicador["impressao_habilitada"] or not indicador["impressao_caminho"]:
+        raise HTTPException(400, "Impressão não habilitada para este indicador")
+
+    base = user.get("url_impressao_base")
+    if not base:
+        raise HTTPException(400, "URL de impressão não configurada para esta empresa")
+
+    url = f"{base}{indicador['impressao_caminho']}{valor}"
+
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as http:
+            resp = await http.get(url)
+        resp.raise_for_status()
+    except httpx.HTTPError as e:
+        logger.error(f"Falha ao baixar documento de impressão ({url}): {e}")
+        raise HTTPException(502, "Falha ao obter o documento")
+
+    tipo = resp.headers.get("content-type", "application/octet-stream").split(";")[0].strip()
+    return Response(content=resp.content, media_type=tipo)
+
+
 @router.get("/slug/{slug}")
 async def buscar_painel_por_slug(slug: str, user=Depends(get_current_user)):
     if user["role"] == "externo":
@@ -283,7 +348,10 @@ async def atualizar_painel(painel_id: int, body: dict, user=Depends(require_admi
 
     valores.append(painel_id)
     sql = f"UPDATE paineis SET {', '.join(campos)} WHERE id = ${len(valores)} RETURNING *"
-    rows = await query_meta(sql, *valores)
+    try:
+        rows = await query_meta(sql, *valores)
+    except asyncpg.UniqueViolationError:
+        raise HTTPException(status_code=409, detail="Slug já está em uso")
     return _com_imagem_url(dict(rows[0]))
 
 
@@ -296,6 +364,21 @@ async def desativar_painel(painel_id: int, user=Depends(require_admin)):
     if not rows:
         raise HTTPException(404, "Painel não encontrado")
     return {"desativado": True, "slug": rows[0]["slug"]}
+
+
+@router.delete("/{painel_id}/permanente")
+async def deletar_painel_permanente(painel_id: int, user=Depends(require_admin)):
+    try:
+        rows = await query_meta(
+            "DELETE FROM paineis WHERE id = $1 RETURNING id, slug", painel_id
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail="Painel não encontrado")
+        return {"deletado": True, "slug": rows[0]["slug"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao deletar painel: {e}")
 
 
 @router.post("/{painel_id}/imagem")
@@ -345,12 +428,12 @@ async def adicionar_indicador(painel_id: int, body: IndicadorInput, user=Depends
         raise HTTPException(404, f"Query '{body.query_slug}' não encontrada")
     rows = await query_meta("""
         INSERT INTO painel_indicadores
-            (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+            (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id, imprimir)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         RETURNING *
     """, painel_id, body.query_slug, body.titulo,
         body.linha, body.coluna, body.col_span, body.row_span, body.posicao,
-        body.filtro_clique_variavel_id)
+        body.filtro_clique_variavel_id, body.imprimir)
     return dict(rows[0])
 
 
@@ -363,12 +446,12 @@ async def salvar_indicadores(
     for ind in indicadores:
         rows = await query_meta("""
             INSERT INTO painel_indicadores
-                (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                (painel_id, query_slug, titulo, linha, coluna, col_span, row_span, posicao, filtro_clique_variavel_id, imprimir)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
             RETURNING *
         """, painel_id, ind.query_slug, ind.titulo,
             ind.linha, ind.coluna, ind.col_span, ind.row_span, ind.posicao,
-            ind.filtro_clique_variavel_id)
+            ind.filtro_clique_variavel_id, ind.imprimir)
         resultado.append(dict(rows[0]))
     return resultado
 

@@ -449,7 +449,6 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
   letter-spacing: .06em;
   border-bottom: 1px solid var(--border);
 }

@@ -1,4 +1,35 @@
+import { goto } from '$app/navigation';
+
 const BASE = import.meta.env.VITE_API_URL || '';
+
+// Endpoints de troca/obtenção de autenticação: já tratam seus próprios erros
+// de credenciais/link e não devem disparar o fluxo global de "sessão expirada".
+const ENDPOINTS_SEM_TRATAMENTO_GLOBAL = [
+    '/api/auth/login',
+    '/api/auth/selecionar-empresa',
+    '/api/auth/sso/trocar',
+    '/api/auth/pdf-token/trocar',
+];
+
+let sessaoExpirandoEmAndamento = false;
+
+function tratarSessaoExpirada() {
+    if (sessaoExpirandoEmAndamento) return;
+    sessaoExpirandoEmAndamento = true;
+
+    let origem = 'login';
+    try {
+        const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
+        if (usuario?.role === 'externo') origem = 'app';
+    } catch { /* mantém origem padrão */ }
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    localStorage.removeItem('empresaAtiva');
+    localStorage.removeItem('menuPaineis');
+
+    goto(`/sessao-expirada?origem=${origem}`);
+}
 
 export function assetUrl(path) {
     return path ? `${BASE}${path}` : path;
@@ -14,6 +45,9 @@ async function request(path, options = {}) {
             ...options.headers,
         },
     });
+    if (res.status === 401 && !ENDPOINTS_SEM_TRATAMENTO_GLOBAL.includes(path)) {
+        tratarSessaoExpirada();
+    }
     if (!res.ok) {
         const text = await res.text();
         let msg;
@@ -152,6 +186,7 @@ export const api = {
     criarPainel:            (d)         => request('/api/paineis/', { method: 'POST', body: JSON.stringify(d) }),
     atualizarPainel:        (id, d)     => request(`/api/paineis/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
     desativarPainel:        (id)        => request(`/api/paineis/${id}`, { method: 'DELETE' }),
+    deletarPainelPermanente: (id)       => request(`/api/paineis/${id}/permanente`, { method: 'DELETE' }),
     uploadImagemPainel: (id, formData) => {
         const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
         return fetch(`${BASE}/api/paineis/${id}/imagem`, {

@@ -187,7 +187,7 @@
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
-th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+th { font-size: 11px; letter-spacing: .06em; color: var(--muted); }
 .agregado-header { text-align: right; }
 .error { color: var(--danger, #f85149); }
 

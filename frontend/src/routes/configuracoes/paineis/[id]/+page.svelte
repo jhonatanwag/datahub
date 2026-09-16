@@ -31,7 +31,23 @@
   let paineis    = [];
   let carregando = true;
   let salvando   = false;
+  let excluindo  = false;
   let erro       = null;
+  let slugErro   = '';
+
+  function validarSlug() {
+    if (!form.slug) {
+      slugErro = '';
+      return;
+    }
+    if (/\s/.test(form.slug)) {
+      slugErro = 'Slug não pode conter espaços.';
+    } else if (!/^[a-z0-9_]+$/.test(form.slug)) {
+      slugErro = 'Slug deve conter apenas letras minúsculas, números e underscore (_).';
+    } else {
+      slugErro = '';
+    }
+  }
 
   $: variaveisDoPainel = varSelecionadas
     .map(s => variaveis.find(v => v.id === s.variavel_id))
@@ -79,6 +95,7 @@
         row_span:   i.row_span,
         posicao:    i.posicao,
         filtro_clique_variavel_id: i.filtro_clique_variavel_id ?? null,
+        imprimir:   i.imprimir ?? true,
       }));
 
       varSelecionadas = vars.map(v => ({
@@ -109,7 +126,7 @@
       query_slug: queries[0]?.slug || '', titulo: '',
       linha: indicadores.length + 1, coluna: 1,
       col_span: 1, row_span: 1, posicao: indicadores.length,
-      filtro_clique_variavel_id: null,
+      filtro_clique_variavel_id: null, imprimir: true,
     }];
   }
 
@@ -163,10 +180,13 @@
 
   async function salvar() {
     if (!form.nome) { erro = 'Nome é obrigatório.'; return; }
+    validarSlug();
+    if (slugErro) { erro = slugErro; return; }
     erro = null;
     salvando = true;
     try {
       await api.atualizarPainel(id, {
+        slug:        form.slug,
         nome:        form.nome,
         descricao:   form.descricao,
         icone:       form.icone,
@@ -192,6 +212,18 @@
       erro = e.message;
     } finally {
       salvando = false;
+    }
+  }
+
+  async function excluirPainel() {
+    if (!confirm(`Excluir permanentemente o painel "${form.nome}"?\n\nEssa ação não pode ser desfeita e vai remover também os indicadores, variáveis e vínculos de usuário deste painel.`)) return;
+    excluindo = true;
+    try {
+      await api.deletarPainelPermanente(id);
+      goto('/configuracoes/paineis');
+    } catch (e) {
+      erro = e.message;
+      excluindo = false;
     }
   }
 </script>
@@ -224,8 +256,9 @@
     {#if abaAtiva === 'geral'}
       <div class="form-card">
         <div class="field">
-          <label>Slug (somente leitura)</label>
-          <input type="text" value={form.slug} readonly class="readonly" />
+          <label>Slug</label>
+          <input type="text" bind:value={form.slug} on:input={validarSlug} />
+          {#if slugErro}<span class="field-error">{slugErro}</span>{/if}
         </div>
         <div class="field">
           <label>Nome do Painel</label>
@@ -337,9 +370,14 @@
                     <button class="btn-ghost btn-sm" on:click={() => moverIndicador(i, 1)} disabled={i === indicadores.length - 1} title="Mover pra baixo">▼</button>
                     <button class="btn-ghost btn-sm danger" on:click={() => removerIndicador(i)}>✕</button>
                   </div>
-                  <div class="field">
-                    <label>Título (opcional)</label>
-                    <input type="text" bind:value={ind.titulo} placeholder="Override do título" />
+                  <div class="ind-row">
+                    <div class="field flex-1">
+                      <label>Título (opcional)</label>
+                      <input type="text" bind:value={ind.titulo} placeholder="Override do título" />
+                    </div>
+                    <label class="check-label" title="Quando desmarcado, esse indicador não entra no relatório (Abrir PDF / WhatsApp) do painel">
+                      <input type="checkbox" bind:checked={ind.imprimir} /> Imprimir
+                    </label>
                   </div>
                   <div class="grid-4">
                     <div class="field">
@@ -461,10 +499,15 @@
     {/if}
 
     <div class="form-footer">
-      <a href="/configuracoes/paineis" class="btn-ghost">Cancelar</a>
-      <button class="btn-primary" on:click={salvar} disabled={salvando}>
-        {salvando ? 'Salvando...' : 'Salvar Alterações'}
+      <button class="btn-ghost danger" on:click={excluirPainel} disabled={excluindo || salvando}>
+        {excluindo ? 'Excluindo...' : 'Excluir painel'}
       </button>
+      <div class="form-footer-principal">
+        <a href="/configuracoes/paineis" class="btn-ghost">Cancelar</a>
+        <button class="btn-primary" on:click={salvar} disabled={salvando || excluindo}>
+          {salvando ? 'Salvando...' : 'Salvar Alterações'}
+        </button>
+      </div>
     </div>
   {/if}
 </div>
@@ -485,7 +528,6 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .field.flex-1 { flex: 1; }
 label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
 input, select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; }
-.readonly { opacity: .5; cursor: default; }
 .field-row { display: flex; gap: 16px; }
 .radio-group { display: flex; gap: 16px; align-items: center; }
 .radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); text-transform: none; letter-spacing: 0; font-weight: 400; cursor: pointer; }
@@ -511,8 +553,10 @@ input, select { background: var(--surface2); border: 1px solid var(--border); bo
 .tokens-hint code { font-size: 10px; background: var(--surface2); padding: 1px 4px; border-radius: 3px; }
 .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; background: var(--surface2); color: var(--muted); }
 
-.form-footer { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+.form-footer { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-top: 20px; }
+.form-footer-principal { display: flex; gap: 12px; }
 .danger { color: var(--danger, #f85149); }
+.field-error { color: var(--danger, #f85149); font-size: 12px; }
 .btn-sm { font-size: 12px; padding: 4px 10px; }
 .muted { color: var(--muted); }
 .error { color: var(--danger, #f85149); font-size: 13px; }

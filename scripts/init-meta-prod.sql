@@ -194,6 +194,7 @@ CREATE TABLE painel_indicadores (
     row_span    INTEGER DEFAULT 1,
     posicao     INTEGER DEFAULT 0,
     filtro_clique_variavel_id INTEGER REFERENCES variaveis(id) ON DELETE SET NULL,
+    imprimir    BOOLEAN NOT NULL DEFAULT true,
     UNIQUE (painel_id, linha, coluna)
 );
 CREATE INDEX idx_painel_ind_painel ON painel_indicadores(painel_id);

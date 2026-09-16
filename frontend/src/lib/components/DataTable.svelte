@@ -1,6 +1,7 @@
 <script>
   import { baixarCSV, baixarXLSX } from '$lib/exportTable.js';
   import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
+  import { imprimirDocumento } from '$lib/documentoImpressao.js';
 
   export let colunas = [];
   export let dados   = [];
@@ -36,10 +37,15 @@
 
   $: mostrarAcoes = impressaoHabilitada && !!impressaoUrlBase && !!impressaoColuna;
 
-  function imprimir(row) {
+  let imprimindo = false;
+
+  async function imprimir(row) {
     const valor = row[impressaoColuna];
-    if (!valor) return;
-    window.open(`${impressaoUrlBase}${valor}`, '_blank', 'noopener');
+    if (!valor || !painelSlug || indicadorId == null || imprimindo) return;
+    imprimindo = true;
+    try { await imprimirDocumento(painelSlug, indicadorId, valor, titulo); }
+    catch (e) { alert('Erro ao abrir o documento: ' + e.message); }
+    finally { imprimindo = false; }
   }
 
   $: totalPaginas = Math.max(1, Math.ceil(dados.length / tamanhoPagina));
@@ -130,7 +136,7 @@
           {#if mostrarAcoes}
             <td>
               {#if row[impressaoColuna]}
-                <button class="btn-ghost btn-sm" on:click={() => imprimir(row)} title="Imprimir">🖨</button>
+                <button class="btn-ghost btn-sm" on:click={() => imprimir(row)} disabled={imprimindo} title="Imprimir">🖨</button>
               {/if}
             </td>
           {/if}
@@ -143,7 +149,7 @@
     {#each linhasVisiveis as row}
       <div class="card-linha" class:com-acao={mostrarAcoes && row[impressaoColuna]}>
         {#if mostrarAcoes && row[impressaoColuna]}
-          <button class="btn-ghost btn-sm card-acao" on:click={() => imprimir(row)} title="Imprimir">🖨</button>
+          <button class="btn-ghost btn-sm card-acao" on:click={() => imprimir(row)} disabled={imprimindo} title="Imprimir">🖨</button>
         {/if}
         {#each colunasEfetivas as col}
           <div class="card-campo">
@@ -207,7 +213,7 @@
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
-th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+th { font-size: 11px; letter-spacing: .06em; color: var(--muted); }
 tr:hover td { background: var(--surface2); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .pagination {
@@ -251,7 +257,7 @@ tr:hover td { background: var(--surface2); }
   .card-acao { position: absolute; top: 8px; right: 8px; }
   .card-linha.com-acao { padding-right: 48px; }
   .card-campo { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; align-items: baseline; }
-  .card-rotulo { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .card-rotulo { color: var(--muted); font-size: 11px; letter-spacing: .06em; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
   .card-valor { text-align: right; min-width: 0; overflow-wrap: anywhere; }
 }
 </style>

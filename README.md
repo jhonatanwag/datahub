@@ -268,6 +268,9 @@ SELECT table_name FROM information_schema.tables WHERE table_name = 'painel_grup
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'paineis' AND column_name IN ('grupo_id', 'impressao_orientacao');
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'painel_indicadores' AND column_name = 'imprimir';
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -391,6 +394,9 @@ ALTER TABLE queries ADD COLUMN chart_rotulo_eixo VARCHAR(12) DEFAULT 'horizontal
 
 -- 2026-09-09 — rotação do valor desenhado dentro do gráfico (horizontal/inclinado/vertical)
 ALTER TABLE queries ADD COLUMN chart_rotulo_valor VARCHAR(12) DEFAULT 'horizontal';
+
+-- 2026-09-16 — se o indicador entra no relatório PDF/WhatsApp do painel (checkbox "Imprimir")
+ALTER TABLE painel_indicadores ADD COLUMN imprimir BOOLEAN NOT NULL DEFAULT true;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

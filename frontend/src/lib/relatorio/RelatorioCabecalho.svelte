@@ -7,8 +7,11 @@
   export let empresaLogoUrl = null;
   export let filtros = [];   // [{nome, valor}]
 
+  // timeZone fixo: o PDF é renderizado num Chromium headless dentro do
+  // container pdf-renderer, cujo relógio do sistema é UTC — sem isso o
+  // horário "Emitido em" sai 3h adiantado em relação a Brasília.
   const emitidoEm = new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short', timeStyle: 'short',
+    dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo',
   }).format(new Date());
 </script>
 

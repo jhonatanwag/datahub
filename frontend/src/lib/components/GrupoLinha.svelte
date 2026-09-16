@@ -157,6 +157,6 @@
 .card-acao { position: absolute; top: 8px; right: 8px; }
 .card-linha.com-acao { padding-right: 48px; }
 .card-campo { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; align-items: baseline; }
-.card-rotulo { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.card-rotulo { color: var(--muted); font-size: 11px; letter-spacing: .06em; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .card-valor { text-align: right; min-width: 0; overflow-wrap: anywhere; }
 </style>

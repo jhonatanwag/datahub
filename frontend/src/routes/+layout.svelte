@@ -7,7 +7,7 @@
   import { agruparPaineisPorGrupo } from '$lib/agruparPaineis.js';
   import '../app.css';
 
-  const PUBLIC_ROUTES = ['/login', '/selecionar-empresa', '/sso'];
+  const PUBLIC_ROUTES = ['/login', '/selecionar-empresa', '/sso', '/sessao-expirada'];
 
   let sidebarOpen = true;
   let isMobile    = false;
@@ -109,9 +109,14 @@
           });
         }
       } catch {
-        localStorage.removeItem('token');
-        token.set(null);
-        goto('/login');
+        // Um 401 já foi tratado globalmente em api.js (limpou o token e
+        // redirecionou para /sessao-expirada). Aqui só cobrimos o caso de
+        // falha que não seja de sessão/token (ex.: 403 "Acesso negado").
+        if (localStorage.getItem('token')) {
+          localStorage.removeItem('token');
+          token.set(null);
+          goto('/login');
+        }
       }
     }
   });

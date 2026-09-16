@@ -110,10 +110,14 @@
   $: if (typeof window !== 'undefined') window.__RELATORIO_META__ = {
     titulo: tituloRelatorio,
     empresa: empresa.nome,
-    emitidoEm: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date()),
+    emitidoEm: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date()),
   };
 
-  $: lista = indicadorUnico ? [indicadorUnico] : indicadores;
+  // Indicadores com "imprimir" desmarcado ficam de fora do relatório do painel
+  // inteiro (Abrir PDF / WhatsApp), mas o print de UM indicador específico
+  // (botão PDF/WhatsApp de dentro da própria tabela/gráfico) ignora essa
+  // flag — é uma ação explícita do usuário sobre aquele indicador.
+  $: lista = indicadorUnico ? [indicadorUnico] : indicadores.filter(i => i.imprimir !== false);
   $: idsAssincronos = lista
     .filter(i => i && (String(i.query_tipo).startsWith('chart_') || i.query_tipo === 'map') && !i.erro && temDados(i))
     .map(i => i.id);
@@ -182,7 +186,7 @@
     </div>
   {:else}
     <div class="painel-grid" style="grid-template-columns: repeat({painel.colunas}, 1fr)">
-      {#each indicadores as ind}
+      {#each lista as ind}
         <div class="grid-item" style="grid-column: {ind.coluna} / span {ind.col_span};">
           {#if ind.erro || ind.query_tipo !== 'kpi'}
             <div class="card-titulo">{ind.titulo || ind.query_slug}</div>
@@ -275,7 +279,7 @@
   .rel-unico { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .card-titulo {
     padding: 10px 14px 6px; font-size: 11px; font-weight: 600; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border);
+    letter-spacing: .06em; border-bottom: 1px solid var(--border);
   }
   .rel-erro { color: #C62828; font-size: 12px; padding: 8px 12px; }
   .rel-vazio { color: var(--muted); font-size: 12px; padding: 16px 12px; text-align: center; }

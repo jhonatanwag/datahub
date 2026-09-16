@@ -68,8 +68,8 @@
 .kpi-topo.com-imagem { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
 .kpi-texto { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .kpi-imagem { width: 56px; height: 56px; object-fit: contain; border-radius: var(--radius-lg); flex-shrink: 0; }
-.kpi-titulo { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.kpi-titulo { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .06em; }
+.label { font-size: 12px; color: var(--muted); letter-spacing: .06em; }
 .valor { font-family: var(--font-display); font-size: 28px; font-weight: 500; color: var(--text); }
 .delta { font-size: 12px; font-weight: 600; }
 .delta.up   { color: var(--accent-green); }
