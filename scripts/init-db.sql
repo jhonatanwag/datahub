@@ -112,6 +112,7 @@ CREATE TABLE queries (
     subquery_id        INTEGER REFERENCES queries(id) ON DELETE SET NULL,
     chart_filtro_coluna TEXT,
     grupo_id            INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL,
+    query_base_id       INTEGER REFERENCES queries(id) ON DELETE SET NULL,
     UNIQUE (slug, empresa_id)
 );
 
@@ -165,6 +166,7 @@ CREATE TABLE dashboard_layout (
 -- Índices
 CREATE INDEX idx_queries_slug    ON queries(slug);
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);
+CREATE INDEX idx_queries_base    ON queries(query_base_id);
 CREATE INDEX idx_layout_empresa  ON dashboard_layout(empresa_id);
 
 -- Empresas (host = postgres = nome do serviço Docker)

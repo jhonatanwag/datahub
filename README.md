@@ -271,6 +271,9 @@ WHERE table_name = 'paineis' AND column_name IN ('grupo_id', 'impressao_orientac
 
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'painel_indicadores' AND column_name = 'imprimir';
+
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'queries' AND column_name = 'query_base_id';
 ```
 
 Rodar os itens abaixo cuja coluna não apareceu no resultado:
@@ -397,6 +400,13 @@ ALTER TABLE queries ADD COLUMN chart_rotulo_valor VARCHAR(12) DEFAULT 'horizonta
 
 -- 2026-09-16 — se o indicador entra no relatório PDF/WhatsApp do painel (checkbox "Imprimir")
 ALTER TABLE painel_indicadores ADD COLUMN imprimir BOOLEAN NOT NULL DEFAULT true;
+
+-- 2026-09-16 — query base: reaproveitar o FROM/JOIN de outra query já cadastrada via CTE
+-- (query "derivada" referencia `base` no próprio SQL; resolver_query compõe
+-- WITH base AS (<sql da base>) <sql da derivada> em tempo de execução — ver
+-- docs/superpowers/specs/2026-09-16-query-base-reaproveitamento-design.md)
+ALTER TABLE queries ADD COLUMN query_base_id INTEGER REFERENCES queries(id) ON DELETE SET NULL;
+CREATE INDEX idx_queries_base ON queries(query_base_id);
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,
