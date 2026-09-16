@@ -106,6 +106,17 @@ async def resolver_query(
             return {"data": cached, "from_cache": True, "query": query["nome"], "tipo": query["tipo"]}
 
     sql = query["sql_texto"]
+    query_params_id = query["id"]
+
+    if query.get("query_base_id"):
+        base_rows = await query_meta(
+            "SELECT * FROM queries WHERE id = $1 AND ativo = true", query["query_base_id"]
+        )
+        if not base_rows:
+            raise ValueError(f"Query base de '{slug}' não encontrada ou inativa")
+        base = dict(base_rows[0])
+        sql = f"WITH base AS ({base['sql_texto']}) {query['sql_texto']}"
+        query_params_id = base["id"]
 
     param_rows = await query_meta("""
         SELECT qp.*, v.slug AS variavel_slug
@@ -113,7 +124,16 @@ async def resolver_query(
         LEFT JOIN variaveis v ON v.id = qp.variavel_id
         WHERE qp.query_id = $1
         ORDER BY qp.id
-    """, query["id"])
+    """, query_params_id)
+
+    if query.get("query_base_id"):
+        param_rows += await query_meta("""
+            SELECT qp.*, v.slug AS variavel_slug
+            FROM query_parametros qp
+            LEFT JOIN variaveis v ON v.id = qp.variavel_id
+            WHERE qp.query_id = $1
+            ORDER BY qp.id
+        """, query["id"])
 
     valores = []
     for p in param_rows:
@@ -158,3 +178,12 @@ async def invalidar_cache_query(slug: str):
     keys = await redis.keys(f"query:{slug}:*")
     if keys:
         await redis.delete(*keys)
+
+
+async def invalidar_cache_derivadas(query_id: int):
+    """Se `query_id` é base de outras queries, o SQL delas depende do SQL
+    dela — invalida o cache de cada derivada (elas não sabem, pelo próprio
+    slug, que dependem de uma base que mudou)."""
+    derivadas = await query_meta("SELECT slug FROM queries WHERE query_base_id = $1", query_id)
+    for d in derivadas:
+        await invalidar_cache_query(d["slug"])
