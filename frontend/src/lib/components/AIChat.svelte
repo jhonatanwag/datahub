@@ -113,11 +113,30 @@
 
 <div class="chat">
   <div class="messages">
-    {#each historico as msg}
-      <div class="msg msg--{msg.tipo}">
-        <span class="origin">{msg.tipo === 'user' ? 'Você' : msg.tipo === 'ai' ? 'IA' : '!'}</span>
-        <p>{msg.texto}</p>
+    {#if historico.length === 0}
+      <div class="boas-vindas">
+        <img src="/mane-avatar.jpg" alt="Mané" class="avatar avatar--grande" />
+        <div>
+          <p class="boas-vindas-nome">Mané</p>
+          <p class="boas-vindas-texto">Olá! Sou o Mané, seu assistente virtual. Pergunte sobre os dados da sua empresa.</p>
+        </div>
       </div>
+    {/if}
+    {#each historico as msg}
+      {#if msg.tipo === 'ai'}
+        <div class="linha-ia">
+          <img src="/mane-avatar.jpg" alt="Mané" class="avatar" />
+          <div class="msg msg--ai">
+            <span class="origin">Mané</span>
+            <p>{msg.texto}</p>
+          </div>
+        </div>
+      {:else}
+        <div class="msg msg--{msg.tipo}">
+          <span class="origin">{msg.tipo === 'user' ? 'Você' : '!'}</span>
+          <p>{msg.texto}</p>
+        </div>
+      {/if}
     {/each}
     {#if transcrevendo}
       <div class="msg msg--user loading">
@@ -126,9 +145,12 @@
       </div>
     {/if}
     {#if carregando}
-      <div class="msg msg--ai loading">
-        <span class="origin">IA</span>
-        <p>Analisando dados<span class="dots">...</span></p>
+      <div class="linha-ia">
+        <img src="/mane-avatar.jpg" alt="Mané" class="avatar avatar--pensando" />
+        <div class="msg msg--ai loading">
+          <span class="origin">Mané</span>
+          <p>Analisando dados<span class="dots">...</span></p>
+        </div>
       </div>
     {/if}
   </div>
@@ -181,9 +203,37 @@
 .messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; max-height: 400px; padding-right: 4px; }
 .msg { padding: 12px 16px; border-radius: var(--radius); max-width: 85%; }
 .msg--user  { background: var(--surface2); align-self: flex-end; }
-.msg--ai    { background: var(--surface); border: 1px solid var(--border); align-self: flex-start; }
+.msg--ai    { background: var(--surface); border: 1px solid var(--border); }
 .msg--error { background: rgba(247,129,102,.1); border: 1px solid var(--accent); align-self: flex-start; }
 .origin { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; }
+
+.linha-ia { display: flex; align-items: flex-start; gap: 10px; align-self: flex-start; max-width: 90%; }
+.linha-ia .msg--ai { max-width: 100%; }
+.avatar {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 15%;
+  border: 2px solid var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, .12);
+  background: var(--surface2);
+}
+.avatar--pensando { animation: respirar 1.4s ease-in-out infinite; }
+@keyframes respirar { 50% { box-shadow: 0 0 0 5px rgba(88, 166, 255, .22); } }
+
+.boas-vindas {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px; border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.avatar--grande {
+  width: 64px; height: 64px;
+  border-width: 3px;
+  box-shadow: 0 0 0 4px rgba(88, 166, 255, .12);
+}
+.boas-vindas-nome { margin: 0 0 2px; font-family: var(--font-display); font-weight: 700; color: var(--accent-blue); }
+.boas-vindas-texto { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .input-row { display: flex; gap: 8px; align-items: flex-end; }
 .input-row textarea { resize: none; }
 .erro-mic { color: var(--accent); font-size: 12px; margin: 0; }
