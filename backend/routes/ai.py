@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from middleware.auth import get_current_user
-from services.rag import build_context
+from services.rag import listar_ferramentas_rag, executar_ferramenta_rag
 from services.groq_client import ask, transcrever
-from services.cache import cache_get, cache_set, TTL_CHARTS
 from config.databases import query_meta
-import json
 
 router = APIRouter(prefix="/api/ai", tags=["IA"])
 
@@ -17,15 +15,12 @@ class PerguntaInput(BaseModel):
 @router.post("/ask")
 async def chatbot(body: PerguntaInput, user=Depends(get_current_user)):
     try:
-        ctx_key = f"rag_context:{user['company_slug']}"
-        context = await cache_get(ctx_key)
-        if not context:
-            context = await build_context(user["company_slug"], user["empresa_id"])
-            await cache_set(ctx_key, context, ttl=TTL_CHARTS)
-        elif not isinstance(context, str):
-            context = json.dumps(context)
+        ferramentas = await listar_ferramentas_rag(user["empresa_id"])
 
-        resposta = await ask(body.pergunta, context, user["company_name"])
+        async def executar_ferramenta(nome: str) -> str:
+            return await executar_ferramenta_rag(nome, user["company_slug"], user["empresa_id"])
+
+        resposta = await ask(body.pergunta, ferramentas, executar_ferramenta, user["company_name"])
 
         await query_meta(
             """INSERT INTO chat_historico (usuario_id, empresa_id, pergunta, resposta)
