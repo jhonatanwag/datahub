@@ -115,19 +115,19 @@
   <div class="messages">
     {#if historico.length === 0}
       <div class="boas-vindas">
-        <img src="/mane-avatar.jpg" alt="Mané" class="avatar avatar--grande" />
+        <img src="/gpai-avatar.jpg" alt="GPAi" class="avatar avatar--grande" />
         <div>
-          <p class="boas-vindas-nome">Mané</p>
-          <p class="boas-vindas-texto">Olá! Sou o Mané, seu assistente virtual. Pergunte sobre os dados da sua empresa.</p>
+          <p class="boas-vindas-nome">GPAi</p>
+          <p class="boas-vindas-texto">Olá! Sou o GPAi, seu assistente virtual. Pergunte sobre os dados da sua empresa.</p>
         </div>
       </div>
     {/if}
     {#each historico as msg}
       {#if msg.tipo === 'ai'}
         <div class="linha-ia">
-          <img src="/mane-avatar.jpg" alt="Mané" class="avatar" />
+          <img src="/gpai-avatar.jpg" alt="GPAi" class="avatar" />
           <div class="msg msg--ai">
-            <span class="origin">Mané</span>
+            <span class="origin">GPAi</span>
             <p>{msg.texto}</p>
           </div>
         </div>
@@ -146,9 +146,9 @@
     {/if}
     {#if carregando}
       <div class="linha-ia">
-        <img src="/mane-avatar.jpg" alt="Mané" class="avatar avatar--pensando" />
+        <img src="/gpai-avatar.jpg" alt="GPAi" class="avatar avatar--pensando" />
         <div class="msg msg--ai loading">
-          <span class="origin">Mané</span>
+          <span class="origin">GPAi</span>
           <p>Analisando dados<span class="dots">...</span></p>
         </div>
       </div>
