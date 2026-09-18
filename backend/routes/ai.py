@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from middleware.auth import get_current_user
 from services.rag import build_context
-from services.groq_client import ask
+from services.groq_client import ask, transcrever
 from services.cache import cache_get, cache_set, TTL_CHARTS
 from config.databases import query_meta
 import json
@@ -36,6 +36,16 @@ async def chatbot(body: PerguntaInput, user=Depends(get_current_user)):
         return {"resposta": resposta}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no chatbot: {e}")
+
+
+@router.post("/transcrever")
+async def transcrever_audio(file: UploadFile = File(...), user=Depends(get_current_user)):
+    try:
+        audio_bytes = await file.read()
+        texto = await transcrever(audio_bytes, file.filename or "audio.webm")
+        return {"texto": texto}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao transcrever áudio: {e}")
 
 
 @router.get("/historico")

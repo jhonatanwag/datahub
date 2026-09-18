@@ -96,6 +96,16 @@ export const api = {
     perguntarIA: (pergunta) =>
         request('/api/ai/ask', { method: 'POST', body: JSON.stringify({ pergunta }) }),
     historicoIA: () => request('/api/ai/historico'),
+    transcreverAudio: (blob) => {
+        const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+        const fd = new FormData();
+        fd.append('file', blob, 'audio.webm');
+        return fetch(`${BASE}/api/ai/transcrever`, {
+            method: 'POST',
+            headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+            body: fd,
+        }).then(r => r.json());
+    },
 
     // Reports
     solicitarRelatorio: (tipo = 'relatorio_mensal') =>

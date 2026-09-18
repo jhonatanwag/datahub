@@ -14,7 +14,7 @@ DADOS ATUAIS DA EMPRESA:
 {context}"""
 
     response = await client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         max_tokens=1000,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -22,3 +22,12 @@ DADOS ATUAIS DA EMPRESA:
         ]
     )
     return response.choices[0].message.content
+
+
+async def transcrever(audio_bytes: bytes, filename: str = "audio.webm") -> str:
+    response = await client.audio.transcriptions.create(
+        file=(filename, audio_bytes),
+        model="whisper-large-v3",
+        language="pt",
+    )
+    return response.text.strip()
