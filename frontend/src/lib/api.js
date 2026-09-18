@@ -93,8 +93,29 @@ export const api = {
     },
 
     // IA
-    perguntarIA: (pergunta) =>
-        request('/api/ai/ask', { method: 'POST', body: JSON.stringify({ pergunta }) }),
+    perguntarIA: async (pergunta) => {
+        const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+        const res = await fetch(`${BASE}/api/ai/ask`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+            },
+            body: JSON.stringify({ pergunta }),
+        });
+        if (res.status === 401) tratarSessaoExpirada();
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const erro = new Error(
+                body?.detail?.erro === 'limite_tokens'
+                    ? 'Limite de uso da IA atingido.'
+                    : (typeof body.detail === 'string' ? body.detail : 'Erro ao obter resposta.')
+            );
+            if (body?.detail?.erro === 'limite_tokens') erro.espereSegundos = body.detail.espere_segundos;
+            throw erro;
+        }
+        return body;
+    },
     historicoIA: () => request('/api/ai/historico'),
     transcreverAudio: (blob) => {
         const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;

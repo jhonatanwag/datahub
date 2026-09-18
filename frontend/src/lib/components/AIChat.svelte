@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { api } from '$lib/api.js';
 
   let input = '';
@@ -11,6 +11,10 @@
   let suportaGravacao = false;
   let mediaRecorder = null;
   let audioChunks = [];
+  let tokensRestantes = null;
+  let tokensLimite = null;
+  let esperaSegundos = 0;
+  let esperaTimer = null;
 
   onMount(() => {
     suportaGravacao = typeof navigator !== 'undefined'
@@ -18,8 +22,25 @@
       && typeof MediaRecorder !== 'undefined';
   });
 
+  onDestroy(() => {
+    if (esperaTimer) clearInterval(esperaTimer);
+  });
+
+  function iniciarEspera(segundos) {
+    esperaSegundos = segundos;
+    if (esperaTimer) clearInterval(esperaTimer);
+    esperaTimer = setInterval(() => {
+      esperaSegundos -= 1;
+      if (esperaSegundos <= 0) {
+        clearInterval(esperaTimer);
+        esperaTimer = null;
+        esperaSegundos = 0;
+      }
+    }, 1000);
+  }
+
   async function enviar() {
-    if (!input.trim() || carregando) return;
+    if (!input.trim() || carregando || esperaSegundos > 0) return;
     const pergunta = input.trim();
     input = '';
     historico = [...historico, { tipo: 'user', texto: pergunta }];
@@ -27,8 +48,15 @@
     try {
       const res = await api.perguntarIA(pergunta);
       historico = [...historico, { tipo: 'ai', texto: res.resposta }];
+      if (res.tokens_restantes != null) tokensRestantes = res.tokens_restantes;
+      if (res.tokens_limite != null) tokensLimite = res.tokens_limite;
     } catch (e) {
-      historico = [...historico, { tipo: 'error', texto: 'Erro ao obter resposta.' }];
+      if (e.espereSegundos) {
+        historico = [...historico, { tipo: 'error', texto: `⏳ Limite de uso da IA atingido. Aguarde ${e.espereSegundos}s antes de perguntar de novo.` }];
+        iniciarEspera(e.espereSegundos);
+      } else {
+        historico = [...historico, { tipo: 'error', texto: e.message || 'Erro ao obter resposta.' }];
+      }
     } finally {
       carregando = false;
     }
@@ -109,13 +137,17 @@
     <p class="erro-mic">{erroMic}</p>
   {/if}
 
+  {#if esperaSegundos > 0}
+    <p class="aviso-limite">⏳ Limite de uso da IA atingido — aguarde {esperaSegundos}s pra perguntar de novo.</p>
+  {/if}
+
   <div class="input-row">
     <textarea
       bind:value={input}
       on:keydown={onKeydown}
       placeholder="Pergunte sobre os dados da empresa..."
       rows="2"
-      disabled={carregando || gravando || transcrevendo}
+      disabled={carregando || gravando || transcrevendo || esperaSegundos > 0}
     ></textarea>
 
     {#if suportaGravacao}
@@ -123,7 +155,7 @@
         class="btn-mic"
         class:gravando
         on:click={alternarGravacao}
-        disabled={carregando || transcrevendo}
+        disabled={carregando || transcrevendo || esperaSegundos > 0}
         title={gravando ? 'Parar gravação' : 'Gravar pergunta por voz'}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -134,10 +166,14 @@
       </button>
     {/if}
 
-    <button class="btn-primary" on:click={enviar} disabled={carregando || gravando || transcrevendo || !input.trim()}>
-      Enviar
+    <button class="btn-primary" on:click={enviar} disabled={carregando || gravando || transcrevendo || esperaSegundos > 0 || !input.trim()}>
+      {esperaSegundos > 0 ? `Aguarde ${esperaSegundos}s` : 'Enviar'}
     </button>
   </div>
+
+  {#if tokensLimite != null}
+    <p class="contador-tokens">Uso da IA: {tokensRestantes?.toLocaleString('pt-BR')} / {tokensLimite?.toLocaleString('pt-BR')} tokens disponíveis (por minuto)</p>
+  {/if}
 </div>
 
 <style>
@@ -151,6 +187,8 @@
 .input-row { display: flex; gap: 8px; align-items: flex-end; }
 .input-row textarea { resize: none; }
 .erro-mic { color: var(--accent); font-size: 12px; margin: 0; }
+.aviso-limite { color: var(--accent); font-size: 13px; margin: 0; font-weight: 500; }
+.contador-tokens { color: var(--muted); font-size: 11px; margin: 0; text-align: right; }
 .btn-mic {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; flex-shrink: 0;
