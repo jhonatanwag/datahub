@@ -38,6 +38,7 @@ docker compose -f docker-compose.dev.yml up --build
 | `META_DB_USER`    | datahub_user                           |
 | `META_DB_PASS`    | Senha do usuário datahub_user          |
 | `FRONTEND_URL`    | URL do frontend (para CORS)            |
+| `MAX_LINHAS_QUERY`| Teto de linhas por query (padrão `200000`); acima disso a consulta é recusada com 413 e pede filtro |
 
 ## Adicionar nova empresa
 
@@ -61,6 +62,45 @@ Mudanças aplicadas até agora:
 -- Preferência de tema (claro/escuro) por usuário
 ALTER TABLE usuarios ADD COLUMN tema VARCHAR(10) NOT NULL DEFAULT 'escuro';
 ```
+
+## Limites de recursos e proteção contra estouro de memória
+
+**O que aconteceu (2026-09-20):** gerar o PDF de um painel com `table_dynamic` pivotado num período de
+muitos anos esgotou a RAM da máquina. Causa medida: o relatório monta a tabela inteira no DOM e o Chrome do
+`pdf-renderer` imprime tudo de uma vez. Cada mês vira uma coluna, as colunas se estreitam, o texto quebra
+em mais linhas e a altura da página cresce (63 colunas -> página de 128 mil px). O `page.pdf()` passou de
+3 GB e chegou a rodar 280 s sem terminar. Nada limitava memória, linhas, colunas nem tempo, e o timeout antigo
+só fechava a resposta HTTP, deixando o Chrome trabalhando.
+
+Proteções, da mais próxima da causa até a última linha (todas ativas):
+
+| Camada | Proteção | Onde |
+|---|---|---|
+| Relatório | Pivô com mais de **24 colunas**: não desenha a tabela, avisa para reduzir o período | `frontend/src/lib/relatorioLimites.js` |
+| Relatório | Mais de **2.000 linhas** de origem: mostra só grupos e totais (calculados sobre os dados completos); `table` simples mostra as 2.000 primeiras. Sempre com aviso | idem |
+| Relatório | Não monta mais os `cards-mobile` (2ª cópia do DOM, escondida por CSS) | `DynamicTable`/`DataTable` |
+| pdf-renderer | Recusa **antes de imprimir** se a página tem > 80 mil px de altura ou > 250 mil elementos (413) | `renderer/server.mjs` |
+| pdf-renderer | **Prazo de 50 s** que derruba o Chrome de verdade (504); cliente que desiste também derruba | idem |
+| pdf-renderer | Fila limitada (4 esperando; excedente recebe 503); não imprime página que "não ficou pronta"; heap V8 de 768 MB | idem |
+| Backend | Mensagens 413/503/504 do renderer chegam ao usuário (antes: 502 genérico) | `routes/paineis.py` |
+| Backend | Query com mais de `MAX_LINHAS_QUERY` (200.000) linhas é abortada por cursor, sem cachear (413) | `config/databases.py` |
+| Contêiner | `mem_limit` + `memswap_limit` (sem swap) em todos os serviços; renderer 2 GB / 2 CPUs / 512 pids; Redis `maxmemory 256mb` + `volatile-lru` | `docker-compose.dev.yml` |
+
+Se o teto do contêiner for atingido, o kernel mata só o Chrome (`Target crashed`); o node do renderer continua
+de pé e responde erro, então a máquina não trava.
+
+**Ajustar sem rebuild** (variáveis do serviço `pdf-renderer`): `RENDER_TIMEOUT_MS` (50000),
+`RENDER_MAX_ALTURA_PX` (80000), `RENDER_MAX_NOS_DOM` (250000), `RENDER_MAX_FILA` (4), `RENDER_HEAP_JS_MB` (768).
+Os limites de linhas/colunas do relatório são constantes em `relatorioLimites.js`.
+
+**Produção (EasyPanel/Swarm):** o compose acima é só de dev. Em cada serviço, na aba de recursos do EasyPanel,
+defina limite de memória equivalente (pdf-renderer 2 GB, backend 1 GB, redis 384 MB, worker 512 MB) e, no
+Redis, o comando `redis-server --maxmemory 256mb --maxmemory-policy volatile-lru`. Sem limite de memória no
+serviço, um Chrome descontrolado consome a RAM do VPS inteiro.
+
+**Windows + Docker Desktop (dev):** o Docker roda numa VM WSL2 que por padrão pode usar até ~50% da RAM. Para
+limitar a VM inteira, crie `%UserProfile%\.wslconfig` com `[wsl2]` e `memory=8GB` (e `swap=0`) e rode `wsl --shutdown`.
+É a rede de segurança final caso algum serviço fora deste compose se descontrole.
 
 ## Deploy no EasyPanel
 
@@ -407,6 +447,11 @@ ALTER TABLE painel_indicadores ADD COLUMN imprimir BOOLEAN NOT NULL DEFAULT true
 -- docs/superpowers/specs/2026-09-16-query-base-reaproveitamento-design.md)
 ALTER TABLE queries ADD COLUMN query_base_id INTEGER REFERENCES queries(id) ON DELETE SET NULL;
 CREATE INDEX idx_queries_base ON queries(query_base_id);
+
+-- 2026-09-18 — pivô de colunas no table_dynamic (ex.: meses como colunas + Total Geral)
+ALTER TABLE queries ADD COLUMN pivot_coluna TEXT;
+ALTER TABLE queries ADD COLUMN pivot_ordem_coluna TEXT;
+ALTER TABLE queries ADD COLUMN pivot_total BOOLEAN DEFAULT false;
 ```
 
 Ao adicionar uma nova coluna em `queries` (ou outra tabela) no futuro,

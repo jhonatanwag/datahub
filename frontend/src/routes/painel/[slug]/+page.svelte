@@ -339,6 +339,7 @@
                 filtrosQuery={filtrosQuery}
                 agrupamentos={ind.agrupamentos ?? []}
                 agregacoes={ind.agregacoes ?? []}
+                pivot={ind.pivot ?? null}
                 subquery={ind.subquery}
               />
 

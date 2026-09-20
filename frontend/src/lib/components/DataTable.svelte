@@ -1,4 +1,5 @@
 <script>
+  import { LIMITE_LINHAS_RELATORIO, excedeLimiteRelatorio, textoAvisoLimite } from '$lib/relatorioLimites.js';
   import { baixarCSV, baixarXLSX } from '$lib/exportTable.js';
   import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
   import { imprimirDocumento } from '$lib/documentoImpressao.js';
@@ -58,7 +59,11 @@
   // ou o tamanho de página muda, pra nunca ficar numa página vazia/inválida.
   $: dados, tamanhoPagina, (paginaAtual = 1);
 
-  $: linhasVisiveis = modoRelatorio ? dados : dadosPaginados;
+  // No relatório tudo vai pro DOM sem paginação: acima do limite corta e avisa (ver relatorioLimites.js).
+  $: relatorioExcedeu = modoRelatorio && excedeLimiteRelatorio(dados.length);
+  $: linhasVisiveis = modoRelatorio
+    ? (relatorioExcedeu ? dados.slice(0, LIMITE_LINHAS_RELATORIO) : dados)
+    : dadosPaginados;
 
   const fmtValor = (v) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -145,6 +150,7 @@
     </tbody>
   </table>
 
+  {#if !modoRelatorio}
   <div class="cards-mobile">
     {#each linhasVisiveis as row}
       <div class="card-linha" class:com-acao={mostrarAcoes && row[impressaoColuna]}>
@@ -172,6 +178,10 @@
       </div>
     {/each}
   </div>
+  {/if}
+  {#if relatorioExcedeu}
+    <p class="aviso-limite">{textoAvisoLimite(dados.length, 'truncar')}</p>
+  {/if}
 
   {#if !modoRelatorio}
   <div class="pagination">
@@ -210,6 +220,7 @@
 </div>
 
 <style>
+.aviso-limite { margin: 8px 0 0; font-size: 11px; color: var(--muted); font-style: italic; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }

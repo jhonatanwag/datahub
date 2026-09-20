@@ -19,6 +19,7 @@
     chart_valor_label: '',
     chart_rotulo_eixo: 'horizontal', chart_rotulo_valor: 'horizontal',
     chart_filtro_coluna: '',
+    pivot_coluna: '', pivot_ordem_coluna: '', pivot_total: false,
     impressao_habilitada: false, impressao_caminho: '', impressao_coluna: '',
     meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
     meta_coluna_fim: '', meta_cor_dentro: '#3fb950', meta_cor_fora: '#f85149',
@@ -98,6 +99,9 @@
         chart_rotulo_eixo:     q.chart_rotulo_eixo || 'horizontal',
         chart_rotulo_valor:    q.chart_rotulo_valor || 'horizontal',
         chart_filtro_coluna:   q.chart_filtro_coluna || '',
+        pivot_coluna:          q.pivot_coluna || '',
+        pivot_ordem_coluna:    q.pivot_ordem_coluna || '',
+        pivot_total:           q.pivot_total ?? false,
         impressao_habilitada: q.impressao_habilitada ?? false,
         impressao_caminho:    q.impressao_caminho || '',
         impressao_coluna:     q.impressao_coluna || '',
@@ -266,6 +270,9 @@
         chart_rotulo_eixo:     form.chart_rotulo_eixo,
         chart_rotulo_valor:    form.chart_rotulo_valor,
         chart_filtro_coluna:   form.chart_filtro_coluna || null,
+        pivot_coluna:          form.pivot_coluna || '',
+        pivot_ordem_coluna:    form.pivot_ordem_coluna || '',
+        pivot_total:           !!form.pivot_coluna && form.pivot_total,
         impressao_habilitada: form.impressao_habilitada,
         impressao_caminho:    form.impressao_caminho || null,
         impressao_coluna:     form.impressao_coluna || null,
@@ -597,6 +604,39 @@
               <button class="btn-ghost btn-sm danger" on:click={() => removerAgregacao(i)}>✕</button>
             </div>
           {/each}
+        </div>
+
+        <div class="section-block">
+          <span class="section-title">Pivô de colunas (opcional)</span>
+          <p class="hint-block">
+            Transforma os valores de uma coluna em colunas da tabela (ex.: um mês por coluna, como em
+            "Jan | Fev | Mar | Total Geral"). Cada célula usa a 1ª agregação acima e exige ao menos 1 nível de
+            agrupamento. Teste a query pra listar as colunas.
+          </p>
+          <label class="lbl">
+            Coluna que vira colunas
+            <select bind:value={form.pivot_coluna}>
+              <option value="">— sem pivô —</option>
+              {#each resultadoTeste?.colunas ?? (form.pivot_coluna ? [form.pivot_coluna] : []) as c}
+                <option value={c}>{c}</option>
+              {/each}
+            </select>
+          </label>
+          {#if form.pivot_coluna}
+            <label class="lbl">
+              Coluna que ordena as colunas (opcional — ex.: aaaamm; sem ela vale a ordem de aparição)
+              <select bind:value={form.pivot_ordem_coluna}>
+                <option value="">— nenhuma —</option>
+                {#each resultadoTeste?.colunas ?? (form.pivot_ordem_coluna ? [form.pivot_ordem_coluna] : []) as c}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="check-inline">
+              <input type="checkbox" bind:checked={form.pivot_total} />
+              Mostrar coluna e linha "Total Geral"
+            </label>
+          {/if}
         </div>
 
         <div class="section-block">

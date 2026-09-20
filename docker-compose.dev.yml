@@ -7,6 +7,8 @@ services:
     image: postgres:16-alpine
     container_name: datahub_postgres
     restart: unless-stopped
+    mem_limit: 1g            # teto de RAM do container (sem isso ele enxerga a máquina toda)
+    memswap_limit: 1g        # = mem_limit: proíbe swap, senão o Windows/WSL trava paginando em disco
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
@@ -27,6 +29,11 @@ services:
     image: redis:7-alpine
     container_name: datahub_redis
     restart: unless-stopped
+    # Cache de queries + tokens de PDF: tudo tem TTL, então volatile-lru descarta os mais antigos
+    # quando enche em vez de crescer sem limite (o padrão era maxmemory 0 = ilimitado).
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    mem_limit: 384m
+    memswap_limit: 384m
     ports:
       - "6379:6379"
     healthcheck:
@@ -42,6 +49,9 @@ services:
       dockerfile: Dockerfile.dev
     container_name: datahub_backend
     restart: unless-stopped
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 2.0
     ports:
       - "3001:3001"
     env_file:
@@ -67,6 +77,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: datahub_worker
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
     command: python -m arq worker.WorkerSettings
     env_file:
       - ./backend/.env.dev
@@ -83,6 +95,8 @@ services:
     image: node:20-alpine
     container_name: datahub_frontend
     restart: unless-stopped
+    mem_limit: 1g            # `npm install` + Vite dev
+    memswap_limit: 1g
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 3000"
     ports:
@@ -101,9 +115,20 @@ services:
       context: ./renderer
     container_name: datahub_pdf_renderer
     restart: unless-stopped
+    # É o serviço que já derrubou a máquina: um Chrome imprimindo um relatório enorme passou de 3 GB.
+    # Se estourar o teto, o kernel mata só o Chrome (o node sobrevive e responde erro), não a máquina.
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 2.0
+    pids_limit: 512
     environment:
       - RENDERER_SECRET=dev-secret
       - RELATORIO_BASE_URL=http://frontend:3000
+      # Guardas do renderer (defaults no server.mjs; descomente pra ajustar sem rebuild):
+      # - RENDER_TIMEOUT_MS=50000      # tempo máximo por PDF
+      # - RENDER_MAX_ALTURA_PX=80000   # recusa relatório mais alto que isso (~100 páginas paisagem)
+      # - RENDER_MAX_NOS_DOM=250000    # recusa relatório com mais elementos que isso
+      # - RENDER_MAX_FILA=4            # pedidos esperando vaga; acima disso responde 503
     depends_on:
       - frontend
     healthcheck:

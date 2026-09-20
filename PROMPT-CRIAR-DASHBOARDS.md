@@ -251,6 +251,19 @@ trabalho"`, `"Tipo de equipamento"`, `"Id."`).
 - `query_agregacoes` (`coluna`, `funcao`, `label`, `ordem`): o que mostrar
   por grupo. `funcao` ∈ `soma`, `contagem`, `media`, `minimo`, `maximo`
   (ver `FUNCOES` em `frontend/src/lib/components/DynamicTable.svelte`).
+- **Pivô de colunas (opcional)** — colunas dinâmicas tipo "Jan | Fev | Mar |
+  Total Geral" (`queries.pivot_coluna`, `pivot_ordem_coluna`, `pivot_total`;
+  seção "Pivô de colunas" na tela da query): `pivot_coluna` é a coluna do
+  resultado cujos **valores distintos viram colunas**; `pivot_ordem_coluna`
+  (opcional) ordena essas colunas (ex.: `aaaamm` numérico — sem ela vale a
+  ordem de aparição; a coluna de ordem some das linhas de detalhe);
+  `pivot_total` liga a coluna "Total Geral" e a linha "Total Geral" no fim.
+  Cada célula usa a **1ª agregação** (sem nenhuma, conta linhas); mês sem
+  ocorrência fica em branco. Exige ao menos 1 agrupamento (as células ficam
+  nas linhas de grupo: subtotal por grupo, e o detalhe abre ao expandir).
+  O rótulo da coluna vem do SQL, então devolva já formatado e ordenável
+  (ex.: `to_char(data,'MM/YYYY')` + `to_char(data,'YYYYMM')::int` como ordem).
+  Funciona na tela, no PDF do painel e no export CSV/Excel.
 - **Drill-down opcional**: se `subquery_id` aponta pra outra query
   (normalmente `tipo = 'table'`), ao expandir uma linha o frontend chama
   essa subquery passando parâmetros extraídos da linha clicada, mapeados

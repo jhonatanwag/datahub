@@ -8,16 +8,24 @@
   export let modo = 'tabela';  // 'tabela' | 'cards' — mesmo dado, duas renderizações (padrão do DataTable.svelte)
   export let expandidos;       // Set<string> — chaves dos grupos abertos
   export let onAlternar;       // (chave) => void
+  export let ocultarFolhas = false; // relatório grande: só grupos e totais, sem as linhas de detalhe
   export let caminho = '';     // prefixo acumulado dos valores dos grupos ancestrais, pra montar a chave
 
   function chaveDoGrupo(valor) {
     return `${caminho}›${valor}`;
   }
+
+  // Célula do pivô (semRotulo) mostra só o valor — o cabeçalho da coluna já diz de qual mês é;
+  // null = sem ocorrência naquela coluna, fica em branco.
+  function textoAgregado(ag) {
+    if (ag.semRotulo) return ag.valor ?? '';
+    return `${ag.label ?? ag.coluna}: ${ag.valor}`;
+  }
 </script>
 
 {#if modo === 'tabela'}
   {#if no.folha}
-    {#each no.linhas as row}
+    {#each (ocultarFolhas ? [] : no.linhas) as row}
       <tr>
         {#each colunasDetalhe as col, i}
           <td style={i === 0 ? `padding-left:${16 + nivel * 16}px` : ''}>{row[col.key] ?? '—'}</td>
@@ -38,7 +46,7 @@
           {grupo.valor ?? '—'}
         </td>
         {#each grupo.agregados as ag}
-          <td class="agregado">{ag.label ?? ag.coluna}: {ag.valor}</td>
+          <td class="agregado">{textoAgregado(ag)}</td>
         {/each}
         {#if mostrarAcoes}<td></td>{/if}
       </tr>
@@ -51,12 +59,22 @@
           {onAcionar}
           nivel={nivel + 1}
           modo="tabela"
+          {ocultarFolhas}
           {expandidos}
           {onAlternar}
           caminho={chave}
         />
       {/if}
     {/each}
+    {#if nivel === 0 && no.totalGeral}
+      <tr class="linha-total">
+        <td colspan={Math.max(1, colunasDetalhe.length)}>Total Geral</td>
+        {#each no.totalGeral as ag}
+          <td class="agregado">{textoAgregado(ag)}</td>
+        {/each}
+        {#if mostrarAcoes}<td></td>{/if}
+      </tr>
+    {/if}
   {/if}
 {:else}
   {#if no.folha}
@@ -83,7 +101,9 @@
         {#if grupo.agregados.length}
           <div class="card-grupo-agregados">
             {#each grupo.agregados as ag}
-              <span class="card-agregado-pill">{ag.label ?? ag.coluna}: {ag.valor}</span>
+              {#if !(ag.semRotulo && ag.valor == null)}
+                <span class="card-agregado-pill">{ag.label ?? ag.coluna}: {ag.valor}</span>
+              {/if}
             {/each}
           </div>
         {/if}
@@ -103,13 +123,32 @@
         />
       {/if}
     {/each}
+    {#if nivel === 0 && no.totalGeral}
+      <div class="card-grupo card-total">
+        <span class="card-grupo-valor">Total Geral</span>
+        <div class="card-grupo-agregados">
+          {#each no.totalGeral as ag}
+            {#if !(ag.semRotulo && ag.valor == null)}
+              <span class="card-agregado-pill">{ag.label ?? ag.coluna}: {ag.valor}</span>
+            {/if}
+          {/each}
+        </div>
+      </div>
+    {/if}
   {/if}
 {/if}
 
 <style>
+/* Mesmo padding/borda do th/td de DynamicTable (o CSS de lá é escopado e não alcança estas células);
+   sem isso os valores ficam desalinhados do cabeçalho das colunas. */
+td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+:global(.modo-relatorio) td { padding: 6px 8px; }
 .linha-grupo { background: var(--surface2); font-weight: 600; cursor: pointer; user-select: none; }
 .linha-grupo:hover { background: var(--surface); }
 .agregado { text-align: right; }
+.linha-total { background: var(--surface2); font-weight: 700; border-top: 2px solid var(--border); }
+.linha-total td { padding: 10px 14px; }
+.card-total { margin-top: 4px; }
 .btn-sm { font-size: 12px; padding: 4px 10px; }
 
 .seta {

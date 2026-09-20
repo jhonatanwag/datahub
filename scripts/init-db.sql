@@ -113,6 +113,9 @@ CREATE TABLE queries (
     chart_filtro_coluna TEXT,
     grupo_id            INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL,
     query_base_id       INTEGER REFERENCES queries(id) ON DELETE SET NULL,
+    pivot_coluna        TEXT,                              -- table_dynamic: coluna do resultado cujos valores viram colunas (ex.: mês)
+    pivot_ordem_coluna  TEXT,                              -- table_dynamic: coluna usada só pra ordenar as colunas do pivô (ex.: yyyymm)
+    pivot_total         BOOLEAN DEFAULT false,             -- table_dynamic: mostra coluna 'Total' + linha 'Total Geral'
     UNIQUE (slug, empresa_id)
 );
 

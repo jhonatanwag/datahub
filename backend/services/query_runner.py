@@ -2,7 +2,7 @@
 import json
 import calendar
 from datetime import datetime, date as date_type, timedelta
-from config.databases import query_meta, query_company
+from config.databases import query_meta, query_company, query_company_limitado
 from services.cache import cache_get, cache_set
 
 
@@ -155,7 +155,7 @@ async def resolver_query(
 
         valores.append(_cast(val))
 
-    resultado = await query_company(company_slug, sql, *valores)
+    resultado = await query_company_limitado(company_slug, sql, *valores)
     data = [dict(r) for r in resultado]
 
     if query["cache_ttl"] > 0:

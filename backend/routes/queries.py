@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam, Requ
 from pydantic import BaseModel
 from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
-from config.databases import query_meta, query_company
+from config.databases import query_meta, query_company, LimiteLinhasError
 from services.query_runner import resolver_query, invalidar_cache_query, invalidar_cache_derivadas, validar_sql, _cast
 from services.grupos import resolver_grupo_id
 
@@ -45,6 +45,9 @@ class QueryInput(BaseModel):
     kpi_imagem_posicao: Optional[str] = 'direita'
     kpi_valor_primeiro: Optional[bool] = False
     chart_filtro_coluna: Optional[str] = None
+    pivot_coluna: Optional[str] = None        # table_dynamic: coluna cujos valores viram colunas
+    pivot_ordem_coluna: Optional[str] = None  # table_dynamic: coluna que ordena as colunas do pivô
+    pivot_total: Optional[bool] = False       # table_dynamic: coluna Total + linha Total Geral
     grupo_nome: Optional[str] = None
     query_base_id: Optional[int] = None
 
@@ -82,6 +85,9 @@ class QueryUpdate(BaseModel):
     kpi_imagem_posicao: Optional[str] = None
     kpi_valor_primeiro: Optional[bool] = None
     chart_filtro_coluna: Optional[str] = None
+    pivot_coluna: Optional[str] = None
+    pivot_ordem_coluna: Optional[str] = None
+    pivot_total: Optional[bool] = None
     grupo_nome: Optional[str] = None
     query_base_id: Optional[int] = None
 
@@ -195,6 +201,8 @@ async def executar_query(slug: str, request: Request, user=Depends(get_current_u
             empresa_id=user["empresa_id"],
             parametros=parametros
         )
+    except LimiteLinhasError as e:
+        raise HTTPException(status_code=413, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -455,9 +463,9 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, grupo_id, kpi_valor_primeiro, chart_rotulo_eixo, chart_rotulo_valor,
-                query_base_id
+                query_base_id, pivot_coluna, pivot_ordem_coluna, pivot_total
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -471,7 +479,8 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.meta_cor_dentro, body.meta_cor_fora, body.subquery_id,
             body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao,
             body.chart_filtro_coluna, grupo_id, body.kpi_valor_primeiro, body.chart_rotulo_eixo,
-            body.chart_rotulo_valor, body.query_base_id)
+            body.chart_rotulo_valor, body.query_base_id,
+            body.pivot_coluna or None, body.pivot_ordem_coluna or None, bool(body.pivot_total))
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
@@ -506,11 +515,16 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'meta_cor_dentro', 'meta_cor_fora', 'subquery_id',
             'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao',
             'kpi_valor_primeiro', 'chart_filtro_coluna', 'chart_rotulo_eixo', 'chart_rotulo_valor',
-            'query_base_id'
+            'query_base_id', 'pivot_coluna', 'pivot_ordem_coluna', 'pivot_total'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
                 raise HTTPException(status_code=400, detail=f"Campo inválido: {k}")
+
+        # exclude_none impede limpar via null; o frontend manda '' e aqui vira NULL.
+        for k in ("pivot_coluna", "pivot_ordem_coluna"):
+            if k in updates and not updates[k].strip():
+                updates[k] = None
 
         if "nome" in updates and not updates["nome"].strip():
             raise HTTPException(status_code=400, detail="Nome é obrigatório.")
@@ -601,7 +615,8 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
-                chart_rotulo_eixo, chart_rotulo_valor, query_base_id
+                chart_rotulo_eixo, chart_rotulo_valor, query_base_id,
+                pivot_coluna, pivot_ordem_coluna, pivot_total
             )
             SELECT
                 $1, $2, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
@@ -612,7 +627,8 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
-                chart_rotulo_eixo, chart_rotulo_valor, query_base_id
+                chart_rotulo_eixo, chart_rotulo_valor, query_base_id,
+                pivot_coluna, pivot_ordem_coluna, pivot_total
             FROM queries WHERE id = $3
             RETURNING *
         """, novo_slug, novo_nome, query_id)

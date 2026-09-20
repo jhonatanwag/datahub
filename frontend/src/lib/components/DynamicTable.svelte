@@ -7,12 +7,17 @@
   import MapPanel from './MapPanel.svelte';
   import { api } from '$lib/api.js';
   import { baixarCSVAgrupado, baixarXLSXAgrupado } from '$lib/exportTable.js';
+  import { construirArvore, montarPivot } from '$lib/tabelaDinamica.js';
+  import {
+    excedeLimiteRelatorio, textoAvisoLimite, excedeColunasPivotRelatorio, textoAvisoColunasPivot,
+  } from '$lib/relatorioLimites.js';
   import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
 
   export let colunas = [];
   export let dados = [];
   export let agrupamentos = [];
   export let agregacoes = [];
+  export let pivot = null;          // { coluna, ordem_coluna, total } — colunas dinâmicas (ex.: meses)
   export let subquery = null;
   export let titulo = 'dados';
   export let modoRelatorio = false;
@@ -20,48 +25,31 @@
   export let indicadorId  = null;
   export let filtrosQuery = '';
 
-  const FUNCOES = {
-    soma:     vals => vals.reduce((a, b) => a + b, 0),
-    contagem: vals => vals.length,
-    media:    vals => vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0,
-    minimo:   vals => vals.length ? Math.min(...vals) : 0,
-    maximo:   vals => vals.length ? Math.max(...vals) : 0,
-  };
-
-  function calcularAgregacoes(linhas, agregacoesAtual) {
-    return agregacoesAtual.map(ag => {
-      const valores = linhas.map(r => Number(r[ag.coluna])).filter(v => !Number.isNaN(v));
-      return { coluna: ag.coluna, label: ag.label, valor: (FUNCOES[ag.funcao] ?? FUNCOES.soma)(valores) };
-    });
-  }
-
-  function construirArvore(linhas, nivel, agrupamentosAtual, agregacoesAtual) {
-    if (nivel >= agrupamentosAtual.length) return { folha: true, linhas };
-    const coluna = agrupamentosAtual[nivel];
-    const grupos = new Map();
-    for (const linha of linhas) {
-      const chave = linha[coluna];
-      if (!grupos.has(chave)) grupos.set(chave, []);
-      grupos.get(chave).push(linha);
-    }
-    return {
-      folha: false,
-      grupos: [...grupos.entries()].map(([valor, linhasGrupo]) => ({
-        valor,
-        agregados: calcularAgregacoes(linhasGrupo, agregacoesAtual),
-        filho: construirArvore(linhasGrupo, nivel + 1, agrupamentosAtual, agregacoesAtual),
-      })),
-    };
-  }
-
   $: colunasTodas = colunas.length > 0
     ? colunas
     : (dados[0] ? Object.keys(dados[0]).map(k => ({ key: k, label: k })) : []);
 
-  $: colunasDetalhe = colunasTodas.filter(c => !agrupamentos.includes(c.key));
+  // Pivô só faz sentido com ao menos um agrupamento (as células ficam nas linhas de grupo).
+  $: pivotCtx = agrupamentos.length ? montarPivot(dados, pivot, agregacoes) : null;
 
-  $: arvore = construirArvore(dados, 0, agrupamentos, agregacoes);
+  // A coluna que só ordena o pivô (ex.: yyyymm) não deve aparecer nas linhas de detalhe.
+  $: colunasDetalhe = colunasTodas.filter(
+    c => !agrupamentos.includes(c.key) && c.key !== pivotCtx?.ordemColuna
+  );
+
+  // No pivô, as colunas da direita são as do pivô (uma por valor + Total Geral)
+  // em vez das agregações; mesma forma ({label}) então cabeçalho/export/padding servem igual.
+  $: agregacoesEfetivas = pivotCtx ? pivotCtx.cabecalhos : agregacoes;
+
+  $: arvore = construirArvore(dados, 0, agrupamentos, agregacoes, pivotCtx);
   $: mostrarAcoes = !!subquery;
+
+  // Relatório grande: mantém grupos/totais (calculados sobre TODOS os dados, então corretos)
+  // e omite as linhas de detalhe — é o detalhe que multiplica o DOM. Ver relatorioLimites.js.
+  $: ocultarDetalhe = modoRelatorio && excedeLimiteRelatorio(dados.length);
+
+  // Pivô com colunas demais não cabe na página: no relatório nem monta a tabela (só o aviso).
+  $: pivotLargoDemais = modoRelatorio && !!pivotCtx && excedeColunasPivotRelatorio(pivotCtx.valores.length);
 
   // Grupos começam todos recolhidos — só as linhas de agrupamento aparecem
   // até o usuário clicar pra expandir. Chave = caminho dos valores dos
@@ -122,35 +110,44 @@
 </script>
 
 <div class="table-wrap" class:modo-relatorio={modoRelatorio}>
+  {#if pivotLargoDemais}
+    <p class="aviso-limite">{textoAvisoColunasPivot(pivotCtx.valores.length)}</p>
+  {:else}
   <table>
     <thead>
       <tr>
         {#each colunasDetalhe as col}<th>{col.label ?? col.key}</th>{/each}
-        {#each agregacoes as ag}<th class="agregado-header">{ag.label ?? ag.coluna}</th>{/each}
+        {#each agregacoesEfetivas as ag}<th class="agregado-header">{ag.label ?? ag.coluna}</th>{/each}
         {#if mostrarAcoes}<th>Ações</th>{/if}
       </tr>
     </thead>
     <tbody>
       <GrupoLinha
-        no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar}
-        nivel={0} modo="tabela" expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
+        no={arvore} {colunasDetalhe} agregacoes={agregacoesEfetivas} {mostrarAcoes} onAcionar={acionar}
+        nivel={0} modo="tabela" ocultarFolhas={ocultarDetalhe} expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
       />
     </tbody>
   </table>
+  {/if}
 
+  {#if !modoRelatorio}
   <div class="cards-mobile">
     <GrupoLinha
-      no={arvore} {colunasDetalhe} {agregacoes} {mostrarAcoes} onAcionar={acionar}
+      no={arvore} {colunasDetalhe} agregacoes={agregacoesEfetivas} {mostrarAcoes} onAcionar={acionar}
       nivel={0} modo="cards" expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
     />
   </div>
+  {/if}
+  {#if ocultarDetalhe && !pivotLargoDemais}
+    <p class="aviso-limite">{textoAvisoLimite(dados.length, 'omitir-detalhe')}</p>
+  {/if}
 
   {#if !modoRelatorio}
   <div class="export-bar">
-    <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSVAgrupado(colunasDetalhe, agregacoes, arvore, titulo)} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-csv btn-sm" on:click={() => baixarCSVAgrupado(colunasDetalhe, agregacoesEfetivas, arvore, titulo)} disabled={dados.length === 0}>
       ⬇ CSV
     </button>
-    <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSXAgrupado(colunasDetalhe, agregacoes, arvore, titulo)} disabled={dados.length === 0}>
+    <button class="btn-export btn-export-xlsx btn-sm" on:click={() => baixarXLSXAgrupado(colunasDetalhe, agregacoesEfetivas, arvore, titulo)} disabled={dados.length === 0}>
       ⬇ Excel
     </button>
     {#if painelSlug}
@@ -184,6 +181,7 @@
 </Modal>
 
 <style>
+.aviso-limite { margin: 8px 0 0; font-size: 11px; color: var(--muted); font-style: italic; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }

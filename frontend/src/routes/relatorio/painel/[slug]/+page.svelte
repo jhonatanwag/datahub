@@ -178,6 +178,7 @@
           titulo={tituloRelatorio}
           agrupamentos={indicadorUnico.agrupamentos ?? []}
           agregacoes={indicadorUnico.agregacoes ?? []}
+          pivot={indicadorUnico.pivot ?? null}
           modoRelatorio={true}
         />
       {:else}
@@ -248,6 +249,7 @@
                 titulo={ind.titulo || ind.query_slug}
                 agrupamentos={ind.agrupamentos ?? []}
                 agregacoes={ind.agregacoes ?? []}
+                pivot={ind.pivot ?? null}
                 modoRelatorio={true}
               />
             {:else}

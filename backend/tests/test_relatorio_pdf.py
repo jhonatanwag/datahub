@@ -59,6 +59,7 @@ def test_relatorio_pdf_chama_renderer_e_devolve_pdf(client, auth_token, painel_t
     import httpx
 
     class FakeResp:
+        status_code = 200
         content = b"%PDF-1.4 fake"
         def raise_for_status(self): pass
 
@@ -121,3 +122,68 @@ def test_relatorio_pdf_sem_acesso_404(client, auth_token, monkeypatch):
         assert r.status_code == 404
     finally:
         hard_delete_painel(pid)
+
+
+def _renderer_responde(monkeypatch, status=None, corpo=None, excecao=None):
+    """Troca o httpx.AsyncClient por um que devolve `status/corpo` (ou levanta `excecao`)."""
+    import httpx
+
+    class FakeResp:
+        def __init__(self):
+            self.status_code = status
+            self.content = b""
+            self._corpo = corpo or {}
+        def json(self): return self._corpo
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError("erro", request=None, response=self)
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def post(self, url, **kw):
+            if excecao:
+                raise excecao
+            return FakeResp()
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+
+
+def _pedir_pdf(client, auth_token):
+    return client.get(
+        "/api/paineis/slug/painel_pdf_teste/relatorio-pdf",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+
+
+def test_relatorio_pdf_relatorio_grande_demais_repassa_413_com_a_mensagem(client, auth_token, painel_temp, monkeypatch):
+    _renderer_responde(monkeypatch, 413, {"erro": "Relatório grande demais. Reduza o período."})
+    r = _pedir_pdf(client, auth_token)
+    assert r.status_code == 413
+    assert "Reduza o período" in r.json()["detail"]
+
+
+def test_relatorio_pdf_renderer_ocupado_repassa_503(client, auth_token, painel_temp, monkeypatch):
+    _renderer_responde(monkeypatch, 503, {"erro": "Gerador de PDF ocupado."})
+    r = _pedir_pdf(client, auth_token)
+    assert r.status_code == 503
+    assert "ocupado" in r.json()["detail"]
+
+
+def test_relatorio_pdf_tempo_esgotado_no_renderer_repassa_504(client, auth_token, painel_temp, monkeypatch):
+    _renderer_responde(monkeypatch, 504, {"erro": "Tempo esgotado ao gerar o PDF."})
+    r = _pedir_pdf(client, auth_token)
+    assert r.status_code == 504
+
+
+def test_relatorio_pdf_timeout_do_backend_vira_504(client, auth_token, painel_temp, monkeypatch):
+    import httpx
+    _renderer_responde(monkeypatch, excecao=httpx.ReadTimeout("demorou"))
+    r = _pedir_pdf(client, auth_token)
+    assert r.status_code == 504
+
+
+def test_relatorio_pdf_falha_generica_do_renderer_continua_502(client, auth_token, painel_temp, monkeypatch):
+    _renderer_responde(monkeypatch, 500, {"erro": "Falha ao gerar o PDF."})
+    r = _pedir_pdf(client, auth_token)
+    assert r.status_code == 502

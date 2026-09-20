@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     RENDERER_URL: str = "http://pdf-renderer:4000"
     RENDERER_SECRET: str = ""
     RELATORIO_BASE_URL: str = "http://frontend:3000"
+    # Teto de linhas que UMA query pode devolver. Sem isso o resultado inteiro vive em memória várias
+    # vezes (asyncpg Record -> dict -> JSON pro Redis -> JSON pro navegador). Consulta legítima grande
+    # deve ser refinada por filtro; se precisar mais, sobe via env MAX_LINHAS_QUERY.
+    MAX_LINHAS_QUERY: int = 200000
 
     class Config:
         env_file = ".env.dev"

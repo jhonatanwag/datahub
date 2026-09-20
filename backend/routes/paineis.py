@@ -171,7 +171,18 @@ async def relatorio_pdf(slug: str, request: Request, user=Depends(get_current_us
                 json={"url": url},
                 headers={"X-Renderer-Secret": settings.RENDERER_SECRET},
             )
+        # 413/503/504 são recusas deliberadas do renderer (relatório grande demais, fila cheia,
+        # tempo esgotado) com mensagem pronta pro usuário — repassa em vez do 502 genérico.
+        if resp.status_code in (413, 503, 504):
+            try:
+                detalhe = resp.json().get("erro")
+            except Exception:
+                detalhe = None
+            raise HTTPException(resp.status_code, detalhe or "Não foi possível gerar o PDF agora.")
         resp.raise_for_status()
+    except httpx.TimeoutException:
+        logger.error("pdf-renderer não respondeu dentro do prazo")
+        raise HTTPException(504, "Tempo esgotado ao gerar o PDF. Reduza o período ou aplique mais filtros.")
     except httpx.HTTPError as e:
         logger.error(f"pdf-renderer falhou: {e}")
         raise HTTPException(502, "Falha ao gerar o PDF")
@@ -563,6 +574,7 @@ async def renderizar_painel(
                q.meta_cor_dentro, q.meta_cor_fora, q.subquery_id,
                q.pdf_orientacao, q.kpi_imagem_habilitada, q.kpi_imagem_posicao,
                q.kpi_valor_primeiro, q.chart_filtro_coluna, q.chart_rotulo_eixo, q.chart_rotulo_valor,
+               q.pivot_coluna, q.pivot_ordem_coluna, q.pivot_total,
                fv.slug AS filtro_clique_variavel_slug, fv.tipo AS filtro_clique_variavel_tipo
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
@@ -599,6 +611,11 @@ async def renderizar_painel(
                         ind_dict["query_id"]
                     )
                     ind_dict["agregacoes"] = [dict(r) for r in agreg_rows]
+                    ind_dict["pivot"] = {
+                        "coluna": ind_dict.get("pivot_coluna"),
+                        "ordem_coluna": ind_dict.get("pivot_ordem_coluna"),
+                        "total": bool(ind_dict.get("pivot_total")),
+                    } if ind_dict.get("pivot_coluna") else None
 
                     if ind_dict.get("subquery_id"):
                         sub_rows = await query_meta(
@@ -619,6 +636,7 @@ async def renderizar_painel(
                 except Exception:
                     ind_dict["agrupamentos"] = []
                     ind_dict["agregacoes"] = []
+                    ind_dict["pivot"] = None
                     ind_dict["subquery"] = None
         except Exception as e:
             ind_dict["dados"] = None

@@ -20,6 +20,7 @@ QUERY_CAMPOS = [
     "meta_cor_dentro", "meta_cor_fora",
     "pdf_orientacao", "kpi_imagem_habilitada", "kpi_imagem_posicao",
     "kpi_valor_primeiro", "chart_filtro_coluna",
+    "pivot_coluna", "pivot_ordem_coluna", "pivot_total",
 ]
 VARIAVEL_CAMPOS = ["slug", "nome", "descricao", "tipo", "query_fonte", "param_names", "ativo"]
 PAINEL_CAMPOS = [

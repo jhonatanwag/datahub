@@ -60,6 +60,16 @@ function achatarArvore(no, nivel, linhasSaida) {
     linhasSaida.push({ tipo: 'grupo', nivel, valor: grupo.valor, agregados: grupo.agregados });
     achatarArvore(grupo.filho, nivel + 1, linhasSaida);
   }
+  // Pivô com total: última linha "Total Geral" (só a raiz carrega totalGeral).
+  if (no.totalGeral) {
+    linhasSaida.push({ tipo: 'grupo', nivel, valor: 'Total Geral', agregados: no.totalGeral });
+  }
+}
+
+// Célula de agregado: no pivô só o valor (o cabeçalho já nomeia a coluna); fora dele "Label: valor".
+function textoAgregado(ag) {
+  if (ag.semRotulo) return ag.valor ?? '';
+  return `${ag.label ?? ag.coluna}: ${ag.valor}`;
 }
 
 const indentar = nivel => '    '.repeat(nivel);
@@ -79,7 +89,7 @@ function linhasAgrupadasComTipo(colunasDetalhe, agregacoes, arvore) {
       const vaziasDetalhe = Array(Math.max(0, colunasDetalhe.length - 1)).fill('');
       const celulasAgregados = agregacoes.map((_, i) => {
         const ag = item.agregados[i];
-        return ag ? `${ag.label ?? ag.coluna}: ${ag.valor}` : '';
+        return ag ? textoAgregado(ag) : '';
       });
       return { tipo: 'grupo', celulas: [celulaGrupo, ...vaziasDetalhe, ...celulasAgregados] };
     }

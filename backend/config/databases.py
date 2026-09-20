@@ -55,6 +55,27 @@ async def query_company(company_slug: str, sql: str, *args):
         return await conn.fetch(sql, *args)
 
 
+class LimiteLinhasError(Exception):
+    """A query devolveria mais linhas que `settings.MAX_LINHAS_QUERY`."""
+
+
+async def query_company_limitado(company_slug: str, sql: str, *args):
+    """Como `query_company`, mas lê em cursor só até `MAX_LINHAS_QUERY + 1` linhas: se passar do
+    teto, aborta sem materializar o resto (o servidor para de enviar) e levanta LimiteLinhasError."""
+    limite = settings.MAX_LINHAS_QUERY
+    pool = await get_company_pool(company_slug)
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            cursor = await conn.cursor(sql, *args)
+            linhas = await cursor.fetch(limite + 1)
+    if len(linhas) > limite:
+        raise LimiteLinhasError(
+            f"A consulta retornou mais de {limite:,} linhas".replace(",", ".")
+            + ". Refine os filtros (período, ficha, propriedade…) e tente novamente."
+        )
+    return linhas
+
+
 async def query_meta(sql: str, *args):
     pool = await get_meta_pool()
     async with pool.acquire() as conn:
