@@ -1,21 +1,27 @@
 """Gera o script SQL de permissões (obj_sistema, obj_opcao, menu_mobile) que
 o usuário roda no PSOEDUCARE para liberar o acesso aos painéis.
 
-Os IDs são determinísticos (derivados de paineis.id / painel_grupos.id),
-então gerar o script de novo produz os mesmos IDs e, com ON CONFLICT DO
-NOTHING, rodar duas vezes não duplica registros. Faixa reservada: 6000–6999.
+Os IDs vêm de um número sequencial (`seq`) alocado uma única vez por painel /
+grupo na tabela `permissao_ids` e mantido para sempre. Gerar o script de novo
+produz os mesmos IDs e, com ON CONFLICT DO NOTHING, rodar duas vezes não
+duplica registros. Faixa reservada: 6000–6999. (Não dá para derivar de
+paineis.id: a sequence do banco passa de milhares.) O seq de um painel
+excluído não é reaproveitado: o PSOEDUCARE ainda pode ter aquele ID gravado.
 """
 from datetime import datetime
 from typing import List, Optional
+
+import asyncpg
 
 from config.databases import query_meta
 
 FAIXA_MIN = 6000
 FAIXA_MAX = 6999
 ID_MENU_RAIZ = 6000
-OFFSET_GRUPO = 6000     # menu_mobile do grupo = 6000 + painel_grupos.id
-OFFSET_PAINEL_MENU = 6100  # menu_mobile do painel = 6100 + paineis.id
-OFFSET_PAINEL_OBJ = 6000   # obj_sistema/obj_opcao = 6000 + paineis.id
+OFFSET_GRUPO = 6000        # menu_mobile do grupo = 6000 + seq (seq 1..99)
+OFFSET_PAINEL_MENU = 6100  # menu_mobile do painel = 6100 + seq (seq 1..899)
+OFFSET_PAINEL_OBJ = 6000   # obj_sistema/obj_opcao do painel = 6000 + seq
+MAX_SEQ = {"grupo": 99, "painel": 899}
 DESCRICAO_RAIZ = "GPA ANALYTICS"
 
 
@@ -37,8 +43,8 @@ def _checar_faixa(valor: int, o_que: str) -> int:
 
 
 def gerar_script(paineis: List[dict], agora: Optional[datetime] = None) -> str:
-    """`paineis`: dicts com id, slug, nome, grupo_id (ou None), grupo_nome,
-    ordem_menu. Devolve o SQL completo (raiz + grupos + painéis)."""
+    """`paineis`: dicts com id, seq, slug, nome, grupo_seq (ou None),
+    grupo_nome, ordem_menu. Devolve o SQL completo (raiz + grupos + painéis)."""
     agora = agora or datetime.now()
     ts = agora.strftime("%Y-%m-%d %H:%M:%S.") + f"{agora.microsecond // 1000:03d}"
 
@@ -57,12 +63,12 @@ def gerar_script(paineis: List[dict], agora: Optional[datetime] = None) -> str:
     ordem_grupo = 0
     blocos_paineis = []
     for p in sorted(paineis, key=lambda x: (x.get("ordem_menu") or 0, x["id"])):
-        obj_id = _checar_faixa(OFFSET_PAINEL_OBJ + p["id"], f"Painel {p['slug']}")
-        menu_id = _checar_faixa(OFFSET_PAINEL_MENU + p["id"], f"Menu do painel {p['slug']}")
+        obj_id = _checar_faixa(OFFSET_PAINEL_OBJ + p["seq"], f"Painel {p['slug']}")
+        menu_id = _checar_faixa(OFFSET_PAINEL_MENU + p["seq"], f"Menu do painel {p['slug']}")
 
         pai = ID_MENU_RAIZ
-        if p.get("grupo_id"):
-            gid = _checar_faixa(OFFSET_GRUPO + p["grupo_id"], f"Grupo {p.get('grupo_nome')}")
+        if p.get("grupo_seq"):
+            gid = _checar_faixa(OFFSET_GRUPO + p["grupo_seq"], f"Grupo {p.get('grupo_nome')}")
             pai = gid
             if gid not in grupos_vistos:
                 grupos_vistos.add(gid)
@@ -97,6 +103,30 @@ def gerar_script(paineis: List[dict], agora: Optional[datetime] = None) -> str:
     return "\n".join(linhas) + "\n"
 
 
+async def _alocar_seq(tipo: str, ref_id: int) -> int:
+    """Devolve o seq já alocado ou aloca o menor livre (1..MAX_SEQ). Se a
+    faixa acabou, aloca MAX_SEQ+1, que `gerar_script` rejeita com aviso."""
+    limite = MAX_SEQ[tipo]
+    for _ in range(5):
+        try:
+            await query_meta("""
+                INSERT INTO permissao_ids (tipo, ref_id, seq)
+                SELECT $1::text, $2::int, COALESCE(
+                    (SELECT MIN(s) FROM generate_series(1, $3::int) s
+                     WHERE NOT EXISTS (SELECT 1 FROM permissao_ids
+                                       WHERE tipo = $1::text AND seq = s)),
+                    $3::int + 1)
+                ON CONFLICT (tipo, ref_id) DO NOTHING
+            """, tipo, ref_id, limite)
+            break
+        except asyncpg.UniqueViolationError:
+            continue  # outra requisição pegou o mesmo seq: recalcula
+    rows = await query_meta(
+        "SELECT seq FROM permissao_ids WHERE tipo = $1 AND ref_id = $2", tipo, ref_id
+    )
+    return rows[0]["seq"]
+
+
 _SELECT = """
     SELECT p.id, p.slug, p.nome, p.ordem_menu, p.grupo_id, g.nome AS grupo_nome
     FROM paineis p
@@ -104,11 +134,21 @@ _SELECT = """
 """
 
 
+async def _com_seq(rows) -> List[dict]:
+    paineis = []
+    for r in rows:
+        p = dict(r)
+        p["seq"] = await _alocar_seq("painel", p["id"])
+        p["grupo_seq"] = await _alocar_seq("grupo", p["grupo_id"]) if p["grupo_id"] else None
+        paineis.append(p)
+    return paineis
+
+
 async def script_do_painel(painel_id: int) -> Optional[str]:
     rows = await query_meta(_SELECT + " WHERE p.id = $1", painel_id)
     if not rows:
         return None
-    return gerar_script([dict(r) for r in rows])
+    return gerar_script(await _com_seq(rows))
 
 
 async def script_da_empresa(empresa_id: int) -> str:
@@ -116,4 +156,4 @@ async def script_da_empresa(empresa_id: int) -> str:
         _SELECT + " WHERE p.ativo = true AND (p.empresa_id = $1 OR p.empresa_id IS NULL)",
         empresa_id,
     )
-    return gerar_script([dict(r) for r in rows])
+    return gerar_script(await _com_seq(rows))

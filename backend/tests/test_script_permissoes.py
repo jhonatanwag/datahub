@@ -7,9 +7,9 @@ from services.script_permissoes import FaixaExcedidaError, gerar_script
 AGORA = datetime(2026, 9, 23, 10, 0, 0, 123000)
 
 
-def _p(id, slug, nome, grupo_id=None, grupo_nome=None, ordem=0):
-    return {"id": id, "slug": slug, "nome": nome, "grupo_id": grupo_id,
-            "grupo_nome": grupo_nome, "ordem_menu": ordem}
+def _p(seq, slug, nome, grupo_seq=None, grupo_nome=None, ordem=0):
+    return {"id": 4000 + seq, "seq": seq, "slug": slug, "nome": nome,
+            "grupo_seq": grupo_seq, "grupo_nome": grupo_nome, "ordem_menu": ordem}
 
 
 def test_ids_deterministicos_e_estrutura():
