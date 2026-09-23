@@ -4,6 +4,7 @@ from typing import Optional, List
 from middleware.auth import get_current_user, require_admin
 from config.databases import query_meta
 from services.grupos import resolver_grupo_id
+from services import script_permissoes
 import secrets
 import logging
 from urllib.parse import urlencode, quote
@@ -390,6 +391,17 @@ async def deletar_painel_permanente(painel_id: int, user=Depends(require_admin))
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao deletar painel: {e}")
+
+
+@router.get("/{painel_id}/script-permissoes")
+async def script_permissoes_painel(painel_id: int, user=Depends(require_admin)):
+    try:
+        script = await script_permissoes.script_do_painel(painel_id)
+    except script_permissoes.FaixaExcedidaError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    if script is None:
+        raise HTTPException(status_code=404, detail="Painel não encontrado")
+    return {"script": script}
 
 
 @router.post("/{painel_id}/imagem")

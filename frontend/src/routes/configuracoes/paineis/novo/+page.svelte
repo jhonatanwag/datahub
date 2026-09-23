@@ -117,7 +117,7 @@
       if (usuariosSelecionados.length > 0) {
         await api.salvarUsuariosPainel(painel.id, usuariosSelecionados);
       }
-      goto('/configuracoes/paineis');
+      goto(`/configuracoes/paineis/${painel.id}?aba=script`);
     } catch (e) {
       erro = e.message;
     } finally {

@@ -4,10 +4,11 @@
   import { onMount } from 'svelte';
   import { api, assetUrl } from '$lib/api.js';
   import { agruparQueriesPorGrupoTipo } from '$lib/agruparQueries.js';
+  import ScriptPermissoes from '$lib/components/ScriptPermissoes.svelte';
 
   const id = $page.params.id;
 
-  let abaAtiva = 'geral';
+  let abaAtiva = $page.url.searchParams.get('aba') === 'script' ? 'script' : 'geral';
 
   let form = {
     slug: '', nome: '', descricao: '', icone: 'chart-bar',
@@ -251,6 +252,9 @@
       <button class="tab" class:active={abaAtiva === 'acesso'} on:click={() => abaAtiva = 'acesso'}>
         Filtros e Acesso
       </button>
+      <button class="tab" class:active={abaAtiva === 'script'} on:click={() => abaAtiva = 'script'}>
+        Script de Permissões
+      </button>
     </div>
 
     {#if abaAtiva === 'geral'}
@@ -491,6 +495,12 @@
             </label>
           </div>
         {/each}
+      </div>
+    {/if}
+
+    {#if abaAtiva === 'script'}
+      <div class="form-card">
+        <ScriptPermissoes carregar={() => api.scriptPermissoesPainel(Number($page.params.id))} />
       </div>
     {/if}
 

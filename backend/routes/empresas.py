@@ -11,6 +11,7 @@ from config.databases import query_meta, query_company
 from middleware.auth import require_admin
 from services.sso import validar_coluna_painel_slug
 from services.query_runner import validar_sql
+from services import script_permissoes
 
 router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
 
@@ -105,6 +106,16 @@ async def buscar_empresa(id: int, user=Depends(require_admin)):
     row = dict(rows[0])
     row["logo_url"] = f"/api/empresas/{id}/logo"
     return row
+
+
+@router.get("/{id}/script-permissoes")
+async def script_permissoes_empresa(id: int, user=Depends(require_admin)):
+    if not await query_meta("SELECT 1 FROM empresas WHERE id = $1", id):
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    try:
+        return {"script": await script_permissoes.script_da_empresa(id)}
+    except script_permissoes.FaixaExcedidaError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.post("/")

@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api, assetUrl } from '$lib/api.js';
+  import ScriptPermissoes from '$lib/components/ScriptPermissoes.svelte';
 
   let empresa     = null;
   let logoFile    = null;
@@ -280,6 +281,13 @@
         {:else if ssoTesteStatus === 'fail'}
           <p class="status-fail">✗ {ssoTesteResultado}</p>
         {/if}
+      </section>
+
+      <section>
+        <ScriptPermissoes
+          titulo="Script de permissões — todos os painéis"
+          carregar={() => api.scriptPermissoesEmpresa(empresa.id)}
+        />
       </section>
 
       {#if erro}<p class="error">{erro}</p>{/if}

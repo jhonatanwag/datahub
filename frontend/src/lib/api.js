@@ -173,6 +173,7 @@ export const api = {
     // Empresas (admin)
     listarEmpresas:   ()         => request('/api/empresas/'),
     buscarEmpresa:    (id)       => request(`/api/empresas/${id}`),
+    scriptPermissoesEmpresa: (id) => request(`/api/empresas/${id}/script-permissoes`),
     criarEmpresa:     (data)     => request('/api/empresas/', { method: 'POST', body: JSON.stringify(data) }),
     atualizarEmpresa: (id, data) => request(`/api/empresas/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     desativarEmpresa: (id)       => request(`/api/empresas/${id}`, { method: 'DELETE' }),
@@ -213,6 +214,7 @@ export const api = {
     meuMenu:                ()          => request('/api/paineis/meu-menu'),
     meuDashboard:           ()          => request('/api/paineis/meu-dashboard'),
     buscarPainel:           (id)        => request(`/api/paineis/${id}`),
+    scriptPermissoesPainel: (id)        => request(`/api/paineis/${id}/script-permissoes`),
     buscarPainelPorSlug:    (slug)      => request(`/api/paineis/slug/${slug}`),
     criarPainel:            (d)         => request('/api/paineis/', { method: 'POST', body: JSON.stringify(d) }),
     atualizarPainel:        (id, d)     => request(`/api/paineis/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
