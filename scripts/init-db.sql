@@ -116,6 +116,9 @@ CREATE TABLE queries (
     pivot_coluna        TEXT,                              -- table_dynamic: coluna do resultado cujos valores viram colunas (ex.: mês)
     pivot_ordem_coluna  TEXT,                              -- table_dynamic: coluna usada só pra ordenar as colunas do pivô (ex.: yyyymm)
     pivot_total         BOOLEAN DEFAULT false,             -- table_dynamic: mostra coluna 'Total' + linha 'Total Geral'
+    faixa_cor_habilitada   BOOLEAN DEFAULT false,          -- table_dynamic: colore células agregadas por faixa
+    faixa_cor_ate_vermelho NUMERIC DEFAULT 70,             -- até este valor = vermelho
+    faixa_cor_ate_amarelo  NUMERIC DEFAULT 90,             -- acima do vermelho até este = amarelo; acima = verde
     UNIQUE (slug, empresa_id)
 );
 

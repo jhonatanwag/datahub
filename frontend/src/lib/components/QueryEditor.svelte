@@ -18,6 +18,7 @@
     table:                [],
     rag_context:          [],
     map:                  ['lat', 'lng', 'valor', 'label'],
+    card:                 ['titulo'],
   };
 
   $: colunasEsperadas  = contratos[tipo] || [];

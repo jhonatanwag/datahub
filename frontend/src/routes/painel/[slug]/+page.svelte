@@ -7,6 +7,7 @@
   import DataTable      from '$lib/components/DataTable.svelte';
   import DynamicTable   from '$lib/components/DynamicTable.svelte';
   import MapPanel       from '$lib/components/MapPanel.svelte';
+  import CardPerfil     from '$lib/components/CardPerfil.svelte';
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
   import { resumoFiltros } from '$lib/resumoFiltros.js';
   import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
@@ -340,8 +341,12 @@
                 agrupamentos={ind.agrupamentos ?? []}
                 agregacoes={ind.agregacoes ?? []}
                 pivot={ind.pivot ?? null}
+                faixasCor={ind.faixas_cor ?? null}
                 subquery={ind.subquery}
               />
+
+            {:else if ind.query_tipo === 'card'}
+              <CardPerfil dados={ind.dados?.[0] ?? null} vazio="Use os filtros para pesquisar e consultar as informações." />
 
             {:else if ind.query_tipo === 'map'}
               <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} />

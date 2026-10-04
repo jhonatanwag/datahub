@@ -10,18 +10,22 @@
   import DataTable    from '$lib/components/DataTable.svelte';
   import DynamicTable from '$lib/components/DynamicTable.svelte';
   import MapPanel     from '$lib/components/MapPanel.svelte';
+  import CardPerfil   from '$lib/components/CardPerfil.svelte';
   import '$lib/relatorio/tema-relatorio.css';
 
   const params = $page.url.searchParams;
   const slug = $page.params.slug;
   const idIndicador = params.get('indicador');
   const pdfToken = params.get('pdf_token');
+  // Detalhe de subquery (modal do table_dynamic): ?indicador=ID&sub=1&sub_<param>=valor
+  const modoSub = params.get('sub') === '1';
 
   let carregando = true;
   let erro = null;
   let painel = null;
   let indicadores = [];
   let indicadorUnico = null;
+  let subDados = null;           // linhas da subquery (só no modo detalhe)
   let filtrosResumo = [];
   let empresa = { nome: '', endereco: '', cnpj: '', logo_url: null };
 
@@ -31,7 +35,7 @@
   function filtrosDaURL() {
     const f = {};
     for (const [k, v] of params.entries()) {
-      if (k === 'indicador') continue;
+      if (k === 'indicador' || k === 'sub' || k.startsWith('sub_')) continue;
       f[k] = v;
     }
     return f;
@@ -87,6 +91,11 @@
       indicadores = resultado.indicadores ?? [];
       if (idIndicador) {
         indicadorUnico = indicadores.find(i => String(i.id) === String(idIndicador)) ?? null;
+        if (modoSub && indicadorUnico?.subquery) {
+          const subParams = {};
+          for (const [k, v] of params.entries()) if (k.startsWith('sub_')) subParams[k.slice(4)] = v;
+          subDados = (await api.executarQuery(indicadorUnico.subquery.slug, subParams)).data ?? [];
+        }
       }
     } catch (e) {
       erro = e.message;
@@ -119,7 +128,8 @@
   // flag — é uma ação explícita do usuário sobre aquele indicador.
   $: lista = indicadorUnico ? [indicadorUnico] : indicadores.filter(i => i.imprimir !== false);
   $: idsAssincronos = lista
-    .filter(i => i && (String(i.query_tipo).startsWith('chart_') || i.query_tipo === 'map') && !i.erro && temDados(i))
+    .filter(i => i && (String(i.query_tipo).startsWith('chart_') || i.query_tipo === 'map'
+                       || (i.query_tipo === 'card' && i.dados?.[0]?.imagem_url)) && !i.erro && temDados(i))
     .map(i => i.id);
   $: tituloRelatorio = indicadorUnico
     ? (indicadorUnico.titulo || indicadorUnico.query_slug)
@@ -158,7 +168,9 @@
   {:else if indicadorUnico}
     <div class="rel-unico">
       <div class="card-titulo">{indicadorUnico.titulo || indicadorUnico.query_slug}</div>
-      {#if indicadorUnico.query_tipo === 'table'}
+      {#if subDados}
+        <DataTable dados={subDados} titulo={tituloRelatorio} modoRelatorio={true} />
+      {:else if indicadorUnico.query_tipo === 'table'}
         <DataTable
           dados={indicadorUnico.dados}
           titulo={tituloRelatorio}
@@ -179,6 +191,7 @@
           agrupamentos={indicadorUnico.agrupamentos ?? []}
           agregacoes={indicadorUnico.agregacoes ?? []}
           pivot={indicadorUnico.pivot ?? null}
+          faixasCor={indicadorUnico.faixas_cor ?? null}
           modoRelatorio={true}
         />
       {:else}
@@ -250,11 +263,14 @@
                 agrupamentos={ind.agrupamentos ?? []}
                 agregacoes={ind.agregacoes ?? []}
                 pivot={ind.pivot ?? null}
+                faixasCor={ind.faixas_cor ?? null}
                 modoRelatorio={true}
               />
             {:else}
               <p class="rel-vazio">Sem dados no período</p>
             {/if}
+          {:else if ind.query_tipo === 'card'}
+            <CardPerfil dados={ind.dados?.[0] ?? null} vazio="Nenhum registro selecionado." on:pronto={() => marcarPronto(ind.id)} />
           {:else if ind.query_tipo === 'map'}
             {#if temDados(ind)}
               <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} temaForcado="claro" on:pronto={() => marcarPronto(ind.id)} />

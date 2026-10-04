@@ -48,6 +48,9 @@ class QueryInput(BaseModel):
     pivot_coluna: Optional[str] = None        # table_dynamic: coluna cujos valores viram colunas
     pivot_ordem_coluna: Optional[str] = None  # table_dynamic: coluna que ordena as colunas do pivô
     pivot_total: Optional[bool] = False       # table_dynamic: coluna Total + linha Total Geral
+    faixa_cor_habilitada: Optional[bool] = False   # table_dynamic: colore células agregadas por faixa
+    faixa_cor_ate_vermelho: Optional[float] = 70
+    faixa_cor_ate_amarelo: Optional[float] = 90
     grupo_nome: Optional[str] = None
     query_base_id: Optional[int] = None
 
@@ -88,6 +91,9 @@ class QueryUpdate(BaseModel):
     pivot_coluna: Optional[str] = None
     pivot_ordem_coluna: Optional[str] = None
     pivot_total: Optional[bool] = None
+    faixa_cor_habilitada: Optional[bool] = None
+    faixa_cor_ate_vermelho: Optional[float] = None
+    faixa_cor_ate_amarelo: Optional[float] = None
     grupo_nome: Optional[str] = None
     query_base_id: Optional[int] = None
 
@@ -123,7 +129,7 @@ class SubqueryParametroInput(BaseModel):
 TIPOS_VALIDOS = {
     'kpi', 'chart_line', 'chart_bar',
     'chart_bar_horizontal', 'chart_doughnut',
-    'table', 'rag_context', 'map', 'table_dynamic'
+    'table', 'rag_context', 'map', 'table_dynamic', 'card'
 }
 
 FUNCOES_AGREGACAO_VALIDAS = {'soma', 'contagem', 'media', 'minimo', 'maximo'}
@@ -463,9 +469,10 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
                 meta_cor_dentro, meta_cor_fora, subquery_id,
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, grupo_id, kpi_valor_primeiro, chart_rotulo_eixo, chart_rotulo_valor,
-                query_base_id, pivot_coluna, pivot_ordem_coluna, pivot_total
+                query_base_id, pivot_coluna, pivot_ordem_coluna, pivot_total,
+                faixa_cor_habilitada, faixa_cor_ate_vermelho, faixa_cor_ate_amarelo
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41)
             RETURNING *
         """, body.slug, body.nome, body.descricao, body.sql_texto,
             body.tipo, body.empresa_id, body.cache_ttl, body.ativo,
@@ -480,7 +487,10 @@ async def criar_query(body: QueryInput, user=Depends(require_admin)):
             body.pdf_orientacao, body.kpi_imagem_habilitada, body.kpi_imagem_posicao,
             body.chart_filtro_coluna, grupo_id, body.kpi_valor_primeiro, body.chart_rotulo_eixo,
             body.chart_rotulo_valor, body.query_base_id,
-            body.pivot_coluna or None, body.pivot_ordem_coluna or None, bool(body.pivot_total))
+            body.pivot_coluna or None, body.pivot_ordem_coluna or None, bool(body.pivot_total),
+            bool(body.faixa_cor_habilitada),
+            70 if body.faixa_cor_ate_vermelho is None else body.faixa_cor_ate_vermelho,
+            90 if body.faixa_cor_ate_amarelo is None else body.faixa_cor_ate_amarelo)
         return _com_kpi_imagem_url(dict(rows[0]))
     except HTTPException:
         raise
@@ -515,7 +525,8 @@ async def atualizar_query(query_id: int, body: QueryUpdate, user=Depends(require
             'meta_cor_dentro', 'meta_cor_fora', 'subquery_id',
             'pdf_orientacao', 'kpi_imagem_habilitada', 'kpi_imagem_posicao',
             'kpi_valor_primeiro', 'chart_filtro_coluna', 'chart_rotulo_eixo', 'chart_rotulo_valor',
-            'query_base_id', 'pivot_coluna', 'pivot_ordem_coluna', 'pivot_total'
+            'query_base_id', 'pivot_coluna', 'pivot_ordem_coluna', 'pivot_total',
+            'faixa_cor_habilitada', 'faixa_cor_ate_vermelho', 'faixa_cor_ate_amarelo'
         }
         for k in updates:
             if k not in ALLOWED_COLS:
@@ -616,7 +627,8 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
                 chart_rotulo_eixo, chart_rotulo_valor, query_base_id,
-                pivot_coluna, pivot_ordem_coluna, pivot_total
+                pivot_coluna, pivot_ordem_coluna, pivot_total,
+                faixa_cor_habilitada, faixa_cor_ate_vermelho, faixa_cor_ate_amarelo
             )
             SELECT
                 $1, $2, descricao, sql_texto, tipo, empresa_id, cache_ttl, ativo,
@@ -628,7 +640,8 @@ async def duplicar_query(query_id: int, user=Depends(require_admin)):
                 pdf_orientacao, kpi_imagem_habilitada, kpi_imagem_posicao,
                 chart_filtro_coluna, kpi_imagem, kpi_imagem_mime, grupo_id, kpi_valor_primeiro,
                 chart_rotulo_eixo, chart_rotulo_valor, query_base_id,
-                pivot_coluna, pivot_ordem_coluna, pivot_total
+                pivot_coluna, pivot_ordem_coluna, pivot_total,
+                faixa_cor_habilitada, faixa_cor_ate_vermelho, faixa_cor_ate_amarelo
             FROM queries WHERE id = $3
             RETURNING *
         """, novo_slug, novo_nome, query_id)

@@ -111,6 +111,9 @@ CREATE TABLE queries (
     pivot_coluna          TEXT,          -- table_dynamic: coluna cujos valores viram colunas (ex.: mês)
     pivot_ordem_coluna    TEXT,          -- table_dynamic: coluna só pra ordenar as colunas do pivô
     pivot_total           BOOLEAN DEFAULT false,  -- table_dynamic: coluna 'Total' + linha 'Total Geral'
+    faixa_cor_habilitada   BOOLEAN DEFAULT false,  -- table_dynamic: colore células agregadas por faixa
+    faixa_cor_ate_vermelho NUMERIC DEFAULT 70,
+    faixa_cor_ate_amarelo  NUMERIC DEFAULT 90,
     UNIQUE (slug, empresa_id)
 );
 CREATE INDEX idx_queries_empresa ON queries(empresa_id);

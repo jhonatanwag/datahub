@@ -20,6 +20,7 @@
     chart_rotulo_eixo: 'horizontal', chart_rotulo_valor: 'horizontal',
     chart_filtro_coluna: '',
     pivot_coluna: '', pivot_ordem_coluna: '', pivot_total: false,
+    faixa_cor_habilitada: false, faixa_cor_ate_vermelho: 70, faixa_cor_ate_amarelo: 90,
     impressao_habilitada: false, impressao_caminho: '', impressao_coluna: '',
     meta_habilitada: false, meta_coluna_valor: '', meta_coluna_inicio: '',
     meta_coluna_fim: '', meta_cor_dentro: '#3fb950', meta_cor_fora: '#f85149',
@@ -61,7 +62,7 @@
   const tipos = [
     'kpi', 'chart_line', 'chart_bar',
     'chart_bar_horizontal', 'chart_doughnut',
-    'table', 'rag_context', 'map', 'table_dynamic'
+    'table', 'rag_context', 'map', 'table_dynamic', 'card'
   ];
 
   $: gruposExistentes = [...new Set(queriesDisponiveis.map(q => q.grupo_nome).filter(Boolean))].sort();
@@ -102,6 +103,9 @@
         pivot_coluna:          q.pivot_coluna || '',
         pivot_ordem_coluna:    q.pivot_ordem_coluna || '',
         pivot_total:           q.pivot_total ?? false,
+        faixa_cor_habilitada:  q.faixa_cor_habilitada ?? false,
+        faixa_cor_ate_vermelho: q.faixa_cor_ate_vermelho ?? 70,
+        faixa_cor_ate_amarelo: q.faixa_cor_ate_amarelo ?? 90,
         impressao_habilitada: q.impressao_habilitada ?? false,
         impressao_caminho:    q.impressao_caminho || '',
         impressao_coluna:     q.impressao_coluna || '',
@@ -273,6 +277,9 @@
         pivot_coluna:          form.pivot_coluna || '',
         pivot_ordem_coluna:    form.pivot_ordem_coluna || '',
         pivot_total:           !!form.pivot_coluna && form.pivot_total,
+        faixa_cor_habilitada:  !!form.faixa_cor_habilitada,
+        faixa_cor_ate_vermelho: form.faixa_cor_ate_vermelho === '' ? 70 : Number(form.faixa_cor_ate_vermelho),
+        faixa_cor_ate_amarelo: form.faixa_cor_ate_amarelo === '' ? 90 : Number(form.faixa_cor_ate_amarelo),
         impressao_habilitada: form.impressao_habilitada,
         impressao_caminho:    form.impressao_caminho || null,
         impressao_coluna:     form.impressao_coluna || null,
@@ -635,6 +642,28 @@
             <label class="check-inline">
               <input type="checkbox" bind:checked={form.pivot_total} />
               Mostrar coluna e linha "Total Geral"
+            </label>
+          {/if}
+        </div>
+
+        <div class="section-block">
+          <span class="section-title">Cores por faixa (nota/percentual)</span>
+          <p class="hint-block">
+            Colore automaticamente as células de valor da tabela (inclusive o Total Geral):
+            até o 1º limite = vermelho, acima dele até o 2º = amarelo, acima do 2º = verde.
+          </p>
+          <label class="check-inline">
+            <input type="checkbox" bind:checked={form.faixa_cor_habilitada} />
+            Colorir por faixa
+          </label>
+          {#if form.faixa_cor_habilitada}
+            <label class="lbl">
+              Até (vermelho)
+              <input type="number" step="any" bind:value={form.faixa_cor_ate_vermelho} />
+            </label>
+            <label class="lbl">
+              Até (amarelo) — acima disso é verde
+              <input type="number" step="any" bind:value={form.faixa_cor_ate_amarelo} />
             </label>
           {/if}
         </div>

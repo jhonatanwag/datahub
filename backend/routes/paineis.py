@@ -587,6 +587,7 @@ async def renderizar_painel(
                q.pdf_orientacao, q.kpi_imagem_habilitada, q.kpi_imagem_posicao,
                q.kpi_valor_primeiro, q.chart_filtro_coluna, q.chart_rotulo_eixo, q.chart_rotulo_valor,
                q.pivot_coluna, q.pivot_ordem_coluna, q.pivot_total,
+               q.faixa_cor_habilitada, q.faixa_cor_ate_vermelho, q.faixa_cor_ate_amarelo,
                fv.slug AS filtro_clique_variavel_slug, fv.tipo AS filtro_clique_variavel_tipo
         FROM painel_indicadores pi
         LEFT JOIN queries q ON q.slug = pi.query_slug AND q.ativo = true
@@ -628,6 +629,10 @@ async def renderizar_painel(
                         "ordem_coluna": ind_dict.get("pivot_ordem_coluna"),
                         "total": bool(ind_dict.get("pivot_total")),
                     } if ind_dict.get("pivot_coluna") else None
+                    ind_dict["faixas_cor"] = {
+                        "ate_vermelho": float(ind_dict["faixa_cor_ate_vermelho"] if ind_dict.get("faixa_cor_ate_vermelho") is not None else 70),
+                        "ate_amarelo": float(ind_dict["faixa_cor_ate_amarelo"] if ind_dict.get("faixa_cor_ate_amarelo") is not None else 90),
+                    } if ind_dict.get("faixa_cor_habilitada") else None
 
                     if ind_dict.get("subquery_id"):
                         sub_rows = await query_meta(

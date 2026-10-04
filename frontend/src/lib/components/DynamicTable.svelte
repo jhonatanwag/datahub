@@ -7,6 +7,7 @@
   import MapPanel from './MapPanel.svelte';
   import { api } from '$lib/api.js';
   import { baixarCSVAgrupado, baixarXLSXAgrupado } from '$lib/exportTable.js';
+  import { fonteCabecalho } from '$lib/fonteCabecalho.js';
   import { construirArvore, montarPivot } from '$lib/tabelaDinamica.js';
   import {
     excedeLimiteRelatorio, textoAvisoLimite, excedeColunasPivotRelatorio, textoAvisoColunasPivot,
@@ -19,6 +20,7 @@
   export let agregacoes = [];
   export let pivot = null;          // { coluna, ordem_coluna, total } — colunas dinâmicas (ex.: meses)
   export let subquery = null;
+  export let faixasCor = null;   // {ate_vermelho, ate_amarelo} quando a query liga "Cores por faixa"
   export let titulo = 'dados';
   export let modoRelatorio = false;
   export let painelSlug   = null;   // usados só fora do modo relatório (Task 6)
@@ -46,7 +48,16 @@
 
   // Relatório grande: mantém grupos/totais (calculados sobre TODOS os dados, então corretos)
   // e omite as linhas de detalhe — é o detalhe que multiplica o DOM. Ver relatorioLimites.js.
-  $: ocultarDetalhe = modoRelatorio && excedeLimiteRelatorio(dados.length);
+  // Relatório: cabeçalho com palavra inteira (só quebra em espaço) → fonte calculada pela maior palavra.
+  let larguraWrap = 0;
+  $: estiloCabecalho = modoRelatorio
+    ? `font-size:${fonteCabecalho([...colunasDetalhe.map(c => c.label ?? c.key), ...agregacoesEfetivas.map(a => a.label ?? a.coluna), ...(mostrarAcoes ? ['Ações'] : [])], larguraWrap, 6)}px`
+    : '';
+
+  $: excedeLimite = modoRelatorio && excedeLimiteRelatorio(dados.length);
+  // Matriz de notas (cores por faixa): no relatório sai só o quadro (fazendas + totais); o detalhe
+  // de cada lançamento já vem na tabela de detalhe do painel.
+  $: ocultarDetalhe = excedeLimite || (modoRelatorio && !!faixasCor);
 
   // Pivô com colunas demais não cabe na página: no relatório nem monta a tabela (só o aviso).
   $: pivotLargoDemais = modoRelatorio && !!pivotCtx && excedeColunasPivotRelatorio(pivotCtx.valores.length);
@@ -88,6 +99,7 @@
   let modalCarregando = false;
   let modalErro       = null;
   let modalDados      = null;
+  let modalFiltrosQuery = filtrosQuery;   // filtros do painel + parâmetros da linha clicada (pro PDF do detalhe)
 
   async function acionar(row) {
     if (!subquery) return;
@@ -101,6 +113,10 @@
       );
       const res = await api.executarQuery(subquery.slug, params);
       modalDados = res.data;
+      const q = new URLSearchParams(filtrosQuery || '');
+      q.set('sub', '1');
+      for (const [k, v] of Object.entries(params)) q.set(`sub_${k}`, v ?? '');
+      modalFiltrosQuery = q.toString();
     } catch (e) {
       modalErro = e.message;
     } finally {
@@ -109,22 +125,22 @@
   }
 </script>
 
-<div class="table-wrap" class:modo-relatorio={modoRelatorio}>
+<div class="table-wrap" class:modo-relatorio={modoRelatorio} bind:clientWidth={larguraWrap}>
   {#if pivotLargoDemais}
     <p class="aviso-limite">{textoAvisoColunasPivot(pivotCtx.valores.length)}</p>
   {:else}
   <table>
     <thead>
       <tr>
-        {#each colunasDetalhe as col}<th>{col.label ?? col.key}</th>{/each}
-        {#each agregacoesEfetivas as ag}<th class="agregado-header">{ag.label ?? ag.coluna}</th>{/each}
-        {#if mostrarAcoes}<th>Ações</th>{/if}
+        {#each colunasDetalhe as col}<th style={estiloCabecalho}>{col.label ?? col.key}</th>{/each}
+        {#each agregacoesEfetivas as ag}<th class="agregado-header" style={estiloCabecalho}>{ag.label ?? ag.coluna}</th>{/each}
+        {#if mostrarAcoes}<th style={estiloCabecalho}>Ações</th>{/if}
       </tr>
     </thead>
     <tbody>
       <GrupoLinha
         no={arvore} {colunasDetalhe} agregacoes={agregacoesEfetivas} {mostrarAcoes} onAcionar={acionar}
-        nivel={0} modo="tabela" ocultarFolhas={ocultarDetalhe} expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
+        nivel={0} modo="tabela" faixas={faixasCor} ocultarFolhas={ocultarDetalhe} expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
       />
     </tbody>
   </table>
@@ -134,11 +150,11 @@
   <div class="cards-mobile">
     <GrupoLinha
       no={arvore} {colunasDetalhe} agregacoes={agregacoesEfetivas} {mostrarAcoes} onAcionar={acionar}
-      nivel={0} modo="cards" expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
+      nivel={0} modo="cards" faixas={faixasCor} expandidos={expandidosEfetivo} onAlternar={alternar} caminho=""
     />
   </div>
   {/if}
-  {#if ocultarDetalhe && !pivotLargoDemais}
+  {#if excedeLimite && !pivotLargoDemais}
     <p class="aviso-limite">{textoAvisoLimite(dados.length, 'omitir-detalhe')}</p>
   {/if}
 
@@ -176,7 +192,8 @@
   {:else if subquery?.tipo === 'map'}
     <MapPanel pontos={modalDados ?? []} />
   {:else}
-    <DataTable dados={modalDados ?? []} titulo={titulo} />
+    <DataTable dados={modalDados ?? []} titulo={titulo}
+      painelSlug={painelSlug} indicadorId={indicadorId} filtrosQuery={modalFiltrosQuery} />
   {/if}
 </Modal>
 
@@ -201,6 +218,8 @@ th { font-size: 11px; letter-spacing: .06em; color: var(--muted); }
 .modo-relatorio { overflow: visible; }
 .modo-relatorio table { font-size: 11px; }
 .modo-relatorio th, .modo-relatorio td { white-space: normal; overflow-wrap: anywhere; padding: 6px 8px; }
+/* Cabeçalho: quebra só em espaços (palavra inteira); a fonte é ajustada por fonteCabecalho(). */
+.modo-relatorio th { overflow-wrap: normal; word-break: normal; hyphens: none; padding-left: 3px; padding-right: 3px; }
 .modo-relatorio .cards-mobile { display: none; }
 
 @media (max-width: 768px) {

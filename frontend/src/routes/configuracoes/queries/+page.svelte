@@ -23,6 +23,7 @@
     { value: 'table_dynamic',        label: 'Tabela Dinâmica' },
     { value: 'rag_context',          label: 'Contexto IA' },
     { value: 'map',                  label: 'Mapa' },
+    { value: 'card',                 label: 'Card de Perfil' },
   ];
 
   const colunas = [

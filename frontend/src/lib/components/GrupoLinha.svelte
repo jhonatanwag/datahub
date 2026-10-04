@@ -9,6 +9,7 @@
   export let expandidos;       // Set<string> — chaves dos grupos abertos
   export let onAlternar;       // (chave) => void
   export let ocultarFolhas = false; // relatório grande: só grupos e totais, sem as linhas de detalhe
+  export let faixas = null;    // {ate_vermelho, ate_amarelo} — colore as células agregadas (nota de auditoria etc.)
   export let caminho = '';     // prefixo acumulado dos valores dos grupos ancestrais, pra montar a chave
 
   function chaveDoGrupo(valor) {
@@ -18,8 +19,19 @@
   // Célula do pivô (semRotulo) mostra só o valor — o cabeçalho da coluna já diz de qual mês é;
   // null = sem ocorrência naquela coluna, fica em branco.
   function textoAgregado(ag) {
-    if (ag.semRotulo) return ag.valor ?? '';
-    return `${ag.label ?? ag.coluna}: ${ag.valor}`;
+    const v = faixas && typeof ag.valor === 'number' ? fmtNota(ag.valor) : ag.valor;
+    if (ag.semRotulo) return v ?? '';
+    return `${ag.label ?? ag.coluna}: ${v}`;
+  }
+
+  const fmtNota = (n) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Cores padrão de nota: vermelho até o 1º limite, amarelo até o 2º, verde acima.
+  function estiloFaixa(ag) {
+    if (!faixas || typeof ag.valor !== 'number') return '';
+    if (ag.valor <= faixas.ate_vermelho) return 'background:#FFC7CE;color:#9C0006;font-weight:700;text-align:center';
+    if (ag.valor <= faixas.ate_amarelo)  return 'background:#FFFF00;color:#000;font-weight:700;text-align:center';
+    return 'background:#C6EFCE;color:#006100;font-weight:700;text-align:center';
   }
 </script>
 
@@ -46,7 +58,7 @@
           {grupo.valor ?? '—'}
         </td>
         {#each grupo.agregados as ag}
-          <td class="agregado">{textoAgregado(ag)}</td>
+          <td class="agregado" style={estiloFaixa(ag)}>{textoAgregado(ag)}</td>
         {/each}
         {#if mostrarAcoes}<td></td>{/if}
       </tr>
@@ -60,6 +72,7 @@
           nivel={nivel + 1}
           modo="tabela"
           {ocultarFolhas}
+          {faixas}
           {expandidos}
           {onAlternar}
           caminho={chave}
@@ -70,7 +83,7 @@
       <tr class="linha-total">
         <td colspan={Math.max(1, colunasDetalhe.length)}>Total Geral</td>
         {#each no.totalGeral as ag}
-          <td class="agregado">{textoAgregado(ag)}</td>
+          <td class="agregado" style={estiloFaixa(ag)}>{textoAgregado(ag)}</td>
         {/each}
         {#if mostrarAcoes}<td></td>{/if}
       </tr>
@@ -102,7 +115,7 @@
           <div class="card-grupo-agregados">
             {#each grupo.agregados as ag}
               {#if !(ag.semRotulo && ag.valor == null)}
-                <span class="card-agregado-pill">{ag.label ?? ag.coluna}: {ag.valor}</span>
+                <span class="card-agregado-pill" style={estiloFaixa(ag)}>{ag.label ?? ag.coluna}: {faixas && typeof ag.valor === 'number' ? fmtNota(ag.valor) : ag.valor}</span>
               {/if}
             {/each}
           </div>
@@ -117,6 +130,7 @@
           {onAcionar}
           nivel={nivel + 1}
           modo="cards"
+          {faixas}
           {expandidos}
           {onAlternar}
           caminho={chave}
@@ -129,7 +143,7 @@
         <div class="card-grupo-agregados">
           {#each no.totalGeral as ag}
             {#if !(ag.semRotulo && ag.valor == null)}
-              <span class="card-agregado-pill">{ag.label ?? ag.coluna}: {ag.valor}</span>
+              <span class="card-agregado-pill" style={estiloFaixa(ag)}>{ag.label ?? ag.coluna}: {faixas && typeof ag.valor === 'number' ? fmtNota(ag.valor) : ag.valor}</span>
             {/if}
           {/each}
         </div>

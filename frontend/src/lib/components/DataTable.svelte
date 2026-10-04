@@ -1,6 +1,7 @@
 <script>
   import { LIMITE_LINHAS_RELATORIO, excedeLimiteRelatorio, textoAvisoLimite } from '$lib/relatorioLimites.js';
   import { baixarCSV, baixarXLSX } from '$lib/exportTable.js';
+  import { fonteCabecalho } from '$lib/fonteCabecalho.js';
   import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
   import { imprimirDocumento } from '$lib/documentoImpressao.js';
 
@@ -93,6 +94,12 @@
     return cor ? `color:${cor}` : '';
   }
 
+  // Relatório: cabeçalho com palavra inteira (só quebra em espaço) → fonte calculada pela maior palavra.
+  let larguraWrap = 0;
+  $: estiloCabecalho = modoRelatorio
+    ? `font-size:${fonteCabecalho([...colunasEfetivas.map(c => c.label ?? c.key), ...(mostrarAcoes ? ['Ações'] : [])], larguraWrap, 6)}px`
+    : '';
+
   let gerandoPdf = false;
   const compartilhavel = podeCompartilhar();
 
@@ -113,14 +120,14 @@
   }
 </script>
 
-<div class="table-wrap" class:modo-relatorio={modoRelatorio}>
+<div class="table-wrap" class:modo-relatorio={modoRelatorio} bind:clientWidth={larguraWrap}>
   <table>
     <thead>
       <tr>
         {#each colunasEfetivas as col}
-          <th>{col.label ?? col.key}</th>
+          <th style={estiloCabecalho}>{col.label ?? col.key}</th>
         {/each}
-        {#if mostrarAcoes}<th>Ações</th>{/if}
+        {#if mostrarAcoes}<th style={estiloCabecalho}>Ações</th>{/if}
       </tr>
     </thead>
     <tbody>
@@ -251,6 +258,8 @@ tr:hover td { background: var(--surface2); }
 .modo-relatorio { overflow: visible; }
 .modo-relatorio table { font-size: 11px; }
 .modo-relatorio th, .modo-relatorio td { white-space: normal; overflow-wrap: anywhere; padding: 6px 8px; }
+/* Cabeçalho: quebra só em espaços (palavra inteira); a fonte é ajustada por fonteCabecalho(). */
+.modo-relatorio th { overflow-wrap: normal; word-break: normal; hyphens: none; padding-left: 3px; padding-right: 3px; }
 .modo-relatorio .cards-mobile { display: none; }
 
 @media (max-width: 768px) {

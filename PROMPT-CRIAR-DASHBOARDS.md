@@ -183,7 +183,7 @@ esse padrão para outro nome sem confirmar com o usuário; é específico.
 
 Tipos válidos hoje (`TIPOS_VALIDOS` em `backend/routes/queries.py`): `kpi`,
 `chart_line`, `chart_bar`, `chart_bar_horizontal`, `chart_doughnut`,
-`table`, `table_dynamic`, `map`, `rag_context`.
+`table`, `table_dynamic`, `map`, `rag_context`, `card`.
 
 | tipo | colunas obrigatórias | observações |
 |---|---|---|
@@ -194,6 +194,7 @@ Tipos válidos hoje (`TIPOS_VALIDOS` em `backend/routes/queries.py`): `kpi`,
 | `table_dynamic` | qualquer, com aliases legíveis | ver seção 6 — os aliases das colunas viram os nomes usados em `agrupamentos`/`agregacoes`. |
 | `map` | `lat`, `lng`, `label`, `valor` | `group by` nas coordenadas; `mapa_camada` = `'padrao'` ou `'satelite'`. |
 | `rag_context` | livre | vira texto injetado no contexto do assistente IA. |
+| `card` | `titulo` (+ `subtitulo` opcional) | card de perfil, 1 linha. `titulo`/`subtitulo` viram nome e linha de apoio sob o avatar; as demais colunas viram campos rótulo/valor (nome da coluna = rótulo); coluna `"Status"` vira badge (verde se `ATIVO`/`ATIVA`). Coluna `imagem_url` (caminho de API, ex. `/api/imagens/tipo-veiculo/3`, lido do banco da empresa e carregado com o token) vira a foto do avatar. **Modo lista**: sem coluna `titulo`, cada coluna vira uma linha rótulo/valor (1 coluna só = quadro de nota). Sem linhas = estado vazio (use busca opcional que zera o resultado). Exemplos: `cad_consulta_usuario` e `cad_pesquisa_equipamento` (`scripts/paineis/`). Em script SQL, insira `query_parametros` na ordem $1,$2,... (o runner usa `ORDER BY id`). |
 
 ---
 
@@ -264,6 +265,7 @@ trabalho"`, `"Tipo de equipamento"`, `"Id."`).
   O rótulo da coluna vem do SQL, então devolva já formatado e ordenável
   (ex.: `to_char(data,'MM/YYYY')` + `to_char(data,'YYYYMM')::int` como ordem).
   Funciona na tela, no PDF do painel e no export CSV/Excel.
+- **Cores por faixa (opcional, notas/percentuais)** — `queries.faixa_cor_habilitada` + `faixa_cor_ate_vermelho` (70) + `faixa_cor_ate_amarelo` (90): colore as células de valor (inclusive Total Geral) — até o 1º limite vermelho, até o 2º amarelo, acima verde — e formata com 2 casas. No relatório/PDF a matriz sai compacta (fazendas + totais, sem as linhas de detalhe). Requer o delta `scripts/migrations/2026-10-04-faixa-cor-table-dynamic.sql`. Exemplo: painel `aud_visao_bi` (`scripts/paineis/aud_visao_bi.sql`).
 - **Drill-down opcional**: se `subquery_id` aponta pra outra query
   (normalmente `tipo = 'table'`), ao expandir uma linha o frontend chama
   essa subquery passando parâmetros extraídos da linha clicada, mapeados
