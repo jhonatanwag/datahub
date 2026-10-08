@@ -121,3 +121,103 @@ def test_salvar_e_listar_usuarios(client, auth_token, apresentacao):
     assert res.status_code == 200
     lista = client.get(f"/api/apresentacoes/{apresentacao['id']}/usuarios", headers=H(auth_token)).json()
     assert [u["id"] for u in lista] == [me["id"]]
+
+
+# ── Task 3: /minhas e /executar ──────────────────────────────
+
+from conftest import hard_delete_usuario
+
+
+@pytest.fixture
+def usuario_comum(client, auth_token):
+    alpha = next(
+        e for e in client.get("/api/empresas/", headers=H(auth_token)).json() if e["slug"] == "alpha"
+    )
+    email = f"apr_{uuid.uuid4().hex[:8]}@datahub.local"
+    senha = "senha12345"
+    res = client.post(
+        "/api/usuarios/",
+        json={"nome": "Viewer Apr", "email": email, "senha": senha, "role": "viewer"},
+        headers=H(auth_token),
+    )
+    assert res.status_code == 200
+    uid = res.json()["id"]
+    vinc = client.post(
+        f"/api/usuarios/{uid}/empresas",
+        json={"vinculos": [{"empresa_id": alpha["id"]}]},
+        headers=H(auth_token),
+    )
+    assert vinc.status_code == 200
+    login = client.post("/api/auth/login", json={"email": email, "senha": senha}).json()
+    sel = client.post(
+        "/api/auth/selecionar-empresa",
+        json={"session_token": login["session_token"], "empresa_id": alpha["id"]},
+    ).json()
+    yield {"id": uid, "token": sel["token"]}
+    hard_delete_usuario(uid)
+
+
+def test_executar_sem_slides_devolve_lista_vazia(client, auth_token, apresentacao):
+    res = client.get(f"/api/apresentacoes/{apresentacao['id']}/executar", headers=H(auth_token))
+    assert res.status_code == 200
+    assert res.json()["slides"] == []
+
+
+def test_executar_devolve_slides_em_ordem_com_painel(client, auth_token, apresentacao, painel_id):
+    client.put(
+        f"/api/apresentacoes/{apresentacao['id']}/slides",
+        json=[{"painel_id": painel_id, "duracao_seg": 12, "filtros": {"hoje": "hoje"}}],
+        headers=H(auth_token),
+    )
+    res = client.get(f"/api/apresentacoes/{apresentacao['id']}/executar", headers=H(auth_token))
+    body = res.json()
+    assert body["intervalo_atualizacao_seg"] == 300
+    assert body["slides"][0]["duracao_seg"] == 12
+    assert body["slides"][0]["filtros"] == {"hoje": "hoje"}
+    assert body["slides"][0]["painel"]["id"] == painel_id
+
+
+def test_executar_pula_painel_inativo(client, auth_token, apresentacao, painel_id):
+    client.put(
+        f"/api/apresentacoes/{apresentacao['id']}/slides",
+        json=[{"painel_id": painel_id}],
+        headers=H(auth_token),
+    )
+    client.delete(f"/api/paineis/{painel_id}", headers=H(auth_token))  # desativa
+    res = client.get(f"/api/apresentacoes/{apresentacao['id']}/executar", headers=H(auth_token))
+    assert res.status_code == 200
+    assert res.json()["slides"] == []
+
+
+def test_minhas_admin_ve_todas_as_ativas(client, auth_token, apresentacao):
+    ids = [a["id"] for a in client.get("/api/apresentacoes/minhas", headers=H(auth_token)).json()]
+    assert apresentacao["id"] in ids
+
+
+def test_minhas_ignora_inativas(client, auth_token, apresentacao):
+    client.delete(f"/api/apresentacoes/{apresentacao['id']}", headers=H(auth_token))
+    ids = [a["id"] for a in client.get("/api/apresentacoes/minhas", headers=H(auth_token)).json()]
+    assert apresentacao["id"] not in ids
+
+
+def test_usuario_comum_so_ve_e_executa_as_vinculadas(client, auth_token, apresentacao, usuario_comum):
+    h = H(usuario_comum["token"])
+    antes = [a["id"] for a in client.get("/api/apresentacoes/minhas", headers=h).json()]
+    assert apresentacao["id"] not in antes
+    assert client.get(f"/api/apresentacoes/{apresentacao['id']}/executar", headers=h).status_code == 404
+
+    client.put(
+        f"/api/apresentacoes/{apresentacao['id']}/usuarios",
+        json=[usuario_comum["id"]],
+        headers=H(auth_token),
+    )
+    ids = [a["id"] for a in client.get("/api/apresentacoes/minhas", headers=h).json()]
+    assert apresentacao["id"] in ids
+    assert client.get(f"/api/apresentacoes/{apresentacao['id']}/executar", headers=h).status_code == 200
+
+
+def test_usuario_comum_nao_administra(client, usuario_comum):
+    res = client.post(
+        "/api/apresentacoes/", json={"slug": "x_y", "nome": "x"}, headers=H(usuario_comum["token"])
+    )
+    assert res.status_code == 403
