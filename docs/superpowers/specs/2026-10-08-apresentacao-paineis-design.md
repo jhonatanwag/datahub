@@ -9,8 +9,8 @@ Permitir cadastrar **apresentações**: sequências de painéis (slides) que rod
 ## Decisões acordadas
 
 - Slide = referência a um painel existente (`paineis`). O mesmo painel pode ser usado no menu e em várias apresentações. Nada muda em `paineis`.
-- Filtros fixos ficam no slide (não no painel). Ao adicionar o painel, começam com o `valor_padrao` das variáveis dele.
-- Permissão igual aos painéis: `empresa_id` (NULL = todas) + usuários com acesso. Só admin cadastra.
+- Filtros fixos ficam no slide (não no painel). Ao adicionar o painel, começam com o `valor_padrao` das variáveis dele, **guardados como tokens crus** (`hoje`, `mes_atual_inicio`…) e resolvidos a cada atualização, para uma TV ligada por dias não ficar com a data antiga. Só o que o usuário edita no preparo/execução vira valor fixo (override, não gravado).
+- Permissão: `empresa_id` (NULL = todas) + usuários com acesso; só admin cadastra. Admin enxerga e executa todas as apresentações ativas da empresa, sem precisar de vínculo. Usuários `externo` (SSO) não têm acesso (403) e o item some do menu.
 - Sessão da TV: renovação automática do token enquanto a apresentação está aberta (sem link de TV sem login).
 - Rolagem automática quando o slide excede a altura da tela.
 
@@ -26,7 +26,7 @@ Permitir cadastrar **apresentações**: sequências de painéis (slides) que rod
 
 - Admin: CRUD de apresentações; CRUD e reordenação de slides; `GET/PUT /{id}/usuarios`.
 - Usuário: `GET /minhas` (alimenta o menu; filtrada por usuário e empresa); `GET /{id}/executar` (slides em ordem, filtros, durações, intervalo de atualização).
-- Dados dos slides: reaproveita `GET /api/paineis/{painel_id}/renderizar` e o endpoint de variáveis. A checagem de acesso do `renderizar` passa a aceitar também quem tem acesso a uma apresentação ativa que contém o painel. É a única mudança no código de painéis.
+- Dados dos slides: reaproveita `GET /api/paineis/{painel_id}/renderizar` e o endpoint de variáveis, **sem alteração em `routes/paineis.py`** (o `renderizar` não checa `painel_usuarios` para usuários internos).
 - `POST /api/auth/renovar`: devolve token novo se o atual for válido; respeita a blacklist de logout.
 
 ## 2. Tela de execução
@@ -34,7 +34,7 @@ Permitir cadastrar **apresentações**: sequências de painéis (slides) que rod
 - Rotas: `/apresentar` (lista as apresentações do usuário) e `/apresentar/[id]`. Menu "Apresentar painéis" logo abaixo de Dashboard (`navLinks` em `+layout.svelte`).
 - **Preparo:** mostra os slides com os filtros fixos, editáveis só nesta execução (não grava). Botão "Iniciar" entra em tela cheia (exige clique do usuário; não inicia sozinha por URL).
 - **Rodando:** layout sem menu lateral/cabeçalho (rota especial, como `/relatorio/`). Cada slide fica pelo tempo configurado; do último volta ao primeiro (loop).
-- **Rolagem automática:** slide mais alto que a tela rola de forma contínua e suave até o fim, com pausa curta no topo e no fim. A duração configurada é o mínimo: o slide fica o tempo necessário para a rolagem terminar. Velocidade calculada para o percurso caber na duração, com piso para manter legibilidade.
+- **Rolagem automática:** slide mais alto que a tela rola de forma contínua e suave até o fim, com pausa curta no topo e no fim. A duração configurada é o mínimo: o slide fica o tempo necessário para a rolagem terminar. Velocidade calculada para o percurso caber na duração (descontadas as pausas), com **teto** de 80 px/s para manter legibilidade; se o teto impedir, o slide se estende.
 - **Atualização de dados:** a cada `intervalo_atualizacao_seg`, refaz as consultas do slide atual em segundo plano, trocando os dados sem piscar e sem perder a posição de rolagem. Os outros slides carregam quando chegam a vez.
 - **Token:** renovação a cada ~30 min.
 - **Falhas:** mantém os dados antigos, mostra aviso discreto ("Sem atualizar desde HH:MM") e tenta no próximo ciclo. Nunca tela em branco nem redirecionamento para login por erro passageiro de rede ou de consulta.
@@ -52,7 +52,8 @@ Permitir cadastrar **apresentações**: sequências de painéis (slides) que rod
 ### Casos de borda
 
 - Apresentação sem slides: "Nenhum slide cadastrado".
-- Usuário com acesso à apresentação, mas não ao painel individual: vê o slide.
+- Usuário com acesso à apresentação, mas não ao painel individual: vê o slide (o `renderizar` não restringe usuários internos).
+- Tela cheia exige clique do usuário; a apresentação não inicia sozinha por URL. A tela também pede wake lock (quando o navegador suporta) para a TV não apagar.
 
 ### Testes
 

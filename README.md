@@ -63,6 +63,27 @@ Mudanças aplicadas até agora:
 ALTER TABLE usuarios ADD COLUMN tema VARCHAR(10) NOT NULL DEFAULT 'escuro';
 ```
 
+## Apresentação de painéis (TV)
+
+Sequência de painéis que roda sozinha em tela cheia, pensada para uma TV.
+
+- **Cadastro (admin):** menu Admin → *Apresentações*. Uma apresentação tem uma lista de *slides*; cada slide
+  aponta para um painel **já cadastrado** e define o tempo na tela e os filtros fixos daquele slide.
+  O mesmo painel pode ser usado no menu e em várias apresentações. Também define a empresa, os usuários com
+  acesso (administradores veem todas as da empresa) e de quantos em quantos minutos os dados são atualizados.
+- **Execução:** menu *Apresentar painéis* → escolher a apresentação → ajustar filtros se quiser (vale só para
+  aquela execução) → *Iniciar*. Entra em tela cheia; mexendo o mouse aparece uma barra pequena
+  (anterior/pausar/próximo/filtros/sair).
+- **Regras:** o tempo do slide é o **mínimo**; se o painel for mais alto que a tela, ele rola sozinho e o slide
+  só passa quando a rolagem termina. Os dados do slide em exibição são refeitos no intervalo configurado, sem
+  piscar. Tokens de data nos filtros (`hoje`, `mes_atual_inicio`…) são resolvidos a cada atualização. O token
+  de login é renovado a cada 30 min enquanto a apresentação roda; se uma atualização falhar, os dados antigos
+  ficam na tela com o aviso "Sem atualizar desde HH:MM".
+- **Fora de escopo:** usuários externos (SSO) não têm acesso; a TV não sobrevive a um reinício sem novo login.
+- **Deploy:** aplicar `scripts/migrations/2026-10-08-apresentacoes.sql` no `datahub_meta` **antes** de publicar o
+  código (se o usuário da aplicação não for o dono das tabelas, conceda `SELECT/INSERT/UPDATE/DELETE` nas três
+  tabelas novas e `USAGE` nas sequences).
+
 ## Limites de recursos e proteção contra estouro de memória
 
 **O que aconteceu (2026-09-20):** gerar o PDF de um painel com `table_dynamic` pivotado num período de
