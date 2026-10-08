@@ -159,6 +159,10 @@
     </div>
   {/if}
 
+  <footer class="rodape-marca">
+    <strong>GPA Analytics</strong><span class="sep">—</span><span>Sistema de Inteligência da GPA Agro</span>
+  </footer>
+
   <div class="controles" class:visivel={controlesVisiveis || filtrosAbertos}>
     {#if filtrosAbertos && slide}
       <div class="painel-filtros">
@@ -191,6 +195,9 @@
 .topo-info { font-size: 13px; color: var(--muted); display: flex; gap: 12px; }
 .aviso { color: var(--accent-orange); }
 .viewport { flex: 1; overflow: hidden; padding: 16px 24px; }
+.rodape-marca { flex-shrink: 0; display: flex; align-items: baseline; gap: 8px; padding: 9px 24px; border-top: 1px solid var(--border); background: var(--side); color: var(--muted); font-size: 13px; }
+.rodape-marca strong { color: var(--accent); font-weight: 600; letter-spacing: .02em; }
+.rodape-marca .sep { opacity: .6; }
 .vazio { padding: 48px; text-align: center; color: var(--muted); font-size: 18px; }
 .controles { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 60; }
 .controles.visivel { opacity: 1; pointer-events: auto; }
@@ -199,5 +206,5 @@
 .acoes-filtros { display: flex; gap: 8px; margin-left: auto; }
 .danger { color: var(--danger, #f85149); }
 .muted { color: var(--muted); font-size: 13px; }
-@media (min-width: 1920px) { .viewport { padding: 24px 36px; } .topo-titulo { font-size: 26px; } .topo-info { font-size: 16px; } }
+@media (min-width: 1920px) { .rodape-marca { font-size: 17px; padding: 12px 36px; } .viewport { padding: 24px 36px; } .topo-titulo { font-size: 26px; } .topo-info { font-size: 16px; } }
 </style>
