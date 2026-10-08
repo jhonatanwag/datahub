@@ -32,6 +32,18 @@ def hard_delete_painel(painel_id: int):
     asyncio.run(_exec())
 
 
+def hard_delete_apresentacao(apresentacao_id: int):
+    """Remove de verdade uma apresentação criada em teste (slides e usuários
+    saem por cascade) -- o DELETE da API só desativa."""
+    async def _exec():
+        conn = await _connect_meta()
+        try:
+            await conn.execute("DELETE FROM apresentacoes WHERE id = $1", apresentacao_id)
+        finally:
+            await conn.close()
+    asyncio.run(_exec())
+
+
 def hard_delete_usuario(usuario_id: int):
     """Mesma lógica de hard_delete_painel, pra usuários criados em teste."""
     async def _exec():
