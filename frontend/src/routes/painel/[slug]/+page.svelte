@@ -2,13 +2,9 @@
   import { page } from '$app/stores';
   import { afterNavigate } from '$app/navigation';
   import { api, assetUrl } from '$lib/api.js';
-  import KPICard        from '$lib/components/KPICard.svelte';
-  import ChartPanel     from '$lib/components/ChartPanel.svelte';
-  import DataTable      from '$lib/components/DataTable.svelte';
-  import DynamicTable   from '$lib/components/DynamicTable.svelte';
-  import MapPanel       from '$lib/components/MapPanel.svelte';
-  import CardPerfil     from '$lib/components/CardPerfil.svelte';
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
+  import PainelGrid     from '$lib/components/PainelGrid.svelte';
+  import { valoresIniciais } from '$lib/filtrosPainel.js';
   import { resumoFiltros } from '$lib/resumoFiltros.js';
   import { abrirPdf, compartilharWhatsapp, podeCompartilhar } from '$lib/relatorioPdf.js';
 
@@ -45,42 +41,6 @@
     finally { gerandoPdf = false; }
   }
 
-  function resolverToken(val) {
-    if (!val) return '';
-    const h   = new Date();
-    const ano = h.getFullYear(), mes = h.getMonth() + 1;
-    const fmt = (y, m, d) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const ultimoDia       = new Date(ano, mes, 0).getDate();
-    const mesAnt          = mes === 1 ? 12 : mes - 1;
-    const anoAnt          = mes === 1 ? ano - 1 : ano;
-    const ultimoDiaMesAnt = new Date(anoAnt, mesAnt, 0).getDate();
-    const tokens = {
-      'hoje':                fmt(ano, mes, h.getDate()),
-      'ontem':               (() => { const d = new Date(h); d.setDate(d.getDate()-1); return fmt(d.getFullYear(), d.getMonth()+1, d.getDate()); })(),
-      'mes_atual_inicio':    fmt(ano, mes, 1),
-      'mes_atual_fim':       fmt(ano, mes, ultimoDia),
-      'mes_anterior_inicio': fmt(anoAnt, mesAnt, 1),
-      'mes_anterior_fim':    fmt(anoAnt, mesAnt, ultimoDiaMesAnt),
-      'ano_atual_inicio':    fmt(ano, 1, 1),
-      'ano_atual_fim':       fmt(ano, 12, 31),
-    };
-    return tokens[val] ?? val;
-  }
-
-  // Valores padrão dos filtros (mesmos que a tela usa na primeira abertura)
-  function valoresIniciais() {
-    const v = {};
-    variaveis.forEach(variavel => {
-      if (variavel.tipo === 'date_range') {
-        v[variavel.slug + '_inicio'] = resolverToken(variavel.valor_padrao_inicio || '');
-        v[variavel.slug + '_fim']    = resolverToken(variavel.valor_padrao_fim    || '');
-      } else {
-        v[variavel.slug] = resolverToken(variavel.valor_padrao || '');
-      }
-    });
-    return v;
-  }
-
   async function carregarPainel() {
     slug = $page.params.slug;
     painel = null;
@@ -96,7 +56,7 @@
       painel    = await api.buscarPainelPorSlug(slug);
       variaveis = await api.variaveisPainel(painel.id);
 
-      filtrosAtivos = valoresIniciais();
+      filtrosAtivos = valoresIniciais(variaveis);
 
       // Carrega as opções (valor/label) das variáveis select/multiselect
       // pra poder mostrar o label (não o id cru) no chip de resumo.
@@ -141,21 +101,13 @@
   }
 
   async function limparFiltros() {
-    filtrosAtivos = valoresIniciais();
+    filtrosAtivos = valoresIniciais(variaveis);
     filtrosAbertos = false;
     await carregarDados();
   }
 
   function onFiltroMudou(event) {
     filtrosAtivos = { ...filtrosAtivos, ...event.detail };
-  }
-
-  function valoresClicados(ind) {
-    const slug = ind.filtro_clique_variavel_slug;
-    if (!slug) return [];
-    const val = filtrosAtivos[slug];
-    if (!val) return [];
-    return ind.filtro_clique_variavel_tipo === 'multiselect' ? String(val).split(',') : [String(val)];
   }
 
   function onFiltroClique(ind, valorBruto) {
@@ -262,101 +214,15 @@
     {:else if erro}
       <p class="error">{erro}</p>
     {:else}
-      <div
-        class="painel-grid"
-        style="grid-template-columns: repeat({painel.colunas}, 1fr)"
-      >
-        {#each indicadores as ind}
-          <div
-            class="grid-item"
-            style="
-              grid-column: {ind.coluna} / span {ind.col_span};
-              grid-row:    {ind.linha}  / span {ind.row_span};
-            "
-          >
-            {#if ind.erro || ind.query_tipo !== 'kpi'}
-              <div class="card-titulo">{ind.titulo || ind.query_slug}</div>
-            {/if}
-
-            {#if ind.erro}
-              <p class="error" style="font-size:12px; padding:8px">{ind.erro}</p>
-
-            {:else if ind.query_tipo === 'kpi'}
-              <KPICard
-                dados={ind.dados?.[0]}
-                corFonte={ind.kpi_cor_fonte}
-                corFundo={ind.kpi_cor_fundo}
-                imagemUrl={ind.kpi_imagem_habilitada ? assetUrl(`/api/queries/${ind.query_id}/kpi-imagem`) : null}
-                imagemPosicao={ind.kpi_imagem_posicao}
-                valorPrimeiro={ind.kpi_valor_primeiro}
-                descricao={ind.descricao}
-                titulo={ind.titulo || ind.query_slug}
-              />
-
-            {:else if ind.query_tipo?.startsWith('chart_')}
-              <ChartPanel
-                tipo={ind.query_tipo}
-                dados={ind.dados}
-                fonteTamanho={ind.chart_fonte_tamanho}
-                truncarLabel={ind.chart_truncar_label}
-                truncarTamanho={ind.chart_truncar_tamanho}
-                mostrarValor={ind.chart_mostrar_valor}
-                valorLabel={ind.chart_valor_label}
-                rotuloEixo={ind.chart_rotulo_eixo}
-                rotuloValor={ind.chart_rotulo_valor}
-                filtroColuna={ind.chart_filtro_coluna}
-                valoresSelecionados={valoresClicados(ind)}
-                on:filtroClique={(e) => onFiltroClique(ind, e.detail.valor)}
-              />
-
-            {:else if ind.query_tipo === 'table'}
-              <DataTable
-                dados={ind.dados}
-                titulo={ind.titulo || ind.query_slug}
-                painelSlug={slug}
-                indicadorId={ind.id}
-                filtrosQuery={filtrosQuery}
-                impressaoHabilitada={ind.impressao_habilitada}
-                impressaoUrlBase={
-                  ind.impressao_habilitada && urlImpressaoBase && ind.impressao_caminho
-                    ? `${urlImpressaoBase}${ind.impressao_caminho}`
-                    : null
-                }
-                impressaoColuna={ind.impressao_coluna}
-                metaHabilitada={ind.meta_habilitada}
-                metaColunaValor={ind.meta_coluna_valor}
-                metaColunaInicio={ind.meta_coluna_inicio}
-                metaColunaFim={ind.meta_coluna_fim}
-                metaCorDentro={ind.meta_cor_dentro}
-                metaCorFora={ind.meta_cor_fora}
-              />
-
-            {:else if ind.query_tipo === 'table_dynamic'}
-              <DynamicTable
-                dados={ind.dados}
-                titulo={ind.titulo || ind.query_slug}
-                painelSlug={slug}
-                indicadorId={ind.id}
-                filtrosQuery={filtrosQuery}
-                agrupamentos={ind.agrupamentos ?? []}
-                agregacoes={ind.agregacoes ?? []}
-                pivot={ind.pivot ?? null}
-                faixasCor={ind.faixas_cor ?? null}
-                subquery={ind.subquery}
-              />
-
-            {:else if ind.query_tipo === 'card'}
-              <CardPerfil dados={ind.dados?.[0] ?? null} vazio="Use os filtros para pesquisar e consultar as informações." />
-
-            {:else if ind.query_tipo === 'map'}
-              <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} />
-
-            {:else}
-              <p class="muted" style="font-size:12px; padding:8px">Tipo "{ind.query_tipo}" não suportado</p>
-            {/if}
-          </div>
-        {/each}
-      </div>
+      <PainelGrid
+        {painel}
+        {indicadores}
+        {slug}
+        {filtrosAtivos}
+        {filtrosQuery}
+        {urlImpressaoBase}
+        on:filtroClique={(e) => onFiltroClique(e.detail.ind, e.detail.valor)}
+      />
     {/if}
   {/if}
 </div>
@@ -439,26 +305,6 @@
 
 .filtros-acoes { display: flex; gap: 8px; margin-left: auto; }
 
-/* ── Grid ───────────────────────────────────────────────── */
-.painel-grid { display: grid; gap: 16px; }
-
-.grid-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.card-titulo {
-  padding: 12px 16px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  letter-spacing: .06em;
-  border-bottom: 1px solid var(--border);
-}
-
 .loading-grid { padding: 48px; text-align: center; color: var(--muted); }
 .error { color: var(--danger, #f85149); font-size: 13px; }
 .muted { color: var(--muted); }
@@ -466,8 +312,6 @@
 /* ── Tablet (≤1024px) ───────────────────────────────────── */
 @media (max-width: 1024px) {
   .painel-page  { padding: 16px; }
-  .painel-grid  { grid-template-columns: repeat(2, 1fr) !important; }
-  .grid-item    { grid-column: auto !important; grid-row: auto !important; }
 }
 
 /* ── Mobile (≤768px) ────────────────────────────────────── */
@@ -484,16 +328,11 @@
   .btn-limpar,
   .btn-aplicar  { flex: 1; justify-content: center; }
 
-  .painel-grid  { grid-template-columns: 1fr !important; gap: 10px; }
-  .grid-item    { grid-column: 1 / -1 !important; grid-row: auto !important; }
-  .card-titulo  { font-size: 11px; padding: 10px 12px 6px; }
 }
 
 /* ── TV (≥1920px) ───────────────────────────────────────── */
 @media (min-width: 1920px) {
   .painel-page      { padding: 36px; }
-  .painel-grid      { gap: 24px; }
-  .card-titulo      { font-size: 14px; padding: 16px 20px 10px; }
   .painel-header h2 { font-size: 28px; }
   .filtros-bar      { padding: 16px 20px; gap: 20px; }
   .btn-filtros      { font-size: 15px; padding: 8px 16px; }
