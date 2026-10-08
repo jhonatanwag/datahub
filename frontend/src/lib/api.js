@@ -74,11 +74,26 @@ export const api = {
 
     logout: () => request('/api/auth/logout', { method: 'POST' }),
 
+    renovarToken: () => request('/api/auth/renovar', { method: 'POST' }),
+
     ssoTrocar: (exchange) =>
         request('/api/auth/sso/trocar', { method: 'POST', body: JSON.stringify({ exchange }) }),
 
     trocarPdfToken: (pdf_token) =>
         request('/api/auth/pdf-token/trocar', { method: 'POST', body: JSON.stringify({ pdf_token }) }),
+
+    // Apresentações
+    minhasApresentacoes:        ()        => request('/api/apresentacoes/minhas'),
+    executarApresentacao:       (id)      => request(`/api/apresentacoes/${id}/executar`),
+    listarApresentacoes:        ()        => request('/api/apresentacoes/'),
+    buscarApresentacao:         (id)      => request(`/api/apresentacoes/${id}`),
+    criarApresentacao:          (d)       => request('/api/apresentacoes/', { method: 'POST', body: JSON.stringify(d) }),
+    atualizarApresentacao:      (id, d)   => request(`/api/apresentacoes/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
+    desativarApresentacao:      (id)      => request(`/api/apresentacoes/${id}`, { method: 'DELETE' }),
+    slidesApresentacao:         (id)      => request(`/api/apresentacoes/${id}/slides`),
+    salvarSlidesApresentacao:   (id, d)   => request(`/api/apresentacoes/${id}/slides`, { method: 'PUT', body: JSON.stringify(d) }),
+    usuariosApresentacao:       (id)      => request(`/api/apresentacoes/${id}/usuarios`),
+    salvarUsuariosApresentacao: (id, d)   => request(`/api/apresentacoes/${id}/usuarios`, { method: 'PUT', body: JSON.stringify(d) }),
 
     // Charts
     chart: (slug, params = {}) => {

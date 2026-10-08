@@ -42,6 +42,8 @@
     chevR:   `<polyline points="9 18 15 12 9 6"/>`,
     sun:     `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>`,
     moon:    `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>`,
+    tv:      `<rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>`,
+    play:    `<polygon points="5 3 19 12 5 21 5 3"/>`,
   };
 
   function svg(path) {
@@ -50,11 +52,13 @@
 
   const navLinks = [
     { href: '/',   label: 'Dashboard', icon: I.home  },
+    { href: '/apresentar', label: 'Apresentar painéis', icon: I.tv },
     { href: '/ai', label: 'IA / Chat', icon: I.chat  },
   ];
 
   const adminLinks = [
     { href: '/configuracoes/paineis',   label: 'Painéis',   icon: I.grid     },
+    { href: '/configuracoes/apresentacoes', label: 'Apresentações', icon: I.play },
     { href: '/configuracoes/variaveis', label: 'Variáveis', icon: I.sliders  },
     { href: '/configuracoes/queries',   label: 'Queries',   icon: I.db       },
     { href: '/configuracoes/empresas',  label: 'Empresas',  icon: I.building },
@@ -150,6 +154,7 @@
   }
 
   $: isExterno = $usuario?.role === 'externo';
+  $: navVisiveis = navLinks.filter(l => !(isExterno && l.href === '/apresentar'));
   $: nomeExibido = $usuario?.nome ?? (isExterno ? `Usuário ${$usuario?.codigo_usuario ?? ''}` : '');
   $: collapsed = !isMobile && !sidebarOpen;
   $: tooltipAtivo = collapsed; // mostra title nos itens só quando colapsado
@@ -168,6 +173,8 @@
 {#if PUBLIC_ROUTES.includes($page.url.pathname)}
   <slot />
 {:else if $page.url.pathname.startsWith('/relatorio/')}
+  <slot />
+{:else if $page.url.pathname.startsWith('/apresentar/')}
   <slot />
 {:else}
   <div class="shell">
@@ -202,7 +209,7 @@
 
       <!-- Links -->
       <ul class="nav-links">
-        {#each navLinks as link}
+        {#each navVisiveis as link}
           <li class:active={isActive(link.href)}>
             <a href={link.href} title={tooltipAtivo ? link.label : null}>
               <span class="nav-icon">{@html svg(link.icon)}</span>
