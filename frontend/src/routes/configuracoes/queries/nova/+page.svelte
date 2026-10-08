@@ -4,6 +4,7 @@
   import { api } from '$lib/api.js';
   import QueryEditor from '$lib/components/QueryEditor.svelte';
   import ColorPalette from '$lib/components/ColorPalette.svelte';
+  import { coresKpi } from '$lib/kpiCores.js';
 
   let form = {
     slug: '', nome: '', descricao: '',
@@ -216,6 +217,11 @@
       salvando = false;
     }
   }
+
+  // Pré-visualização do KPI: as cores de fábrica antigas seguem o tema (igual ao KPICard)
+  $: prevCores = coresKpi(form.kpi_cor_fundo, form.kpi_cor_fonte);
+  $: prevFundo = prevCores.fundo ?? 'var(--surface)';
+  $: prevFonte = prevCores.fonte ?? 'var(--text)';
 </script>
 
 <svelte:head><title>Nova Query — GPA Analytics</title></svelte:head>
@@ -279,13 +285,13 @@
             </div>
             <ColorPalette bind:value={form.kpi_cor_fundo} />
           </label>
-          <div class="kpi-preview" style="background:{form.kpi_cor_fundo}; color:{form.kpi_cor_fonte}">
+          <div class="kpi-preview" style="background:{prevFundo}; color:{prevFonte}">
             {#if form.kpi_valor_primeiro}
-              <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
-              <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>
+              <span class="kpi-preview-valor" style="color:{prevFonte}">1.234</span>
+              <span class="kpi-preview-label" style="color:{prevFonte}; opacity:.7">LABEL</span>
             {:else}
-              <span class="kpi-preview-label" style="color:{form.kpi_cor_fonte}; opacity:.7">LABEL</span>
-              <span class="kpi-preview-valor" style="color:{form.kpi_cor_fonte}">1.234</span>
+              <span class="kpi-preview-label" style="color:{prevFonte}; opacity:.7">LABEL</span>
+              <span class="kpi-preview-valor" style="color:{prevFonte}">1.234</span>
             {/if}
           </div>
         </div>

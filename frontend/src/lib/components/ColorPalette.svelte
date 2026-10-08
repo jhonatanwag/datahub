@@ -1,21 +1,25 @@
 <script>
   export let value = '';
 
-  // Paleta de referência do tema escuro (padrão) do app.css — fixa, não
-  // reage ao tema do usuário logado, já que a cor do KPI é um hex estático
-  // salvo por query, não uma variável de tema.
+  // Paleta de referência do tema (noite e dia) do app.css — fixa, não reage ao
+  // tema do usuário logado, já que a cor do KPI é um hex estático salvo por query.
+  // Obs.: #161b22 / #2B5A45 (padrão antigo) e o fundo/fonte padrão fazem o KPI seguir o tema.
   const CORES = [
-    { nome: 'bg',             hex: '#071F15' },
-    { nome: 'surface',        hex: '#0F2E20' },
-    { nome: 'border',         hex: '#2B5A45' },
-    { nome: 'text',           hex: '#F3F8F5' },
-    { nome: 'muted',          hex: '#A4B7AE' },
-    { nome: 'accent',         hex: '#3DBE67' },
-    { nome: 'accent-blue',    hex: '#2F80ED' },
-    { nome: 'accent-green',   hex: '#54C571' },
-    { nome: 'danger',         hex: '#E25A52' },
-    { nome: 'accent-purple',  hex: '#8B6FE8' },
-    { nome: 'accent-orange',  hex: '#E89B3C' },
+    { nome: 'noite · fundo',    hex: '#0E131C' },
+    { nome: 'noite · cartão',   hex: '#161E2C' },
+    { nome: 'noite · borda',    hex: '#263146' },
+    { nome: 'noite · texto',    hex: '#E7ECF4' },
+    { nome: 'dia · fundo',      hex: '#F3F6FA' },
+    { nome: 'dia · cartão',     hex: '#FFFFFF' },
+    { nome: 'dia · borda',      hex: '#E1E8F0' },
+    { nome: 'dia · texto',      hex: '#1B2634' },
+    { nome: 'muted',            hex: '#8C99AF' },
+    { nome: 'destaque (noite)', hex: '#3FCF9F' },
+    { nome: 'destaque (dia)',   hex: '#1FA97C' },
+    { nome: 'azul',             hex: '#6C8CFF' },
+    { nome: 'roxo',             hex: '#A58BFF' },
+    { nome: 'âmbar',            hex: '#F2B35B' },
+    { nome: 'perigo',           hex: '#F26D6D' },
   ];
 </script>
 

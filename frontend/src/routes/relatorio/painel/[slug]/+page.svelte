@@ -213,7 +213,6 @@
               dados={ind.dados?.[0]}
               corFonte={ind.kpi_cor_fonte}
               corFundo={ind.kpi_cor_fundo}
-              seguirTema={false}
               imagemUrl={ind.kpi_imagem_habilitada ? assetUrl(`/api/queries/${ind.query_id}/kpi-imagem`) : null}
               imagemPosicao={ind.kpi_imagem_posicao}
               valorPrimeiro={ind.kpi_valor_primeiro}
@@ -300,7 +299,7 @@
     padding: 10px 14px 6px; font-size: 11px; font-weight: 600; color: var(--muted);
     letter-spacing: .06em; border-bottom: 1px solid var(--border);
   }
-  .rel-erro { color: #C62828; font-size: 12px; padding: 8px 12px; }
+  .rel-erro { color: var(--danger); font-size: 12px; padding: 8px 12px; }
   .rel-vazio { color: var(--muted); font-size: 12px; padding: 16px 12px; text-align: center; }
 
   @media screen and (max-width: 820px) {

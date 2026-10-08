@@ -1,28 +1,29 @@
-/* Tema visual dos relatórios impressos — paleta verde-clara do padrão
-   (docs/superpowers/specs/2026-09-08-impressao-relatorio-painel-design.md),
-   independente do tema do app. Ativado pela classe `relatorio-tema` no <html>
+/* Tema visual dos relatórios impressos — mesma paleta do tema DIA do app
+   (app.css, :root[data-theme="claro"]), fixa mesmo se o usuário usa o tema noite. Ativado pela classe `relatorio-tema` no <html>
    (a rota /relatorio/painel/[slug] adiciona no onMount e remove no onDestroy).
    Escopado em :root pra que o ChartPanel — que lê as CSS vars via
    getComputedStyle(document.documentElement) — pegue a paleta clara. */
 
 :root.relatorio-tema {
-  --bg:            #F4F6F2;
+  --bg:            #F3F6FA;
   --surface:       #FFFFFF;
-  --surface2:      #E9F3EC;
-  --border:        #E3E8E1;
-  --text:          #2B2B2B;
-  --muted:         #8A968A;
-  --accent:        #2E5E3E;
-  --accent-blue:   #2E5E3E;
-  --accent-green:  #4CAF50;
-  --accent-orange: #E8A33D;
-  --danger:        #C62828;
-  --radius:        6px;   /* o relatório mantém os cantos do padrão antigo */
-  --radius-lg:     12px;
+  --surface2:      #EEF2F7;
+  --border:        #E1E8F0;
+  --text:          #1B2634;
+  --muted:         #6C7B8F;
+  --accent:        #1FA97C;
+  --accent-soft:   rgba(31, 169, 124, .12);
+  --on-accent:     #FFFFFF;
+  --accent-blue:   #5B79F0;
+  --accent-green:  #1FA97C;
+  --accent-purple: #6F5BD8;
+  --accent-orange: #E39A32;
+  --danger:        #D95757;
+  --shadow:        0 8px 24px rgba(30, 50, 80, .08);
 
-  --rel-verde-escuro: #1F3D2B;
-  --rel-verde:        #2E5E3E;
-  --rel-verde-suave:  #BFE3C6;
+  --rel-verde-escuro: #16202F;
+  --rel-verde:        #1A8F6B;
+  --rel-verde-suave:  #BDEBDD;
 
   background: var(--bg);
   color: var(--text);

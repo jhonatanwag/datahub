@@ -76,11 +76,11 @@ const esc = (s) =>
 // de @page, sem colidir com o conteúdo). O cabeçalho GRANDE continua sendo
 // conteúdo normal da página, aparece uma vez.
 function headerTemplate(meta) {
-  return `<style>#rh{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:8px;color:#8A968A;width:100%;box-sizing:border-box;padding:0 12mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact}#rh b{color:#2E5E3E;font-weight:700}</style>
+  return `<style>#rh{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:8px;color:#6C7B8F;width:100%;box-sizing:border-box;padding:0 12mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact}#rh b{color:#1A8F6B;font-weight:700}</style>
 <div id="rh"><span><b>${esc(meta.titulo)}</b>${meta.empresa ? ' · ' + esc(meta.empresa) : ''}</span><span>${esc(meta.emitidoEm)}</span></div>`;
 }
 function footerTemplate() {
-  return `<style>#rf{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:8px;color:#8A968A;width:100%;box-sizing:border-box;padding:4px 12mm 0;border-top:1px solid #E3E8E1;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact}</style>
+  return `<style>#rf{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:8px;color:#6C7B8F;width:100%;box-sizing:border-box;padding:4px 12mm 0;border-top:1px solid #E1E8F0;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact}</style>
 <div id="rf"><span>DataHub · GPA Analytics · Relatório gerado eletronicamente</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span></div>`;
 }
 

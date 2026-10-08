@@ -17,7 +17,7 @@
     display: flex; justify-content: space-between; gap: 12px;
     margin-top: 24px;
     padding: 8px 16mm 0;
-    border-top: 1px solid #E3E8E1;
-    font-size: 9px; color: #8A968A;
+    border-top: 1px solid #E1E8F0;
+    font-size: 9px; color: #6C7B8F;
   }
 </style>
