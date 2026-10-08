@@ -221,3 +221,35 @@ def test_usuario_comum_nao_administra(client, usuario_comum):
         "/api/apresentacoes/", json={"slug": "x_y", "nome": "x"}, headers=H(usuario_comum["token"])
     )
     assert res.status_code == 403
+
+
+# ── Task 4: /auth/renovar ────────────────────────────────────
+
+from jose import jwt as jose_jwt
+from config.settings import settings
+
+
+def test_renovar_devolve_token_valido_com_mesmos_dados(client, auth_token):
+    res = client.post("/api/auth/renovar", headers=H(auth_token))
+    assert res.status_code == 200
+    novo = res.json()["token"]
+    antigo = jose_jwt.decode(auth_token, settings.JWT_SECRET, algorithms=["HS256"])
+    claims = jose_jwt.decode(novo, settings.JWT_SECRET, algorithms=["HS256"])
+    for k in ("user_id", "empresa_id", "company_slug", "role"):
+        assert claims[k] == antigo[k]
+    assert client.get("/api/auth/me", headers=H(novo)).status_code == 200
+
+
+def test_renovar_exige_token(client):
+    assert client.post("/api/auth/renovar").status_code in (401, 403)
+
+
+def test_renovar_com_logout_retorna_401(client, auth_token):
+    client.post("/api/auth/logout", headers=H(auth_token))
+    try:
+        assert client.post("/api/auth/renovar", headers=H(auth_token)).status_code == 401
+    finally:
+        # novo login limpa a blacklist (selecionar-empresa faz DEL), não deixa o admin de dev bloqueado
+        login = client.post("/api/auth/login", json={"email": "admin@datahub.local", "senha": "admin123"}).json()
+        emp = next(e for e in login["empresas"] if e["slug"] == "alpha")
+        client.post("/api/auth/selecionar-empresa", json={"session_token": login["session_token"], "empresa_id": emp["id"]})

@@ -276,6 +276,28 @@ async def me(user=Depends(get_current_user)):
     return user
 
 
+@router.post("/renovar")
+async def renovar_token(user=Depends(get_current_user)):
+    """Emite um token novo com os mesmos dados enquanto o atual for válido.
+    Usado pela tela de apresentação (TV) pra não cair em 'sessão expirada'."""
+    if user["role"] == "externo":
+        raise HTTPException(status_code=403, detail="Renovação indisponível para este perfil")
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+    token = jwt.encode(
+        {
+            "user_id": user["id"],
+            "empresa_id": user["empresa_id"],
+            "company_slug": user["company_slug"],
+            "nome": user["nome"],
+            "role": user["role"],
+            "exp": expire,
+        },
+        settings.JWT_SECRET,
+        algorithm="HS256",
+    )
+    return {"token": token, "token_type": "bearer"}
+
+
 @router.put("/tema")
 async def atualizar_tema(body: TemaInput, user=Depends(get_current_user)):
     try:
