@@ -245,7 +245,9 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); marg
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field.flex-1 { flex: 1; }
 .field-row { display: flex; gap: 16px; flex-wrap: wrap; }
-.check-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+.check-label { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+.check-label input[type="checkbox"] { width: auto; flex: none; }
+a.btn-ghost { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 6px; text-decoration: none; }
 .hint { font-size: 11px; color: var(--muted); }
 .section-title { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .06em; }
 .access-row { padding: 8px 0; border-bottom: 1px solid var(--border); }

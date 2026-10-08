@@ -85,6 +85,7 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .card-actions { display: flex; gap: 8px; }
 .danger { color: var(--danger, #f85149); }
 .btn-sm { font-size: 12px; padding: 4px 10px; }
+a.btn-primary { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 6px; text-decoration: none; }
 .muted { color: var(--muted); }
 .error { color: var(--danger, #f85149); font-size: 13px; }
 </style>

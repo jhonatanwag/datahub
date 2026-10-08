@@ -93,4 +93,5 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .filtros-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .acoes { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 .error { color: var(--danger, #f85149); font-size: 13px; }
+a.btn-ghost { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 6px; text-decoration: none; }
 </style>
