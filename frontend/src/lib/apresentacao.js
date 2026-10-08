@@ -39,3 +39,13 @@ export const precisaAtualizar = (ultimaMs, agoraMs, intervaloSeg) => agoraMs - u
 export function filtrosEfetivos(raw, override, agora = new Date()) {
   return { ...resolverFiltros(raw, agora), ...(override ?? {}) };
 }
+
+// Evita que a resposta de uma requisição mais lenta (e mais antiga) do mesmo slide
+// sobrescreva a de uma requisição mais nova (ex.: filtro aplicado durante um refresh).
+export function criarControleDeGeracao() {
+  const atual = {};
+  return {
+    iniciar(id) { atual[id] = (atual[id] ?? 0) + 1; return atual[id]; },
+    valida(id, n) { return atual[id] === n; },
+  };
+}

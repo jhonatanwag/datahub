@@ -6,7 +6,7 @@
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
   import {
     planoRolagem, posicaoRolagem, proximoIndice, anteriorIndice,
-    precisaAtualizar, filtrosEfetivos, RENOVAR_TOKEN_MS,
+    precisaAtualizar, filtrosEfetivos, criarControleDeGeracao, RENOVAR_TOKEN_MS,
   } from '$lib/apresentacao.js';
 
   export let apresentacao;
@@ -33,12 +33,17 @@
 
   const horaDe = (ms) => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+  const geracao = criarControleDeGeracao();
+
   async function carregar(s) {
+    const n = geracao.iniciar(s.id);
     try {
       const r = await api.renderizarPainel(s.painel.id, filtrosEfetivos(s.filtros, s.override));
+      if (!geracao.valida(s.id, n)) return; // chegou depois de uma requisição mais nova
       dados = { ...dados, [s.id]: { indicadores: r.indicadores, urlImpressaoBase: r.url_impressao_base, atualizadoEm: Date.now() } };
       avisoAtualizacao = null;
     } catch (e) {
+      if (!geracao.valida(s.id, n)) return;
       // mantém o que já está na tela; só avisa
       avisoAtualizacao = `Sem atualizar desde ${horaDe(dados[s.id]?.atualizadoEm ?? Date.now())}`;
     }

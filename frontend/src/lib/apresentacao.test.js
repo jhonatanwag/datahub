@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PAUSA_ROLAGEM_SEG, VELOCIDADE_MAX_PX_SEG,
-  planoRolagem, posicaoRolagem, proximoIndice, anteriorIndice, precisaAtualizar, filtrosEfetivos,
+  planoRolagem, posicaoRolagem, proximoIndice, anteriorIndice, precisaAtualizar, filtrosEfetivos, criarControleDeGeracao,
 } from './apresentacao.js';
 
 const perto = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `${a} != ${b}`);
@@ -69,4 +69,19 @@ test('filtrosEfetivos: tokens resolvidos na data de agora, override vence', () =
   assert.deepEqual(filtrosEfetivos(raw, {}, dia9), { data: '2026-10-09', setor: 'Lavoura' });
   assert.deepEqual(filtrosEfetivos(raw, { setor: 'Sede' }, dia8), { data: '2026-10-08', setor: 'Sede' });
   assert.deepEqual(filtrosEfetivos(raw, undefined, dia8), { data: '2026-10-08', setor: 'Lavoura' });
+});
+
+test('controle de geração: resposta antiga do mesmo slide é descartada', () => {
+  const g = criarControleDeGeracao();
+  const primeira = g.iniciar(7);
+  const segunda = g.iniciar(7);
+  assert.equal(g.valida(7, primeira), false);
+  assert.equal(g.valida(7, segunda), true);
+});
+
+test('controle de geração: slides diferentes não se invalidam', () => {
+  const g = criarControleDeGeracao();
+  const a = g.iniciar(1);
+  g.iniciar(2);
+  assert.equal(g.valida(1, a), true);
 });
