@@ -213,6 +213,7 @@
               dados={ind.dados?.[0]}
               corFonte={ind.kpi_cor_fonte}
               corFundo={ind.kpi_cor_fundo}
+              seguirTema={false}
               imagemUrl={ind.kpi_imagem_habilitada ? assetUrl(`/api/queries/${ind.query_id}/kpi-imagem`) : null}
               imagemPosicao={ind.kpi_imagem_posicao}
               valorPrimeiro={ind.kpi_valor_primeiro}

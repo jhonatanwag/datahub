@@ -128,7 +128,7 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
 .card-nome { font-size: 15px; font-weight: 600; color: var(--text); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--surface2); color: var(--muted); }
-.badge.ativo { background: #1a4731; color: #3fb950; }
+.badge.ativo { background: var(--accent-soft); color: var(--accent); }
 .card-meta { display: flex; flex-direction: column; gap: 4px; }
 .meta-item { font-size: 12px; color: var(--muted); }
 .meta-item code { font-family: var(--font-display); color: var(--accent-blue); }

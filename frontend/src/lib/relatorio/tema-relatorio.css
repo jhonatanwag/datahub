@@ -17,6 +17,8 @@
   --accent-green:  #4CAF50;
   --accent-orange: #E8A33D;
   --danger:        #C62828;
+  --radius:        6px;   /* o relatório mantém os cantos do padrão antigo */
+  --radius-lg:     12px;
 
   --rel-verde-escuro: #1F3D2B;
   --rel-verde:        #2E5E3E;

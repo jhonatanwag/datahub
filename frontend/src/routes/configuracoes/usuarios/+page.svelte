@@ -104,7 +104,7 @@ tr.inativo td { opacity: .5; }
 .actions-cell { display: flex; gap: 8px; }
 .empresas-cell { color: var(--muted); font-size: 12px; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--surface2); color: var(--muted); }
-.badge.ativo { background: #1a4731; color: #3fb950; }
+.badge.ativo { background: var(--accent-soft); color: var(--accent); }
 .role-admin { background: #1c2d4a; color: #58a6ff; }
 .danger { color: var(--danger, #f85149); }
 .muted { color: var(--muted); }

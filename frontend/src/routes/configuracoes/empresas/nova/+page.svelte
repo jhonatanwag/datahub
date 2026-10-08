@@ -213,7 +213,7 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color:
 .logo-preview { width: 80px; height: 80px; object-fit: contain; border-radius: 8px; margin-top: 8px; border: 1px solid var(--border); }
 .actions { display: flex; gap: 12px; justify-content: flex-end; }
 .btn-test { color: var(--accent-blue); border-color: var(--accent-blue); width: fit-content; }
-.status-ok  { color: #3fb950; font-size: 13px; padding: 8px 12px; background: #1a4731; border-radius: var(--radius); }
+.status-ok  { color: var(--accent); font-size: 13px; padding: 8px 12px; background: var(--accent-soft); border-radius: var(--radius); }
 .status-fail { color: #f85149; font-size: 13px; padding: 8px 12px; background: #3d1a1a; border-radius: var(--radius); }
 .field-error { color: #f85149; font-size: 12px; }
 </style>

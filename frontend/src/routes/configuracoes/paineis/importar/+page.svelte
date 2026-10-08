@@ -135,12 +135,12 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .error { color: var(--danger, #f85149); font-size: 13px; }
 .avisos { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 13px; }
 .avisos ul { margin: 6px 0 0 18px; }
-.ok { background: #1a4731; color: #3fb950; border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 13px; }
+.ok { background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 13px; }
 .plano { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
 .plano th, .plano td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
 .plano code { color: var(--accent-blue); font-family: var(--font-display); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-.badge.novo { background: #1a4731; color: #3fb950; }
+.badge.novo { background: var(--accent-soft); color: var(--accent); }
 .badge.conflito { background: #4d3800; color: #d29922; }
 .badge.identico { background: var(--surface2); color: var(--muted); }
 </style>

@@ -322,7 +322,7 @@
 /* ── Sidebar ────────────────────────────────────────────── */
 .sidebar {
   width: 220px;
-  background: var(--surface);
+  background: var(--side);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -535,7 +535,7 @@
   justify-content: space-between;
   padding: 0 20px;
   height: 52px;
-  background: var(--surface);
+  background: var(--side);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }

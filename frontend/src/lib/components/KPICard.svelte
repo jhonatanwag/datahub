@@ -1,7 +1,10 @@
 <script>
+  import { coresKpi } from '$lib/kpiCores.js';
+
   export let dados    = null;
   export let corFonte = null;
   export let corFundo = null;
+  export let seguirTema = true; // false (relatório PDF): mantém as cores gravadas na query, sem mapear as antigas pro tema
   export let imagemUrl      = null;
   export let imagemPosicao  = 'direita'; // 'esquerda' | 'direita' — o valor do KPI fica sempre no lado oposto
   export let descricao      = null;
@@ -22,9 +25,10 @@
     return new Intl.NumberFormat('pt-BR').format(v);
   };
 
-  $: estiloCard  = corFundo ? `background:${corFundo}; border-color:${corFundo};` : '';
-  $: estiloValor = corFonte ? `color:${corFonte};` : '';
-  $: estiloLabel = corFonte ? `color:${corFonte}; opacity:.7;` : '';
+  $: cores       = seguirTema ? coresKpi(corFundo, corFonte) : { fundo: corFundo, fonte: corFonte };
+  $: estiloCard  = cores.fundo ? `background:${cores.fundo}; border-color:${cores.fundo};` : '';
+  $: estiloValor = cores.fonte ? `color:${cores.fonte};` : '';
+  $: estiloLabel = cores.fonte ? `color:${cores.fonte}; opacity:.7;` : '';
 </script>
 
 <div class="kpi-card card" style={estiloCard}>

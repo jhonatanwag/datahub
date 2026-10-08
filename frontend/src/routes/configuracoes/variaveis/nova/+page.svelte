@@ -208,7 +208,7 @@ textarea { resize: vertical; font-family: var(--font-display); }
 .teste-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .teste-empresa { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
 .teste-empresa select { font-size: 12px; padding: 4px 8px; }
-.teste-ok { font-size: 12px; color: #3fb950; }
+.teste-ok { font-size: 12px; color: var(--accent); }
 .amostra-table { margin-top: 8px; border-collapse: collapse; font-size: 12px; }
 .amostra-table th, .amostra-table td { border: 1px solid var(--border); padding: 4px 8px; color: var(--text); }
 </style>

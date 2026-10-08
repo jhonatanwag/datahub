@@ -24,7 +24,7 @@
   let container;
   let chart;
 
-  const COLORS = ['#79c0ff','#f78166','#56d364','#d2a8ff','#ffa657','#39d353'];
+  const COLORS = ['#3FCF9F','#6C8CFF','#F2B35B','#A58BFF','#F26D6D','#4FC3F7'];
 
   function corVar(nome) {
     return getComputedStyle(document.documentElement).getPropertyValue(nome).trim();

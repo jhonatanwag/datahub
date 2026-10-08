@@ -919,7 +919,7 @@
 .kpi-preview-valor { font-size:24px; font-weight:500; font-family:var(--font-display); }
 .kpi-imagem-preview { width:56px; height:56px; object-fit:contain; border-radius:6px; border:1px solid var(--border); }
 .slot-badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; white-space:nowrap; }
-.slot-inicio { background:color-mix(in srgb,#3fb950 15%,var(--surface2)); color:#3fb950; }
+.slot-inicio { background:color-mix(in srgb,var(--accent) 15%,var(--surface2)); color:var(--accent); }
 .slot-fim    { background:color-mix(in srgb,#f85149 15%,var(--surface2)); color:#f85149; }
 .error  { color:var(--danger, #f85149); font-size:13px; }
 .danger { color:var(--danger, #f85149); }

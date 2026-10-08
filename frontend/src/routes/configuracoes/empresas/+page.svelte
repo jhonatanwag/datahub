@@ -107,9 +107,9 @@ h2 { font-size: 20px; color: var(--text); font-family: var(--font-display); }
 .slug { font-family: var(--font-display); font-size: 11px; }
 .card-actions { display: flex; gap: 6px; flex-direction: column; flex-shrink: 0; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--surface2); color: var(--muted); width: fit-content; }
-.badge.ativo { background: #1a4731; color: #3fb950; }
+.badge.ativo { background: var(--accent-soft); color: var(--accent); }
 .danger { color: var(--danger, #f85149) !important; }
-.ativo  { color: #3fb950 !important; }
+.ativo  { color: var(--accent) !important; }
 .muted { color: var(--muted); }
 .btn-sm { font-size: 12px; padding: 4px 10px; }
 </style>

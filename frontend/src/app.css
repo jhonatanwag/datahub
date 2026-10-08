@@ -1,37 +1,45 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
 
 :root {
-  --bg:          #071F15;
-  --surface:     #0F2E20;
-  --surface2:    #18412F;
-  --border:      #2B5A45;
-  --text:        #F3F8F5;
-  --muted:       #A4B7AE;
-  --accent:      #3DBE67;
-  --accent-blue: #2F80ED;
-  --accent-green:#54C571;
-  --danger:      #E25A52;
-  --accent-purple:#8B6FE8;
-  --accent-orange:#E89B3C;
+  --bg:          #0E131C;
+  --side:        #111826;
+  --surface:     #161E2C;
+  --surface2:    #1D2737;
+  --border:      #263146;
+  --text:        #E7ECF4;
+  --muted:       #8C99AF;
+  --accent:      #3FCF9F;
+  --accent-soft: rgba(63, 207, 159, .14);
+  --on-accent:   #06261C;
+  --accent-blue: #6C8CFF;
+  --accent-green:#3FCF9F;
+  --danger:      #F26D6D;
+  --accent-purple:#A58BFF;
+  --accent-orange:#F2B35B;
+  --shadow:      0 8px 24px rgba(0, 0, 0, .28);
   --font-display:'IBM Plex Mono', monospace;
   --font-body:   'Inter', sans-serif;
-  --radius:      6px;
-  --radius-lg:   12px;
+  --radius:      10px;
+  --radius-lg:   16px;
 }
 
 :root[data-theme="claro"] {
-  --bg:          #F7FAF8;
+  --bg:          #F3F6FA;
+  --side:        #FFFFFF;
   --surface:     #FFFFFF;
-  --surface2:    #EDF5F0;
-  --border:      #D6E4DA;
-  --text:        #183126;
-  --muted:       #5F7268;
-  --accent:      #1F8F48;
-  --accent-blue: #1565C0;
-  --accent-green:#2E9E4F;
-  --danger:      #C63C3C;
-  --accent-purple:#6F42C1;
-  --accent-orange:#C97A14;
+  --surface2:    #EEF2F7;
+  --border:      #E1E8F0;
+  --text:        #1B2634;
+  --muted:       #6C7B8F;
+  --accent:      #1FA97C;
+  --accent-soft: rgba(31, 169, 124, .12);
+  --on-accent:   #FFFFFF;
+  --accent-blue: #5B79F0;
+  --accent-green:#1FA97C;
+  --danger:      #D95757;
+  --accent-purple:#6F5BD8;
+  --accent-orange:#E39A32;
+  --shadow:      0 8px 24px rgba(30, 50, 80, .08);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -62,7 +70,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 
 .btn-primary {
   background: var(--accent);
-  color: #0d1117;
+  color: var(--on-accent);
   font-weight: 600;
 }
 .btn-ghost {
@@ -91,6 +99,7 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
   padding: 20px;
 }
 
