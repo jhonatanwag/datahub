@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PAUSA_ROLAGEM_SEG, VELOCIDADE_MAX_PX_SEG,
-  planoRolagem, posicaoRolagem, proximoIndice, anteriorIndice, precisaAtualizar, filtrosEfetivos, criarControleDeGeracao,
+  planoRolagem, posicaoRolagem, proximoIndice, anteriorIndice, precisaAtualizar, filtrosEfetivos, criarControleDeGeracao, progressoSlide,
 } from './apresentacao.js';
 
 const perto = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `${a} != ${b}`);
@@ -84,4 +84,18 @@ test('controle de geração: slides diferentes não se invalidam', () => {
   const a = g.iniciar(1);
   g.iniciar(2);
   assert.equal(g.valida(1, a), true);
+});
+
+test('progresso do slide: fração do tempo decorrido, limitada entre 0 e 1', () => {
+  assert.equal(progressoSlide(0, 20), 0);
+  assert.equal(progressoSlide(5, 20), 0.25);
+  assert.equal(progressoSlide(20, 20), 1);
+  assert.equal(progressoSlide(25, 20), 1);
+  assert.equal(progressoSlide(-3, 20), 0);
+});
+
+test('progresso do slide: tempo total inválido não gera NaN/Infinity', () => {
+  assert.equal(progressoSlide(5, 0), 0);
+  assert.equal(progressoSlide(5, -1), 0);
+  assert.equal(progressoSlide(5, undefined), 0);
 });

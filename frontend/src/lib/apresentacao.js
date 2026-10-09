@@ -49,3 +49,9 @@ export function criarControleDeGeracao() {
     valida(id, n) { return atual[id] === n; },
   };
 }
+
+// Fração (0..1) do tempo do slide já decorrida — alimenta a barra de progresso do rodapé.
+export function progressoSlide(decorridoSeg, tempoTotalSeg) {
+  if (!(tempoTotalSeg > 0)) return 0;
+  return Math.min(1, Math.max(0, decorridoSeg / tempoTotalSeg));
+}

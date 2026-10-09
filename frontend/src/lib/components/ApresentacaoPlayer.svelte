@@ -6,7 +6,7 @@
   import FiltroVariavel from '$lib/components/FiltroVariavel.svelte';
   import {
     planoRolagem, posicaoRolagem, proximoIndice, anteriorIndice,
-    precisaAtualizar, filtrosEfetivos, criarControleDeGeracao, RENOVAR_TOKEN_MS,
+    precisaAtualizar, filtrosEfetivos, criarControleDeGeracao, progressoSlide, RENOVAR_TOKEN_MS,
   } from '$lib/apresentacao.js';
 
   export let apresentacao;
@@ -28,6 +28,7 @@
   $: slide = slides[indice];
   $: dadosSlide = slide ? dados[slide.id] : null;
   $: parado = pausado || filtrosAbertos;
+  $: progresso = progressoSlide(decorrido, plano.tempoTotalSeg);
   $: filtrosVigentes = slide ? filtrosEfetivos(slide.filtros, slide.override) : {};
   $: filtrosQuery = new URLSearchParams(filtrosVigentes).toString();
 
@@ -160,6 +161,9 @@
   {/if}
 
   <footer class="rodape-marca">
+    <div class="progresso" role="progressbar" aria-label="Tempo até o próximo slide" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(progresso * 100)}>
+      <i style="transform: scaleX({progresso})"></i>
+    </div>
     <strong>GPA Analytics</strong><span class="sep">—</span><span>Sistema de Inteligência da GPA Agro</span>
   </footer>
 
@@ -195,7 +199,9 @@
 .topo-info { font-size: 13px; color: var(--muted); display: flex; gap: 12px; }
 .aviso { color: var(--accent-orange); }
 .viewport { flex: 1; overflow: hidden; padding: 16px 24px; }
-.rodape-marca { flex-shrink: 0; display: flex; align-items: baseline; gap: 8px; padding: 9px 24px; border-top: 1px solid var(--border); background: var(--side); color: var(--muted); font-size: 13px; }
+.rodape-marca { position: relative; flex-shrink: 0; display: flex; align-items: baseline; gap: 8px; padding: 9px 24px; border-top: 1px solid var(--border); background: var(--side); color: var(--muted); font-size: 13px; }
+.progresso { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--border); overflow: hidden; }
+.progresso i { display: block; height: 100%; background: var(--accent); transform-origin: left center; will-change: transform; }
 .rodape-marca strong { color: var(--accent); font-weight: 600; letter-spacing: .02em; }
 .rodape-marca .sep { opacity: .6; }
 .vazio { padding: 48px; text-align: center; color: var(--muted); font-size: 18px; }
@@ -206,5 +212,5 @@
 .acoes-filtros { display: flex; gap: 8px; margin-left: auto; }
 .danger { color: var(--danger, #f85149); }
 .muted { color: var(--muted); font-size: 13px; }
-@media (min-width: 1920px) { .rodape-marca { font-size: 17px; padding: 12px 36px; } .viewport { padding: 24px 36px; } .topo-titulo { font-size: 26px; } .topo-info { font-size: 16px; } }
+@media (min-width: 1920px) { .progresso { height: 4px; } .rodape-marca { font-size: 17px; padding: 12px 36px; } .viewport { padding: 24px 36px; } .topo-titulo { font-size: 26px; } .topo-info { font-size: 16px; } }
 </style>
