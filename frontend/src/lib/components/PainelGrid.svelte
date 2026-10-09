@@ -113,7 +113,7 @@
         <CardPerfil dados={ind.dados?.[0] ?? null} vazio="Use os filtros para pesquisar e consultar as informações." />
 
       {:else if ind.query_tipo === 'map'}
-        <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} />
+        <MapPanel pontos={ind.dados ?? []} camada={ind.mapa_camada} altura={300 * Math.max(1, Number(ind.row_span) || 1)} />
 
       {:else}
         <p class="muted" style="font-size:12px; padding:8px">Tipo "{ind.query_tipo}" não suportado</p>
