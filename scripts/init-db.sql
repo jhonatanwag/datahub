@@ -19,6 +19,22 @@ CREATE DATABASE datahub_meta OWNER datahub_user;
 
 \c datahub_meta
 
+-- Schema atual (mesmo de init-meta-prod.sql)
+-- =============================================================
+-- DataHub — Schema de produção do datahub_meta
+-- Só estrutura (tabelas, índices, FKs, trigger) — sem seed de demo,
+-- sem usuário admin. Rodar uma única vez, contra um banco `datahub_meta`
+-- vazio já criado (o serviço postgres do EasyPanel cria o banco e o
+-- usuário via POSTGRES_DB / POSTGRES_USER).
+-- =============================================================
+
+CREATE FUNCTION update_atualizado_em() RETURNS trigger AS $$
+BEGIN
+    NEW.atualizado_em = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE empresas (
     id           SERIAL PRIMARY KEY,
     slug         VARCHAR(50) UNIQUE NOT NULL,
@@ -32,7 +48,9 @@ CREATE TABLE empresas (
     criado_em    TIMESTAMP DEFAULT NOW(),
     sso_api_key_hash VARCHAR(255),
     sso_query_acesso TEXT,
-    url_impressao_base TEXT
+    url_impressao_base TEXT,
+    endereco     TEXT,
+    cnpj         VARCHAR(20)
 );
 
 CREATE TABLE usuarios (
@@ -42,36 +60,27 @@ CREATE TABLE usuarios (
     senha_hash   VARCHAR(255) NOT NULL,
     role         VARCHAR(20) DEFAULT 'viewer',
     ativo        BOOLEAN DEFAULT true,
-    tema         VARCHAR(10) NOT NULL DEFAULT 'escuro',
-    criado_em    TIMESTAMP DEFAULT NOW()
+    criado_em    TIMESTAMP DEFAULT NOW(),
+    tema         VARCHAR(10) NOT NULL DEFAULT 'escuro'
 );
 
 CREATE TABLE usuario_empresas (
-    usuario_id             INTEGER REFERENCES usuarios(id),
-    empresa_id             INTEGER REFERENCES empresas(id),
+    usuario_id             INTEGER NOT NULL REFERENCES usuarios(id),
+    empresa_id             INTEGER NOT NULL REFERENCES empresas(id),
     codigo_usuario_externo TEXT,
     PRIMARY KEY  (usuario_id, empresa_id)
 );
 
-CREATE TABLE chat_historico (
+CREATE TABLE variaveis (
     id           SERIAL PRIMARY KEY,
-    usuario_id   INTEGER REFERENCES usuarios(id),
-    empresa_id   INTEGER REFERENCES empresas(id),
-    pergunta     TEXT NOT NULL,
-    resposta     TEXT NOT NULL,
+    slug         VARCHAR(100) UNIQUE NOT NULL,
+    nome         VARCHAR(150) NOT NULL,
+    descricao    TEXT,
+    tipo         VARCHAR(30) NOT NULL,
+    query_fonte  TEXT,
+    param_names  TEXT[],
+    ativo        BOOLEAN DEFAULT true,
     criado_em    TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE tarefas (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tipo         VARCHAR(50) NOT NULL,
-    empresa_id   INTEGER REFERENCES empresas(id),
-    usuario_id   INTEGER REFERENCES usuarios(id),
-    status       VARCHAR(20) DEFAULT 'pendente',
-    payload      JSONB,
-    resultado    JSONB,
-    criado_em    TIMESTAMP DEFAULT NOW(),
-    concluido_em TIMESTAMP
 );
 
 CREATE TABLE query_grupos (
@@ -81,25 +90,27 @@ CREATE TABLE query_grupos (
 );
 
 CREATE TABLE queries (
-    id            SERIAL PRIMARY KEY,
-    slug          VARCHAR(100) NOT NULL,
-    nome          VARCHAR(150) NOT NULL,
-    descricao     TEXT,
-    sql_texto     TEXT NOT NULL,
-    tipo          VARCHAR(30) NOT NULL,
-    empresa_id    INTEGER REFERENCES empresas(id) NULL,
-    ativo         BOOLEAN DEFAULT true,
-    cache_ttl     INTEGER DEFAULT 300,
-    criado_em     TIMESTAMP DEFAULT NOW(),
-    atualizado_em TIMESTAMP DEFAULT NOW(),
-    mapa_camada   VARCHAR(20) DEFAULT 'padrao',
+    id             SERIAL PRIMARY KEY,
+    slug           VARCHAR(100) NOT NULL,
+    nome           VARCHAR(150) NOT NULL,
+    descricao      TEXT,
+    sql_texto      TEXT NOT NULL,
+    tipo           VARCHAR(30) NOT NULL,
+    empresa_id     INTEGER REFERENCES empresas(id),
+    ativo          BOOLEAN DEFAULT true,
+    cache_ttl      INTEGER DEFAULT 300,
+    criado_em      TIMESTAMP DEFAULT NOW(),
+    atualizado_em  TIMESTAMP DEFAULT NOW(),
+    kpi_cor_fonte  TEXT DEFAULT '#e6edf3',
+    kpi_cor_fundo  TEXT DEFAULT '#161b22',
+    mapa_camada    VARCHAR(20) DEFAULT 'padrao',
     chart_fonte_tamanho   INTEGER DEFAULT 12,
     chart_truncar_label   BOOLEAN DEFAULT false,
     chart_truncar_tamanho INTEGER DEFAULT 15,
     chart_mostrar_valor   BOOLEAN DEFAULT false,
     chart_valor_label     VARCHAR(50),
-    chart_rotulo_eixo     VARCHAR(12) DEFAULT 'horizontal',  -- 'horizontal' | 'inclinado' | 'vertical' — rotação do rótulo do eixo de categoria
-    chart_rotulo_valor    VARCHAR(12) DEFAULT 'horizontal',  -- idem, mas pro valor desenhado dentro do gráfico (quando chart_mostrar_valor)
+    chart_rotulo_eixo     VARCHAR(12) DEFAULT 'horizontal',  -- 'horizontal' | 'inclinado' | 'vertical' (rótulo do eixo)
+    chart_rotulo_valor    VARCHAR(12) DEFAULT 'horizontal',  -- idem, pro valor dentro do gráfico
     impressao_habilitada  BOOLEAN DEFAULT false,
     impressao_caminho     TEXT,
     impressao_coluna      TEXT,
@@ -110,27 +121,39 @@ CREATE TABLE queries (
     meta_cor_dentro    TEXT DEFAULT '#3fb950',
     meta_cor_fora      TEXT DEFAULT '#f85149',
     subquery_id        INTEGER REFERENCES queries(id) ON DELETE SET NULL,
-    chart_filtro_coluna TEXT,
-    grupo_id            INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL,
-    query_base_id       INTEGER REFERENCES queries(id) ON DELETE SET NULL,
-    pivot_coluna        TEXT,                              -- table_dynamic: coluna do resultado cujos valores viram colunas (ex.: mês)
-    pivot_ordem_coluna  TEXT,                              -- table_dynamic: coluna usada só pra ordenar as colunas do pivô (ex.: yyyymm)
-    pivot_total         BOOLEAN DEFAULT false,             -- table_dynamic: mostra coluna 'Total' + linha 'Total Geral'
-    faixa_cor_habilitada   BOOLEAN DEFAULT false,          -- table_dynamic: colore células agregadas por faixa
-    faixa_cor_ate_vermelho NUMERIC DEFAULT 70,             -- até este valor = vermelho
-    faixa_cor_ate_amarelo  NUMERIC DEFAULT 90,             -- acima do vermelho até este = amarelo; acima = verde
+    pdf_orientacao        VARCHAR(10) DEFAULT 'retrato',
+    kpi_imagem_habilitada BOOLEAN DEFAULT false,
+    kpi_imagem_posicao    VARCHAR(10) DEFAULT 'direita',
+    kpi_imagem            BYTEA,
+    kpi_imagem_mime       TEXT,
+    kpi_valor_primeiro    BOOLEAN DEFAULT false,
+    chart_filtro_coluna   TEXT,
+    grupo_id              INTEGER REFERENCES query_grupos(id) ON DELETE SET NULL,
+    query_base_id         INTEGER REFERENCES queries(id) ON DELETE SET NULL,
+    pivot_coluna          TEXT,          -- table_dynamic: coluna cujos valores viram colunas (ex.: mês)
+    pivot_ordem_coluna    TEXT,          -- table_dynamic: coluna só pra ordenar as colunas do pivô
+    pivot_total           BOOLEAN DEFAULT false,  -- table_dynamic: coluna 'Total' + linha 'Total Geral'
+    faixa_cor_habilitada   BOOLEAN DEFAULT false,  -- table_dynamic: colore células agregadas por faixa
+    faixa_cor_ate_vermelho NUMERIC DEFAULT 70,
+    faixa_cor_ate_amarelo  NUMERIC DEFAULT 90,
     UNIQUE (slug, empresa_id)
 );
+CREATE INDEX idx_queries_empresa ON queries(empresa_id);
+CREATE INDEX idx_queries_slug ON queries(slug);
+CREATE INDEX idx_queries_base ON queries(query_base_id);
 
 CREATE TABLE query_parametros (
-    id           SERIAL PRIMARY KEY,
-    query_id     INTEGER REFERENCES queries(id) ON DELETE CASCADE,
-    nome         VARCHAR(50) NOT NULL,
-    tipo         VARCHAR(20) NOT NULL,
-    obrigatorio  BOOLEAN DEFAULT false,
-    valor_padrao TEXT,
-    descricao    TEXT
+    id            SERIAL PRIMARY KEY,
+    query_id      INTEGER REFERENCES queries(id) ON DELETE CASCADE,
+    nome          VARCHAR(50) NOT NULL,
+    tipo          VARCHAR(20) NOT NULL,
+    obrigatorio   BOOLEAN DEFAULT false,
+    valor_padrao  TEXT,
+    descricao     TEXT,
+    variavel_id   INTEGER REFERENCES variaveis(id) ON DELETE SET NULL,
+    param_slot    VARCHAR(10)
 );
+CREATE INDEX idx_qp_query_id ON query_parametros(query_id);
 
 CREATE TABLE query_agrupamentos (
     id        SERIAL PRIMARY KEY,
@@ -159,21 +182,154 @@ CREATE TABLE query_subquery_parametros (
 );
 CREATE INDEX idx_qsqp_query_id ON query_subquery_parametros(query_id);
 
-CREATE TABLE dashboard_layout (
-    id           SERIAL PRIMARY KEY,
-    empresa_id   INTEGER REFERENCES empresas(id) NULL,
-    query_slug   VARCHAR(100) NOT NULL,
-    posicao      INTEGER NOT NULL,
-    largura      VARCHAR(10) DEFAULT 'half',
-    titulo       VARCHAR(150),
-    visivel      BOOLEAN DEFAULT true
+CREATE TABLE painel_grupos (
+    id        SERIAL PRIMARY KEY,
+    nome      TEXT NOT NULL UNIQUE,
+    criado_em TIMESTAMP DEFAULT NOW()
 );
 
--- Índices
-CREATE INDEX idx_queries_slug    ON queries(slug);
-CREATE INDEX idx_queries_empresa ON queries(empresa_id);
-CREATE INDEX idx_queries_base    ON queries(query_base_id);
-CREATE INDEX idx_layout_empresa  ON dashboard_layout(empresa_id);
+CREATE TABLE paineis (
+    id             SERIAL PRIMARY KEY,
+    slug           VARCHAR(100) UNIQUE NOT NULL,
+    nome           VARCHAR(150) NOT NULL,
+    descricao      TEXT,
+    icone          VARCHAR(50) DEFAULT 'chart-bar',
+    colunas        INTEGER NOT NULL DEFAULT 3,
+    linhas_fixas   BOOLEAN DEFAULT false,
+    total_linhas   INTEGER,
+    empresa_id     INTEGER REFERENCES empresas(id),
+    ativo          BOOLEAN DEFAULT true,
+    ordem_menu     INTEGER DEFAULT 0,
+    imagem         BYTEA,
+    imagem_mime    TEXT,
+    criado_em      TIMESTAMP DEFAULT NOW(),
+    atualizado_em  TIMESTAMP DEFAULT NOW(),
+    grupo_id       INTEGER REFERENCES painel_grupos(id) ON DELETE SET NULL,
+    impressao_orientacao VARCHAR(10) DEFAULT 'retrato'
+);
+CREATE INDEX idx_paineis_empresa ON paineis(empresa_id);
+CREATE INDEX idx_paineis_ativo ON paineis(ativo);
+CREATE TRIGGER trg_paineis_updated
+    BEFORE UPDATE ON paineis
+    FOR EACH ROW EXECUTE FUNCTION update_atualizado_em();
+
+CREATE TABLE painel_indicadores (
+    id          SERIAL PRIMARY KEY,
+    painel_id   INTEGER REFERENCES paineis(id) ON DELETE CASCADE,
+    query_slug  VARCHAR(100) NOT NULL,
+    titulo      VARCHAR(150),
+    linha       INTEGER NOT NULL,
+    coluna      INTEGER NOT NULL,
+    col_span    INTEGER DEFAULT 1,
+    row_span    INTEGER DEFAULT 1,
+    posicao     INTEGER DEFAULT 0,
+    filtro_clique_variavel_id INTEGER REFERENCES variaveis(id) ON DELETE SET NULL,
+    imprimir    BOOLEAN NOT NULL DEFAULT true,
+    UNIQUE (painel_id, linha, coluna)
+);
+CREATE INDEX idx_painel_ind_painel ON painel_indicadores(painel_id);
+
+CREATE TABLE painel_variaveis (
+    id                    SERIAL PRIMARY KEY,
+    painel_id             INTEGER REFERENCES paineis(id) ON DELETE CASCADE,
+    variavel_id           INTEGER REFERENCES variaveis(id),
+    obrigatorio           BOOLEAN DEFAULT false,
+    valor_padrao          TEXT,
+    posicao               INTEGER DEFAULT 0,
+    valor_padrao_inicio   TEXT,
+    valor_padrao_fim      TEXT,
+    UNIQUE (painel_id, variavel_id)
+);
+CREATE INDEX idx_painel_var_painel ON painel_variaveis(painel_id);
+
+CREATE TABLE painel_usuarios (
+    painel_id   INTEGER NOT NULL REFERENCES paineis(id) ON DELETE CASCADE,
+    usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    PRIMARY KEY (painel_id, usuario_id)
+);
+CREATE INDEX idx_painel_usr_usuario ON painel_usuarios(usuario_id);
+
+-- Apresentação de painéis (TV)
+CREATE TABLE apresentacoes (
+    id                         SERIAL PRIMARY KEY,
+    slug                       VARCHAR(100) UNIQUE NOT NULL,
+    nome                       VARCHAR(150) NOT NULL,
+    descricao                  TEXT,
+    empresa_id                 INTEGER REFERENCES empresas(id),
+    intervalo_atualizacao_seg  INTEGER NOT NULL DEFAULT 300,
+    ativo                      BOOLEAN NOT NULL DEFAULT true,
+    criado_em                  TIMESTAMP DEFAULT NOW(),
+    atualizado_em              TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE apresentacao_slides (
+    id              SERIAL PRIMARY KEY,
+    apresentacao_id INTEGER NOT NULL REFERENCES apresentacoes(id) ON DELETE CASCADE,
+    painel_id       INTEGER NOT NULL REFERENCES paineis(id) ON DELETE CASCADE,
+    ordem           INTEGER NOT NULL DEFAULT 0,
+    duracao_seg     INTEGER NOT NULL DEFAULT 30,
+    filtros         JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX idx_apres_slides_apres ON apresentacao_slides(apresentacao_id, ordem);
+
+CREATE TABLE apresentacao_usuarios (
+    apresentacao_id INTEGER NOT NULL REFERENCES apresentacoes(id) ON DELETE CASCADE,
+    usuario_id      INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    PRIMARY KEY (apresentacao_id, usuario_id)
+);
+CREATE INDEX idx_apres_usr_usuario ON apresentacao_usuarios(usuario_id);
+
+CREATE TRIGGER trg_apresentacoes_updated
+BEFORE UPDATE ON apresentacoes
+FOR EACH ROW EXECUTE FUNCTION update_atualizado_em();
+
+CREATE TABLE chat_historico (
+    id          SERIAL PRIMARY KEY,
+    usuario_id  INTEGER REFERENCES usuarios(id),
+    empresa_id  INTEGER REFERENCES empresas(id),
+    pergunta    TEXT NOT NULL,
+    resposta    TEXT NOT NULL,
+    criado_em   TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE dashboard_layout (
+    id          SERIAL PRIMARY KEY,
+    empresa_id  INTEGER REFERENCES empresas(id),
+    query_slug  VARCHAR(100) NOT NULL,
+    posicao     INTEGER NOT NULL,
+    largura     VARCHAR(10) DEFAULT 'half',
+    titulo      VARCHAR(150),
+    visivel     BOOLEAN DEFAULT true
+);
+CREATE INDEX idx_layout_empresa ON dashboard_layout(empresa_id);
+
+CREATE TABLE tarefas (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tipo          VARCHAR(50) NOT NULL,
+    empresa_id    INTEGER REFERENCES empresas(id),
+    usuario_id    INTEGER REFERENCES usuarios(id),
+    status        VARCHAR(20) DEFAULT 'pendente',
+    payload       JSONB,
+    resultado     JSONB,
+    criado_em     TIMESTAMP DEFAULT NOW(),
+    concluido_em  TIMESTAMP
+);
+
+-- IDs estáveis (faixa 6000-6999) do script de permissões do PSOEDUCARE
+CREATE TABLE IF NOT EXISTS permissao_ids (
+    tipo    VARCHAR(10) NOT NULL,
+    ref_id  INTEGER     NOT NULL,
+    seq     INTEGER     NOT NULL,
+    PRIMARY KEY (tipo, ref_id),
+    UNIQUE (tipo, seq)
+);
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'datahub_user') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON permissao_ids TO datahub_user;
+    END IF;
+END $$;
+
 
 -- Empresas (host = postgres = nome do serviço Docker)
 INSERT INTO empresas (slug, nome, db_host, db_name, db_user, db_pass) VALUES
@@ -184,7 +340,7 @@ INSERT INTO empresas (slug, nome, db_host, db_name, db_user, db_pass) VALUES
 -- Usuário admin (senha: admin123 — hash bcrypt)
 INSERT INTO usuarios (nome, email, senha_hash, role) VALUES
   ('Administrador', 'admin@datahub.local',
-   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TiGmiR7lDaqDlnFRMlcR1RnQLT6e',
+   '$2b$12$KsNjAOB.ClEWqOKFdaN8bO/8XUFA4TUIRWLKkmH2r15Lw3RlLRJoS',
    'admin');
 
 -- Acesso do admin a todas as empresas
@@ -258,6 +414,10 @@ INSERT INTO dashboard_layout (empresa_id, query_slug, posicao, largura) VALUES
   (NULL, 'chart_pedidos_status',  6, 'half'),
   (NULL, 'chart_canal_vendas',    7, 'half'),
   (NULL, 'table_pedidos_recentes',8, 'full');
+
+-- Tabelas criadas pelo postgres: o datahub_user precisa de acesso explícito
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO datahub_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO datahub_user;
 
 -- ── 3. Banco alpha_db ───────────────────────────────────────
 
