@@ -15,6 +15,7 @@
   let erro      = '';
   let slugErro  = '';
 
+  let appLoginApiKeyNova = '';  // só enviada se preenchida (vazia = mantém a atual)
   let ssoApiKeyGerada = null;   // texto puro, só existe em memória após gerar
   let ssoGerando = false;
   let ssoTesteCodigoUsuario = '';
@@ -126,6 +127,7 @@
         endereco: empresa.endereco ?? null,
         cnpj:     empresa.cnpj ?? null,
       };
+      if (appLoginApiKeyNova.trim()) payload.app_login_api_key = appLoginApiKeyNova.trim();
       // Only include db_pass if user typed a new value
       if (empresa.db_pass) {
         payload.db_pass = empresa.db_pass;
@@ -284,6 +286,21 @@
       </section>
 
       <section>
+        <h3>Login com usuário do app (PsoEducare)</h3>
+        <p class="hint">
+          Permite entrar em <code>/login</code> com o usuário e a senha do app, informando o código desta
+          empresa (<code>{empresa.slug}</code>). O acesso é o mesmo do SSO: só os painéis liberados pela
+          query de acesso acima. Usa a "URL base de impressão" desta empresa como endereço do PsoEducare
+          (precisa estar preenchida). Link direto: <code>/login?empresa={empresa.slug}</code>
+        </p>
+        <label>
+          Chave de integração (X-API-Key)
+          <input type="password" bind:value={appLoginApiKeyNova} autocomplete="new-password"
+                 placeholder={empresa.app_login_api_key_configurada ? '•••••••• (configurada — preencha só para trocar)' : 'Gerada no PsoEducare: Utilitário > Chaves de Integração'} />
+        </label>
+      </section>
+
+      <section>
         <ScriptPermissoes
           titulo="Script de permissões — todos os painéis"
           carregar={() => api.scriptPermissoesEmpresa(empresa.id)}
@@ -326,4 +343,5 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color:
 .field-error { color: #f85149; font-size: 12px; }
 .muted { color: var(--muted); }
 textarea { font-family: monospace; font-size: 13px; padding: 8px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); resize: vertical; }
+  .hint { color: var(--muted); font-size: 13px; }
 </style>

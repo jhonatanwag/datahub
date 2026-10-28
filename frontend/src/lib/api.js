@@ -6,6 +6,7 @@ const BASE = import.meta.env.VITE_API_URL || '';
 // de credenciais/link e não devem disparar o fluxo global de "sessão expirada".
 const ENDPOINTS_SEM_TRATAMENTO_GLOBAL = [
     '/api/auth/login',
+    '/api/auth/login-app',
     '/api/auth/selecionar-empresa',
     '/api/auth/sso/trocar',
     '/api/auth/pdf-token/trocar',
@@ -61,6 +62,9 @@ export const api = {
     // Auth
     login: (email, senha) =>
         request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, senha }) }),
+
+    loginApp: (empresa_slug, login, senha) =>
+        request('/api/auth/login-app', { method: 'POST', body: JSON.stringify({ empresa_slug, login, senha }) }),
 
     selecionarEmpresa: (session_token, empresa_id) =>
         request('/api/auth/selecionar-empresa', {

@@ -46,6 +46,8 @@ class EmpresaUpdate(BaseModel):
     url_impressao_base: str | None = None
     endereco: str | None = None
     cnpj: str | None = None
+    # Chave de integração do PsoEducare (login com usuário/senha do app). None = mantém a atual; "" = limpa.
+    app_login_api_key: str | None = None
 
 
 class TestarConexaoInput(BaseModel):
@@ -98,7 +100,9 @@ async def testar_conexao(body: TestarConexaoInput, user=Depends(require_admin)):
 @router.get("/{id}")
 async def buscar_empresa(id: int, user=Depends(require_admin)):
     rows = await query_meta(
-        "SELECT id, slug, nome, db_host, db_port, db_name, db_user, ativo, criado_em, sso_query_acesso, url_impressao_base, endereco, cnpj FROM empresas WHERE id = $1",
+        "SELECT id, slug, nome, db_host, db_port, db_name, db_user, ativo, criado_em, sso_query_acesso, url_impressao_base, endereco, cnpj, "
+        "(app_login_api_key IS NOT NULL AND app_login_api_key <> '') AS app_login_api_key_configurada "
+        "FROM empresas WHERE id = $1",
         id
     )
     if not rows:
@@ -167,13 +171,15 @@ async def atualizar_empresa(id: int, body: EmpresaUpdate, user=Depends(require_a
                 sso_query_acesso=$9,
                 url_impressao_base=$10,
                 endereco=$11,
-                cnpj=$12
+                cnpj=$12,
+                app_login_api_key=NULLIF(COALESCE($14, app_login_api_key), '')
             WHERE id=$13
             RETURNING id, slug, nome, ativo
         """, body.slug, body.nome, body.db_host, body.db_port,
             body.db_name, body.db_user, body.db_pass, body.ativo,
             body.sso_query_acesso, body.url_impressao_base,
-            body.endereco, body.cnpj, id)
+            body.endereco, body.cnpj, id,
+            body.app_login_api_key.strip() if body.app_login_api_key is not None else None)
         return dict(rows[0])
     except asyncpg.UniqueViolationError:
         raise HTTPException(status_code=409, detail="Slug já está em uso")

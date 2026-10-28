@@ -13,9 +13,14 @@ from config.databases import query_meta
 from config.redis import get_redis
 from middleware.auth import get_current_user
 from services.sso import validar_empresa_sso, buscar_slugs_liberados
+from services.app_login import validar_usuario_app
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 logger = logging.getLogger("datahub")
+
+# Freio de força bruta do login-app: falhas por empresa+login dentro da janela
+LOGIN_APP_MAX_FALHAS = 5
+LOGIN_APP_JANELA_SEG = 600
 
 
 class LoginInput(BaseModel):
@@ -42,6 +47,12 @@ class SsoMeusPaineisInput(BaseModel):
     empresa_slug: str
     api_key: str
     codigo_usuario: str
+
+
+class LoginAppInput(BaseModel):
+    empresa_slug: str
+    login: str
+    senha: str
 
 
 class SsoTrocarInput(BaseModel):
@@ -212,27 +223,83 @@ async def sso_trocar(body: SsoTrocarInput):
             raise HTTPException(status_code=401, detail="Link inválido ou expirado")
 
         dados = json.loads(raw)
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES_EXTERNO)
-        token = jwt.encode(
-            {
-                "tipo": "externo",
-                "empresa_id": dados["empresa_id"],
-                "company_slug": dados["company_slug"],
-                "codigo_usuario": dados["codigo_usuario"],
-                "paineis_liberados": dados["paineis_liberados"],
-                "jti": str(uuid.uuid4()),
-                "exp": expire,
-            },
-            settings.JWT_SECRET,
-            algorithm="HS256",
-        )
-        return {"token": token, "token_type": "bearer"}
+        return {"token": _emitir_token_externo(dados), "token_type": "bearer"}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Erro ao trocar token SSO: {e}")
         raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
+
+def _emitir_token_externo(dados: dict) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES_EXTERNO)
+    return jwt.encode(
+        {
+            "tipo": "externo",
+            "empresa_id": dados["empresa_id"],
+            "company_slug": dados["company_slug"],
+            "codigo_usuario": dados["codigo_usuario"],
+            "paineis_liberados": dados["paineis_liberados"],
+            "jti": str(uuid.uuid4()),
+            "exp": expire,
+        },
+        settings.JWT_SECRET,
+        algorithm="HS256",
+    )
+
+
+@router.post("/login-app")
+async def login_app(body: LoginAppInput):
+    """Login direto no link web com o usuário/senha do app da empresa (PsoEducare). Dá o mesmo acesso
+    do SSO: token externo, só com os painéis que a sso_query_acesso libera pro usuário."""
+    chave_falhas = f"loginapp:falhas:{body.empresa_slug.lower()}:{body.login.lower()}"
+    try:
+        redis = await get_redis()
+        if int(await redis.get(chave_falhas) or 0) >= LOGIN_APP_MAX_FALHAS:
+            raise HTTPException(status_code=429, detail="Muitas tentativas. Aguarde alguns minutos.")
+
+        rows = await query_meta(
+            "SELECT id, slug, sso_query_acesso, url_impressao_base, app_login_api_key "
+            "FROM empresas WHERE slug = $1 AND ativo = true",
+            body.empresa_slug.strip()
+        )
+        empresa = dict(rows[0]) if rows else None
+        # empresa inexistente ou sem login-app configurado: mesma resposta de senha errada (sem enumerar)
+        if not empresa or not empresa["url_impressao_base"] or not empresa["app_login_api_key"] \
+                or not empresa["sso_query_acesso"]:
+            await _registrar_falha_login_app(redis, chave_falhas)
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+        usuario = await validar_usuario_app(empresa, body.login.strip(), body.senha)
+        if not usuario:
+            await _registrar_falha_login_app(redis, chave_falhas)
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+        codigo_usuario = str(usuario["usuario_id"])
+        slugs_liberados = await buscar_slugs_liberados(empresa, codigo_usuario)
+        if not slugs_liberados:
+            raise HTTPException(status_code=403, detail="Usuário sem painéis liberados")
+
+        await redis.delete(chave_falhas)
+        token = _emitir_token_externo({
+            "empresa_id": empresa["id"],
+            "company_slug": empresa["slug"],
+            "codigo_usuario": codigo_usuario,
+            "paineis_liberados": slugs_liberados,
+        })
+        return {"token": token, "token_type": "bearer"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro no login-app: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno no servidor")
+
+
+async def _registrar_falha_login_app(redis, chave: str) -> None:
+    if await redis.incr(chave) == 1:
+        await redis.expire(chave, LOGIN_APP_JANELA_SEG)
 
 
 @router.post("/pdf-token/trocar")

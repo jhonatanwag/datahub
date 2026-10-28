@@ -28,7 +28,8 @@ CREATE TABLE empresas (
     sso_query_acesso TEXT,
     url_impressao_base TEXT,
     endereco     TEXT,
-    cnpj         VARCHAR(20)
+    cnpj         VARCHAR(20),
+    app_login_api_key TEXT
 );
 
 CREATE TABLE usuarios (

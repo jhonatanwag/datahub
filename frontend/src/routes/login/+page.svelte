@@ -1,15 +1,51 @@
 <script>
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api } from '$lib/api.js';
+  import { iniciarSessaoExterna } from '$lib/sessaoExterna.js';
 
+  const CHAVE_EMPRESA = 'loginEmpresa';
+
+  let empresa    = '';
   let email      = '';
   let senha      = '';
   let erro       = '';
   let carregando = false;
 
+  // Empresa vem do link (?empresa=slug) ou do último acesso com usuário do app.
+  onMount(() => {
+    const doLink = new URLSearchParams(window.location.search).get('empresa');
+    if (doLink) { empresa = doLink; return; }
+    try { empresa = localStorage.getItem(CHAVE_EMPRESA) || ''; } catch { /* sem storage */ }
+  });
+
   async function login() {
     erro = '';
     carregando = true;
+    try {
+      if (empresa.trim()) await loginApp();
+      else await loginDataHub();
+    } finally {
+      carregando = false;
+    }
+  }
+
+  // Usuário e senha do app (PsoEducare): acesso aos painéis liberados, sem escolher empresa.
+  async function loginApp() {
+    try {
+      const res = await api.loginApp(empresa.trim(), email.trim(), senha);
+      try { localStorage.setItem(CHAVE_EMPRESA, empresa.trim()); } catch { /* sem storage */ }
+      await iniciarSessaoExterna(res.token);
+      goto('/');
+    } catch (e) {
+      erro = e.message === 'Credenciais inválidas'
+        ? 'Empresa, usuário ou senha inválidos.'
+        : e.message;
+    }
+  }
+
+  // Usuário cadastrado no DataHub (e-mail e senha).
+  async function loginDataHub() {
     try {
       const res = await api.login(email, senha);
       sessionStorage.setItem('temp_user', JSON.stringify({
@@ -22,8 +58,6 @@
       goto('/selecionar-empresa');
     } catch {
       erro = 'E-mail ou senha inválidos.';
-    } finally {
-      carregando = false;
     }
   }
 
@@ -40,8 +74,15 @@
     <p class="subtitle">Analytics Multiempresa</p>
 
     <label>
-      E-mail
-      <input type="email" bind:value={email} on:keydown={onKeydown} placeholder="admin@datahub.local" />
+      Empresa
+      <input type="text" bind:value={empresa} on:keydown={onKeydown} autocapitalize="off" autocomplete="organization"
+             placeholder="Código da empresa (usuários do app)" />
+    </label>
+
+    <label>
+      {empresa.trim() ? 'Usuário' : 'Usuário ou e-mail'}
+      <input type="text" bind:value={email} on:keydown={onKeydown} autocapitalize="off" autocomplete="username"
+             placeholder={empresa.trim() ? 'Seu usuário do app' : 'admin@datahub.local'} />
     </label>
 
     <label>
